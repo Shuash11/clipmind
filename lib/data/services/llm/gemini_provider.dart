@@ -89,7 +89,7 @@ class GeminiProvider implements LlmProvider {
           },
         };
 
-        final response = await _dio.post(
+        final response = await _dio.post<Map<String, dynamic>>(
           '/v1beta/models/${config.model}:generateContent',
           queryParameters: {'key': apiKey},
           data: body,
@@ -126,7 +126,7 @@ class GeminiProvider implements LlmProvider {
       } on DioException catch (e) {
         if (_isTransientError(e) && attempt < maxRetries) {
           attempt++;
-          await Future.delayed(Duration(seconds: attempt * 2));
+          await Future<void>.delayed(Duration(seconds: attempt * 2));
           continue;
         }
         throw ProviderFailure(id, _formatDioError(e), e);
@@ -236,7 +236,7 @@ class GeminiProvider implements LlmProvider {
     _connectionCtrl.add(ConnectionStatus.connecting);
     try {
       final apiKey = await _resolveApiKey();
-      await _dio.post(
+      await _dio.post<Map<String, dynamic>>(
         '/v1beta/models/${config.model}:generateContent',
         queryParameters: {'key': apiKey},
         data: {

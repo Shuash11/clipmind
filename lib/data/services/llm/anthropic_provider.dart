@@ -96,7 +96,7 @@ class AnthropicProvider implements LlmProvider {
           'tool_choice': {'type': 'tool', 'name': 'output'},
         };
 
-        final response = await _dio.post(
+        final response = await _dio.post<Map<String, dynamic>>(
           '/v1/messages',
           data: body,
           options: Options(
@@ -141,7 +141,7 @@ class AnthropicProvider implements LlmProvider {
       } on DioException catch (e) {
         if (_isTransientError(e) && attempt < maxRetries) {
           attempt++;
-          await Future.delayed(Duration(seconds: attempt * 2));
+          await Future<void>.delayed(Duration(seconds: attempt * 2));
           continue;
         }
         throw ProviderFailure(id, _formatDioError(e), e);
@@ -252,7 +252,7 @@ class AnthropicProvider implements LlmProvider {
     _connectionCtrl.add(ConnectionStatus.connecting);
     try {
       final apiKey = await _resolveApiKey();
-      await _dio.post(
+      await _dio.post<Map<String, dynamic>>(
         '/v1/messages',
         data: {
           'model': config.model,

@@ -1,17 +1,11 @@
-{
+﻿{
   "tasks": [
-    { "id": 1, "description": "Update pubspec.yaml with proper description", "status": "done" },
-    { "id": 2, "description": "Create command_builder_test.dart with table-driven tests for all 14 operations", "status": "done" },
-    { "id": 3, "description": "Create stage_1_input_validation_test.dart", "status": "done" },
-    { "id": 4, "description": "Create stage_4_output_validation_test.dart", "status": "done" },
-    { "id": 5, "description": "Create timecode_utils_test.dart", "status": "done" },
-    { "id": 6, "description": "Create agent_chat_panel_test.dart widget test", "status": "done" },
-    { "id": 7, "description": "Create status_bar_test.dart widget test", "status": "done" },
-    { "id": 8, "description": "Create timeline_view_test.dart widget test", "status": "done" },
-    { "id": 9, "description": "Create uat_survey_dialog.dart", "status": "done" },
-    { "id": 10, "description": "Create build.ps1 release verification script", "status": "done" },
-    { "id": 11, "description": "Create integration_test.dart smoke test", "status": "done" },
-    { "id": 12, "description": "Run flutter test and flutter analyze, fix issues", "status": "done" }
+    { "id": 1, "description": "Fix nvidia_nim_provider.dart line 241 - .get() missing type arg", "status": "done" },
+    { "id": 2, "description": "Fix ollama_provider.dart line 47 - .get() missing type arg", "status": "done" },
+    { "id": 3, "description": "Fix ollama_provider.dart line 81 - .post() missing type arg", "status": "done" },
+    { "id": 4, "description": "Fix ollama_provider.dart line 178 - .get() missing type arg", "status": "done" },
+    { "id": 5, "description": "Fix openai_provider.dart line 97 - .post() missing type arg", "status": "done" },
+    { "id": 6, "description": "Fix openai_provider.dart line 240 - .get() missing type arg", "status": "done" }
   ],
   "completed": true
 }

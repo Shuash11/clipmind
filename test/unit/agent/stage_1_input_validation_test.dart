@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/domain/agent/stage_1_input_validation.dart';
-import 'package:clipmind/domain/agent/operation_schema.dart';
 
 void main() {
   group('InputValidator.validate', () {

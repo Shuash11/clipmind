@@ -44,7 +44,7 @@ class OllamaProvider implements LlmProvider {
   @override
   Future<List<String>> availableModels() async {
     try {
-      final response = await _dio.get('/api/tags');
+      final response = await _dio.get<Map<String, dynamic>>('/api/tags');
       final data = response.data as Map<String, dynamic>;
       final models = data['models'] as List<dynamic>? ?? [];
       return models
@@ -78,7 +78,7 @@ class OllamaProvider implements LlmProvider {
         },
       };
 
-      final response = await _dio.post(
+      final response = await _dio.post<Map<String, dynamic>>(
         '/api/chat',
         data: body,
         options: Options(
@@ -175,7 +175,7 @@ class OllamaProvider implements LlmProvider {
   Future<void> _checkHealth() async {
     _connectionCtrl.add(ConnectionStatus.connecting);
     try {
-      await _dio.get('/api/tags', options: Options(receiveTimeout: const Duration(seconds: 3)));
+      await _dio.get<Map<String, dynamic>>('/api/tags', options: Options(receiveTimeout: const Duration(seconds: 3)));
       if (_status != ConnectionStatus.connected) {
         _status = ConnectionStatus.connected;
         _connectionCtrl.add(ConnectionStatus.connected);
