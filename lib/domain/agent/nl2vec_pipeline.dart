@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
-import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'stage_1_input_validation.dart';
 import 'stage_2_prompt_construction.dart';
 import 'stage_3_intent_parsing.dart';
@@ -24,16 +23,13 @@ class PipelineEvent {
 
 class Nl2VecPipeline {
   final FfmpegService _ffmpegService;
-  final FfprobeService _ffprobeService;
   final StreamController<PipelineEvent> _events = StreamController.broadcast();
 
   Stream<PipelineEvent> get events => _events.stream;
 
   Nl2VecPipeline({
-    required FfmpegService ffmpegService,
-    required FfprobeService ffprobeService,
-  }) : _ffmpegService = ffmpegService,
-       _ffprobeService = ffprobeService;
+    required this._ffmpegService,
+  });
 
   LlmProvider? _provider;
 

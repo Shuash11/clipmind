@@ -19,8 +19,7 @@ final providerRegistryProvider = Provider<ProviderRegistry>((ref) {
 
 final nl2vecPipelineProvider = Provider<Nl2VecPipeline>((ref) {
   final ffmpeg = ref.watch(ffmpegServiceProvider);
-  final ffprobe = ref.watch(ffprobeServiceProvider);
-  return Nl2VecPipeline(ffmpegService: ffmpeg, ffprobeService: ffprobe);
+  return Nl2VecPipeline(ffmpegService: ffmpeg);
 });
 
 final chatMessagesProvider = StateNotifierProvider<ChatMessagesNotifier, List<ChatMessage>>((ref) {

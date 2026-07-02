@@ -54,8 +54,6 @@ class ExecutionEngine {
     final tempDir = Directory.systemTemp.createTempSync('clipmind_');
 
     try {
-      var currentInputPath = sourcePath;
-
       for (final job in jobs) {
         final tempOutPath = '${tempDir.path}/${job.id}_output.mp4';
         final tempJob = FfmpegJob(
@@ -99,7 +97,6 @@ class ExecutionEngine {
           await File(tempOutPath).copy(finalPath);
         }
         outputs.add(finalPath);
-        currentInputPath = finalPath;
 
         appliedOps.add(EditOperation(
           id: job.id,

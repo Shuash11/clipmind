@@ -94,7 +94,7 @@ class OpenAiProvider implements LlmProvider {
           'temperature': 0.1,
         };
 
-        final response = await _dio.post(
+        final response = await _dio.post<Map<String, dynamic>>(
           '/v1/chat/completions',
           data: body,
           options: Options(
@@ -123,7 +123,7 @@ class OpenAiProvider implements LlmProvider {
       } on DioException catch (e) {
         if (_isTransientError(e) && attempt < maxRetries) {
           attempt++;
-          await Future.delayed(Duration(seconds: attempt * 2));
+          await Future<void>.delayed(Duration(seconds: attempt * 2));
           continue;
         }
         throw ProviderFailure(id, _formatDioError(e), e);
@@ -237,7 +237,7 @@ class OpenAiProvider implements LlmProvider {
     _connectionCtrl.add(ConnectionStatus.connecting);
     try {
       final apiKey = await _resolveApiKey();
-      await _dio.get(
+      await _dio.get<Map<String, dynamic>>(
         '/v1/models',
         options: Options(
           receiveTimeout: const Duration(seconds: 5),

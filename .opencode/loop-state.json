@@ -1,0 +1,11 @@
+{
+  "loopName": "ci-warning-fix",
+  "iterations": 1,
+  "maxIterations": 3,
+  "noProgressCount": 0,
+  "criteria": [
+    "flutter analyze exits with code 0 (zero errors, zero warnings)",
+    "flutter test passes (113/113)",
+    "No production logic changed - only type annotations and unused imports"
+  ]
+}
