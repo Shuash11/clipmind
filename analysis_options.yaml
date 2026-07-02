@@ -1,0 +1,27 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_final_locals: true
+    avoid_print: true
+    prefer_single_quotes: true
+    sort_child_properties_last: true
+    use_key_in_widget_constructors: true
+    avoid_unnecessary_containers: true
+    prefer_const_literals_to_create_immutables: true
+    unnecessary_string_interpolations: true
+    avoid_init_to_null: false
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.mocks.dart"
+  errors:
+    invalid_annotation_target: ignore
+  language:
+    strict-casts: false
+    strict-inference: true
+    strict-raw-types: true
