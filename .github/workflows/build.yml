@@ -1,0 +1,41 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply ATL patch (flutter_secure_storage_windows)
+        run: scripts/patch-atl.ps1
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build Windows (release)
+        run: flutter build windows --release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clipmind-windows-${{ github.sha }}
+          path: build\windows\runner\Release\
