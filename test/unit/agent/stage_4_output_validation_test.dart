@@ -4,7 +4,7 @@ import 'package:clipmind/domain/agent/stage_4_output_validation.dart';
 void main() {
   group('OutputValidator.validateJson', () {
     test('returns empty errors for valid JSON with trim operation', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     {
@@ -28,27 +28,27 @@ void main() {
     });
 
     test('catches missing operations field with no clarification', () {
-      final json = '{}';
+      const json = '{}';
       final errors = OutputValidator.validateJson(json);
       expect(errors, isNotEmpty);
       expect(errors.first, contains('no operations'));
     });
 
     test('catches empty operations with no clarification', () {
-      final json = '{"operations": [], "summary": ""}';
+      const json = '{"operations": [], "summary": ""}';
       final errors = OutputValidator.validateJson(json);
       expect(errors, isNotEmpty);
       expect(errors.first, contains('no operations'));
     });
 
     test('accepts empty operations with clarification', () {
-      final json = '{"operations": [], "summary": "", "clarification_needed": "What duration?"}';
+      const json = '{"operations": [], "summary": "", "clarification_needed": "What duration?"}';
       final errors = OutputValidator.validateJson(json);
       expect(errors, isEmpty);
     });
 
     test('catches missing operation id', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     { "type": "trim", "target_clip_id": "clip1", "params": {} }
@@ -62,7 +62,7 @@ void main() {
     });
 
     test('catches duplicate operation ids', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     { "id": "op1", "type": "trim", "target_clip_id": "clip1", "params": {} },
@@ -76,7 +76,7 @@ void main() {
     });
 
     test('catches invalid operation type', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     { "id": "op1", "type": "invalid_op", "target_clip_id": "clip1", "params": {} }
@@ -90,7 +90,7 @@ void main() {
     });
 
     test('catches missing required param', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     { "id": "op1", "type": "trim", "target_clip_id": "clip1", "params": { "start": "00:00" } }
@@ -104,7 +104,7 @@ void main() {
     });
 
     test('catches missing target_clip_id', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     { "id": "op1", "type": "trim", "params": { "start": "0", "end": "10" } }
@@ -118,7 +118,7 @@ void main() {
     });
 
     test('catches trim end before start', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     {
@@ -137,7 +137,7 @@ void main() {
     });
 
     test('detects duplicate conflict operations (change_format)', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     { "id": "op1", "type": "change_format", "target_clip_id": "clip1", "params": { "target_ext": "mp4" } },
@@ -151,7 +151,7 @@ void main() {
     });
 
     test('accepts valid merge operation', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     { "id": "op1", "type": "merge", "target_clip_id": "clip1", "params": { "clip_ids": ["clip2", "clip3"] } }
@@ -164,7 +164,7 @@ void main() {
     });
 
     test('accepts valid overlay_text operation', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     { "id": "op1", "type": "overlay_text", "target_clip_id": "clip1", "params": { "text": "Hello" } }
@@ -179,7 +179,7 @@ void main() {
 
   group('OutputValidator.validate (with return types)', () {
     test('returns EditOperationSet for valid JSON', () {
-      final json = '''
+      const json = '''
 {
   "operations": [
     { "id": "op1", "type": "trim", "target_clip_id": "clip1", "params": { "start": "0", "end": "10" } }
@@ -196,7 +196,7 @@ void main() {
     });
 
     test('returns ClarificationNeeded when clarification_needed is set', () {
-      final json = '''
+      const json = '''
 {
   "operations": [],
   "summary": "",

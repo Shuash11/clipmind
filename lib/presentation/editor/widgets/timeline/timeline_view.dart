@@ -8,7 +8,7 @@ class TimelineView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: ClipMindColors.bgBase,
         border: Border(top: BorderSide(color: ClipMindColors.borderColor)),
       ),
@@ -16,16 +16,16 @@ class TimelineView extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
+            child: const Row(
               children: [
                 Icon(Icons.content_cut, size: 14, color: ClipMindColors.textMuted),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Icon(Icons.delete_outline, size: 14, color: ClipMindColors.textMuted),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Icon(Icons.content_copy, size: 14, color: ClipMindColors.textMuted),
-                const Spacer(),
+                Spacer(),
                 Icon(Icons.zoom_in, size: 14, color: ClipMindColors.textMuted),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
                 Icon(Icons.zoom_out, size: 14, color: ClipMindColors.textMuted),
               ],
             ),

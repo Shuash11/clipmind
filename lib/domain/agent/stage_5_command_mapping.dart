@@ -132,7 +132,7 @@ class CommandMapper {
           } else if (degrees == 270) {
             filters.add('[$prev]transpose=2[$next]');
           } else {
-            filters.add('[$prev]rotate=${degrees}*PI/180[$next]');
+            filters.add('[$prev]rotate=$degrees*PI/180[$next]');
           }
           break;
 

@@ -70,14 +70,14 @@ class _UatSurveyDialogState extends State<UatSurveyDialog> {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: ClipMindColors.borderColor),
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.quiz, size: 20, color: ClipMindColors.accentPrimary),
+                  const Icon(Icons.quiz, size: 20, color: ClipMindColors.accentPrimary),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -119,7 +119,7 @@ class _UatSurveyDialogState extends State<UatSurveyDialog> {
             ),
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 border: Border(
                   top: BorderSide(color: ClipMindColors.borderColor),
                 ),

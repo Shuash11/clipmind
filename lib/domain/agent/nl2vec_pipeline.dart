@@ -70,7 +70,7 @@ class Nl2VecPipeline {
         throw PipelineException('LLM error: ${parseError.message}');
       }
       if (parsed == null) {
-        throw PipelineException('LLM returned empty response');
+        throw const PipelineException('LLM returned empty response');
       }
 
       final rawJson = _serializeToJson(parsed);

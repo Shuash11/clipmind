@@ -8,11 +8,11 @@ class LeftToolRail extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 48,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: ClipMindColors.bgSurface,
         border: Border(right: BorderSide(color: ClipMindColors.borderColor)),
       ),
-      child: Column(
+      child: const Column(
         children: [
           _ToolIcon(icon: Icons.movie_outlined, label: 'Media'),
           _ToolIcon(icon: Icons.text_fields, label: 'Text'),

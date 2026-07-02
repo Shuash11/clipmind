@@ -18,7 +18,7 @@ class InputValidator {
     if (trimmed.length > maxPromptLength) {
       return (
         null,
-        Stage1Failure('Command exceeds ${maxPromptLength} characters'),
+        const Stage1Failure('Command exceeds $maxPromptLength characters'),
       );
     }
 

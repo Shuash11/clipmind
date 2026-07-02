@@ -27,7 +27,7 @@ class ChatBubble extends StatelessWidget {
                 color: ClipMindColors.accentPrimary.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Icon(Icons.auto_awesome, size: 14, color: ClipMindColors.accentPrimary),
+              child: const Icon(Icons.auto_awesome, size: 14, color: ClipMindColors.accentPrimary),
             ),
             const SizedBox(width: 8),
           ],
@@ -73,14 +73,14 @@ class ChatBubble extends StatelessWidget {
   Widget _statusIcon(MessageStatus status) {
     switch (status) {
       case MessageStatus.thinking:
-        return SizedBox(
+        return const SizedBox(
           width: 10, height: 10,
           child: CircularProgressIndicator(strokeWidth: 1.5, color: ClipMindColors.statusWarning),
         );
       case MessageStatus.needsClarification:
-        return Icon(Icons.help_outline, size: 12, color: ClipMindColors.statusWarning);
+        return const Icon(Icons.help_outline, size: 12, color: ClipMindColors.statusWarning);
       case MessageStatus.error:
-        return Icon(Icons.error_outline, size: 12, color: ClipMindColors.statusError);
+        return const Icon(Icons.error_outline, size: 12, color: ClipMindColors.statusError);
       default:
         return const SizedBox.shrink();
     }

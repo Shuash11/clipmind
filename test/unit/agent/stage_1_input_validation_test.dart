@@ -62,7 +62,7 @@ void main() {
     });
 
     test('populates project snapshot from metadata', () {
-      final metadata = VideoMetadata(
+      const metadata = VideoMetadata(
         durationMs: 120000,
         width: 1920,
         height: 1080,

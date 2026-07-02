@@ -96,7 +96,7 @@ class RecentProjectCard extends StatelessWidget {
   Widget _buildPlaceholderThumbnail() {
     return Container(
       color: ClipMindColors.bgElevated,
-      child: Center(
+      child: const Center(
         child: Icon(
           Icons.movie_outlined,
           size: 40,

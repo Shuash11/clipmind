@@ -13,31 +13,31 @@ class EditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
+    return const Scaffold(
       body: Column(
         children: [
-          const TopActionBar(),
+          TopActionBar(),
           Expanded(
             child: Row(
               children: [
-                const LeftToolRail(),
+                LeftToolRail(),
                 Expanded(
                   child: Column(
                     children: [
-                      const Expanded(flex: 3, child: PreviewPlayer(),
+                      Expanded(flex: 3, child: PreviewPlayer(),
                       ),
-                      const Expanded(flex: 1, child: TimelineView()),
+                      Expanded(flex: 1, child: TimelineView()),
                     ],
                   ),
                 ),
-                const SizedBox(
+                SizedBox(
                   width: 320,
                   child: AgentChatPanel(),
                 ),
               ],
             ),
           ),
-          const StatusBar(),
+          StatusBar(),
         ],
       ),
     );

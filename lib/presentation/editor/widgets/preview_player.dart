@@ -99,7 +99,7 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
                   color: ClipMindColors.bgSurface.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.play_arrow_rounded,
                   size: 48,
                   color: ClipMindColors.accentPrimary,
@@ -146,7 +146,7 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
                                 color: Colors.black.withValues(alpha: 0.5),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(
+                              child: const Icon(
                                 Icons.play_arrow_rounded,
                                 size: 48,
                                 color: ClipMindColors.accentPrimary,
@@ -198,12 +198,12 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: SliderTheme(
-                      data: SliderThemeData(
+                      data: const SliderThemeData(
                         trackHeight: 4,
-                        thumbShape: const RoundSliderThumbShape(
+                        thumbShape: RoundSliderThumbShape(
                           enabledThumbRadius: 6,
                         ),
-                        overlayShape: const RoundSliderOverlayShape(
+                        overlayShape: RoundSliderOverlayShape(
                           overlayRadius: 12,
                         ),
                         activeTrackColor: ClipMindColors.accentPrimary,

@@ -23,7 +23,7 @@ class AgentChatPanel extends ConsumerWidget {
     final messages = ref.watch(chatMessagesProvider);
 
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: ClipMindColors.bgSurface,
         border: Border(left: BorderSide(color: ClipMindColors.borderColor)),
       ),
@@ -32,12 +32,12 @@ class AgentChatPanel extends ConsumerWidget {
           // Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: ClipMindColors.borderColor)),
             ),
             child: Row(
               children: [
-                Icon(Icons.auto_awesome, size: 16, color: ClipMindColors.accentPrimary),
+                const Icon(Icons.auto_awesome, size: 16, color: ClipMindColors.accentPrimary),
                 const SizedBox(width: 8),
                 Text('AI Assistant', style: theme.textTheme.titleMedium),
                 const Spacer(),
@@ -70,7 +70,7 @@ class AgentChatPanel extends ConsumerWidget {
           // Input
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: ClipMindColors.borderColor)),
             ),
             child: Row(

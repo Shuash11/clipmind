@@ -134,7 +134,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       backgroundColor: ClipMindColors.bgSurface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: ClipMindColors.borderColor),
+        side: const BorderSide(color: ClipMindColors.borderColor),
       ),
       child: SizedBox(
         width: 440,
@@ -190,7 +190,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       const SizedBox(height: 12),
       Row(
         children: [
-          Icon(Icons.storage_outlined,
+          const Icon(Icons.storage_outlined,
               size: 14, color: ClipMindColors.textMuted),
           const SizedBox(width: 6),
           Text('Estimated size: ${_estimateFileSize()}',
@@ -273,7 +273,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     return [
       Row(
         children: [
-          Icon(Icons.check_circle,
+          const Icon(Icons.check_circle,
               color: ClipMindColors.statusReady, size: 20),
           const SizedBox(width: 8),
           Text('Export Complete', style: theme.textTheme.titleMedium),
@@ -352,7 +352,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   Widget _buildQualitySelector(ThemeData theme) {
     return Row(
       children: [
-        Icon(Icons.tune, size: 16, color: ClipMindColors.textSecondary),
+        const Icon(Icons.tune, size: 16, color: ClipMindColors.textSecondary),
         const SizedBox(width: 10),
         SizedBox(
           width: 80,
@@ -394,9 +394,9 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
               }),
               side: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return BorderSide(color: ClipMindColors.accentPrimary);
+                  return const BorderSide(color: ClipMindColors.accentPrimary);
                 }
-                return BorderSide(color: ClipMindColors.borderColor);
+                return const BorderSide(color: ClipMindColors.borderColor);
               }),
               padding: WidgetStateProperty.all(
                 const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -411,7 +411,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   Widget _buildOutputPath(ThemeData theme) {
     return Row(
       children: [
-        Icon(Icons.folder_outlined,
+        const Icon(Icons.folder_outlined,
             size: 16, color: ClipMindColors.textSecondary),
         const SizedBox(width: 10),
         SizedBox(

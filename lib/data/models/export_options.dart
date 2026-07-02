@@ -37,7 +37,7 @@ class ExportOptions {
   }
 
   factory ExportOptions.defaults() {
-    return ExportOptions(
+    return const ExportOptions(
       format: 'mp4',
       resolution: 'source',
       quality: 'high',

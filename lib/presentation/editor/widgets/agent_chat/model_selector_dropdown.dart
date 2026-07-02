@@ -19,12 +19,12 @@ class ModelSelectorDropdown extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.memory, size: 12, color: ClipMindColors.textSecondary),
+            const Icon(Icons.memory, size: 12, color: ClipMindColors.textSecondary),
             const SizedBox(width: 4),
             Text('Flash', style: theme.textTheme.bodySmall?.copyWith(
               fontSize: 11,
             )),
-            Icon(Icons.arrow_drop_down, size: 14, color: ClipMindColors.textSecondary),
+            const Icon(Icons.arrow_drop_down, size: 14, color: ClipMindColors.textSecondary),
           ],
         ),
       ),

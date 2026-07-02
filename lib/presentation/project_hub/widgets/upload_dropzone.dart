@@ -33,7 +33,7 @@ class UploadDropzone extends StatelessWidget {
                 color: ClipMindColors.accentPrimary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.cloud_upload_outlined,
                 size: 48,
                 color: ClipMindColors.accentPrimary,

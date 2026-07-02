@@ -31,7 +31,7 @@ class ClipMindTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: ClipMindColors.bgBase,
       useMaterial3: true,
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         surface: ClipMindColors.bgBase,
         primary: ClipMindColors.accentPrimary,
         secondary: ClipMindColors.accentPrimary,
@@ -40,7 +40,7 @@ class ClipMindTheme {
       ),
       cardColor: ClipMindColors.bgSurface,
       dividerColor: ClipMindColors.borderColor,
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: ClipMindColors.bgBase,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -51,7 +51,7 @@ class ClipMindTheme {
           letterSpacing: -0.3,
         ),
       ),
-      textTheme: TextTheme(
+      textTheme: const TextTheme(
         displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w700,
@@ -104,20 +104,20 @@ class ClipMindTheme {
         fillColor: ClipMindColors.bgElevated,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: ClipMindColors.borderColor),
+          borderSide: const BorderSide(color: ClipMindColors.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: ClipMindColors.borderColor),
+          borderSide: const BorderSide(color: ClipMindColors.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: ClipMindColors.accentPrimary, width: 1.5),
+          borderSide: const BorderSide(color: ClipMindColors.accentPrimary, width: 1.5),
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        hintStyle: TextStyle(color: ClipMindColors.textMuted),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        hintStyle: const TextStyle(color: ClipMindColors.textMuted),
       ),
-      iconTheme: IconThemeData(
+      iconTheme: const IconThemeData(
         color: ClipMindColors.textSecondary,
         size: 20,
       ),

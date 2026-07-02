@@ -115,7 +115,7 @@ class ProjectHubScreen extends ConsumerWidget {
   }
 
   Widget _buildLoading(ThemeData theme) {
-    return SizedBox(
+    return const SizedBox(
       height: 160,
       child: Center(
         child: CircularProgressIndicator(
@@ -133,7 +133,7 @@ class ProjectHubScreen extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.movie_creation_outlined,
+            const Icon(Icons.movie_creation_outlined,
                 size: 32, color: ClipMindColors.textMuted),
             const SizedBox(height: 8),
             Text('No recent projects. Drop a video to start.',

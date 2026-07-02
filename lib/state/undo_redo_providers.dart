@@ -20,7 +20,7 @@ class UndoRedoNotifier extends StateNotifier<UndoRedoState> {
   final UndoRedoUseCase _useCase;
 
   UndoRedoNotifier(this._useCase)
-      : super(UndoRedoState(
+      : super(const UndoRedoState(
           canUndo: false,
           canRedo: false,
           historyCount: 0,

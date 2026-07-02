@@ -17,7 +17,7 @@ class TopActionBar extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: ClipMindColors.bgBase,
         border:
             Border(bottom: BorderSide(color: ClipMindColors.borderColor)),
@@ -47,9 +47,9 @@ class TopActionBar extends ConsumerWidget {
           const Spacer(),
           TextButton.icon(
             onPressed: () {},
-            icon: Icon(Icons.tune,
+            icon: const Icon(Icons.tune,
                 size: 14, color: ClipMindColors.textSecondary),
-            label: Text('Model',
+            label: const Text('Model',
                 style: TextStyle(
                     color: ClipMindColors.textSecondary, fontSize: 12)),
           ),

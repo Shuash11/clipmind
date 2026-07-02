@@ -9,21 +9,21 @@ class StatusBar extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: ClipMindColors.bgSurface,
         border: Border(top: BorderSide(color: ClipMindColors.borderColor)),
       ),
       child: Row(
         children: [
-          _StatusDot(color: ClipMindColors.statusReady),
+          const _StatusDot(color: ClipMindColors.statusReady),
           const SizedBox(width: 6),
           Text('Ready', style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
           const SizedBox(width: 16),
-          _StatusDot(color: ClipMindColors.statusReady),
+          const _StatusDot(color: ClipMindColors.statusReady),
           const SizedBox(width: 6),
           Text('Flash · connected', style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
           const SizedBox(width: 16),
-          _StatusDot(color: ClipMindColors.statusReady),
+          const _StatusDot(color: ClipMindColors.statusReady),
           const SizedBox(width: 6),
           Text('FFmpeg ready', style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
         ],
