@@ -1,8 +1,0 @@
-﻿{
-  "tasks": [
-    { "id": 1, "description": "Add url_launcher and package_info_plus to pubspec.yaml", "status": "done" },
-    { "id": 2, "description": "Create update_dialog.dart at lib/presentation/settings/widgets/", "status": "done" },
-    { "id": 3, "description": "Modify project_hub_screen.dart: imports, stateful widget, update check, settings button", "status": "done" }
-  ],
-  "completed": true
-}
