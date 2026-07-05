@@ -1,0 +1,8 @@
+{
+  "tasks": [
+    { "id": 1, "description": "Fix upload_dropzone.dart - add callbacks (onBrowse, onDragDone, onDragEntered, onDragExited, isDragActive) and wire them", "status": "pending" },
+    { "id": 2, "description": "Fix import_source_card.dart - add onTap callback", "status": "pending" },
+    { "id": 3, "description": "Fix project_hub_screen.dart - wire all buttons with FilePicker, import services, navigation", "status": "pending" }
+  ],
+  "completed": false
+}

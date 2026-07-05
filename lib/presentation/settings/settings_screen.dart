@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:clipmind/presentation/settings/widgets/update_dialog.dart';
+
 import 'package:clipmind/state/update_providers.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -11,6 +13,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _appVersion = '...';
+  bool _checkOnStartup = true;
 
   @override
   void initState() {
@@ -55,8 +58,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   secondary: const Icon(Icons.autorenew),
                   title: const Text('Check on startup'),
                   subtitle: const Text('Automatically check for updates when the app opens'),
-                  value: true,
-                  onChanged: (_) {},
+                  value: _checkOnStartup,
+                  onChanged: (v) => setState(() => _checkOnStartup = v),
                 ),
               ],
             ),
@@ -79,7 +82,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       FilledButton.icon(
                         icon: const Icon(Icons.download),
                         label: const Text('Download'),
-                        onPressed: () {},
+                        onPressed: () => UpdateDialog.show(context, updateState.release!),
                       ),
                     ],
                   ),

@@ -46,7 +46,21 @@ class TopActionBar extends ConsumerWidget {
           ),
           const Spacer(),
           TextButton.icon(
-            onPressed: () {},
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (ctx) => const AlertDialog(
+                title: Text('Select Model'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(title: Text('Claude (Anthropic)'), leading: Icon(Icons.psychology)),
+                    ListTile(title: Text('GPT-4o (OpenAI)'), leading: Icon(Icons.smart_toy)),
+                    ListTile(title: Text('Gemini (Google)'), leading: Icon(Icons.auto_awesome)),
+                    ListTile(title: Text('NVIDIA NIM'), leading: Icon(Icons.memory)),
+                  ],
+                ),
+              ),
+            ),
             icon: const Icon(Icons.tune,
                 size: 14, color: ClipMindColors.textSecondary),
             label: const Text('Model',
