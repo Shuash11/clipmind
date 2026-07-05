@@ -14,7 +14,9 @@ final ffprobeServiceProvider = Provider<FfprobeService>((ref) {
 });
 
 final providerRegistryProvider = Provider<ProviderRegistry>((ref) {
-  return ProviderRegistry();
+  final registry = ProviderRegistry();
+  ref.onDispose(() => registry.dispose());
+  return registry;
 });
 
 final nl2vecPipelineProvider = Provider<Nl2VecPipeline>((ref) {

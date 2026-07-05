@@ -95,6 +95,15 @@ class ExecutionEngine {
         final finalPath = job.outputPath;
         if (tempOutPath != finalPath) {
           await File(tempOutPath).copy(finalPath);
+          if (!File(finalPath).existsSync()) {
+            return ExecutionResult(
+              success: false,
+              summary: 'Copy failed for ${_extractOpType(job)}',
+              outputPaths: outputs,
+              appliedOps: appliedOps,
+              errorMessage: 'Failed to copy output to $finalPath',
+            );
+          }
         }
         outputs.add(finalPath);
 
@@ -162,6 +171,12 @@ class ExecutionEngine {
   }
 
   void dispose() {
+    _progressCtrl.add(const ExecutionProgress(
+      jobId: '',
+      operationType: '',
+      percent: 0,
+      status: 'cancelled',
+    ));
     _progressCtrl.close();
   }
 }

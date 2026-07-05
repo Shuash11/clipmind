@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:clipmind/data/models/project.dart';
+import 'package:flutter/foundation.dart';
 
 class ProjectFileStore {
   Future<bool> write(Project project, String directory) async {
@@ -10,7 +11,8 @@ class ProjectFileStore {
       final file = File('$directory/${project.id}.cmproj');
       await file.writeAsString(jsonEncode(project.toJson()));
       return true;
-    } catch (_) {
+    } catch (e, s) {
+      debugPrint('ProjectFileStore error: $e\n$s');
       return false;
     }
   }
@@ -21,7 +23,8 @@ class ProjectFileStore {
       if (!await file.exists()) return null;
       final json = jsonDecode(await file.readAsString());
       return Project.fromJson(json as Map<String, dynamic>);
-    } catch (_) {
+    } catch (e, s) {
+      debugPrint('ProjectFileStore error: $e\n$s');
       return null;
     }
   }
@@ -40,7 +43,8 @@ class ProjectFileStore {
       }
       results.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       return results;
-    } catch (_) {
+    } catch (e, s) {
+      debugPrint('ProjectFileStore error: $e\n$s');
       return [];
     }
   }
@@ -59,7 +63,8 @@ class ProjectFileStore {
       };
       await file.writeAsString(jsonEncode(exportData));
       return true;
-    } catch (_) {
+    } catch (e, s) {
+      debugPrint('ProjectFileStore error: $e\n$s');
       return false;
     }
   }

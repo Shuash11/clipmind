@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -15,6 +16,9 @@ class PreviewPlayer extends ConsumerStatefulWidget {
 class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
   final Player _player = Player();
   late final VideoController _controller;
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<Duration>? _durationSub;
+  StreamSubscription<bool>? _playingSub;
 
   @override
   void initState() {
@@ -24,13 +28,13 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
   }
 
   void _listenToPlayer() {
-    _player.stream.position.listen((pos) {
+    _positionSub = _player.stream.position.listen((pos) {
       if (mounted) ref.read(playbackPositionProvider.notifier).state = pos;
     });
-    _player.stream.duration.listen((dur) {
+    _durationSub = _player.stream.duration.listen((dur) {
       if (mounted) ref.read(videoDurationProvider.notifier).state = dur;
     });
-    _player.stream.playing.listen((playing) {
+    _playingSub = _player.stream.playing.listen((playing) {
       if (mounted) ref.read(isPlayingProvider.notifier).state = playing;
     });
   }
@@ -50,6 +54,9 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
 
   @override
   void dispose() {
+    _positionSub?.cancel();
+    _durationSub?.cancel();
+    _playingSub?.cancel();
     _player.dispose();
     super.dispose();
   }

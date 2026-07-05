@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'package:uuid/uuid.dart';
 
@@ -43,12 +44,14 @@ class FfmpegResult {
   final String outputPath;
   final int exitCode;
   final String? stderr;
+  final String? error;
 
   const FfmpegResult({
     required this.success,
     required this.outputPath,
     required this.exitCode,
     this.stderr,
+    this.error,
   });
 }
 
@@ -80,6 +83,11 @@ class FfmpegService {
         'FFmpeg binary not found. Check installation or configure path in settings.',
       );
     }
+
+    if (!File(job.inputPath).existsSync()) {
+      throw Exception('Input file not found: ${job.inputPath}');
+    }
+    File(job.outputPath).parent.createSync(recursive: true);
 
     final process = await Process.start(binary, [
       ...job.args,
@@ -141,8 +149,19 @@ class FfmpegService {
         outputPath: job.outputPath,
         exitCode: -1,
         stderr: 'FFmpeg binary not found',
+        error: 'FFmpeg binary not found',
       );
     }
+
+    if (!File(job.inputPath).existsSync()) {
+      return FfmpegResult(
+        success: false,
+        outputPath: job.outputPath,
+        exitCode: -1,
+        error: 'Input not found: ${job.inputPath}',
+      );
+    }
+    File(job.outputPath).parent.createSync(recursive: true);
 
     try {
       final result = await Process.run(binary, [
@@ -158,12 +177,14 @@ class FfmpegService {
             ? result.stderr as String?
             : null,
       );
-    } catch (e) {
+    } catch (e, s) {
+      debugPrint('FfmpegService error: $e\n$s');
       return FfmpegResult(
         success: false,
         outputPath: job.outputPath,
         exitCode: -1,
-        stderr: e.toString(),
+        stderr: null,
+        error: e.toString(),
       );
     }
   }

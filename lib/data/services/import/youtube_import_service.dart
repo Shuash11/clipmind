@@ -24,6 +24,8 @@ class YouTubeImportService {
         url,
       ]);
 
+      if (_process == null) return null;
+
       String? downloadedFile;
 
       _process!.stdout

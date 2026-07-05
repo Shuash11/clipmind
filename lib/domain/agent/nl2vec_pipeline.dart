@@ -31,14 +31,7 @@ class Nl2VecPipeline {
     required this._ffmpegService,
   });
 
-  LlmProvider? _provider;
-
-  void setProvider(LlmProvider provider) {
-    _provider = provider;
-  }
-
-  Future<String> submitCommand(String text, ProjectSnapshot project) async {
-    final provider = _provider;
+  Future<String> submitCommand(String text, ProjectSnapshot project, {LlmProvider? provider}) async {
     if (provider == null) {
       _events.add(const PipelineEvent(PipelineStage.error, 'No LLM provider configured'));
       return 'Error: No LLM provider configured';
@@ -124,7 +117,12 @@ class Nl2VecPipeline {
 
       _events.add(const PipelineEvent(PipelineStage.applying, 'Generating FFmpeg commands...'));
 
-      final jobs = CommandMapper.mapOperations(validatedSet!, _resolveInputPath(project));
+      final inputPath = _resolveInputPath(project);
+      if (inputPath == null) {
+        throw const PipelineException('No video clips in project to process');
+      }
+
+      final jobs = CommandMapper.mapOperations(validatedSet!, inputPath);
 
       _events.add(const PipelineEvent(PipelineStage.applying, 'Executing FFmpeg...'));
 
@@ -188,11 +186,11 @@ class Nl2VecPipeline {
     return jsonEncode(set.toJson());
   }
 
-  String _resolveInputPath(ProjectSnapshot project) {
+  String? _resolveInputPath(ProjectSnapshot project) {
     if (project.clips.isNotEmpty) {
       return project.clips.first.id;
     }
-    return 'input.mp4';
+    return null;
   }
 
   void dispose() {

@@ -35,6 +35,10 @@ class ExportProjectUseCase {
     _ffmpegService.cancel();
   }
 
+  void dispose() {
+    _progressController.close();
+  }
+
   Future<ExportResult> execute(
     Project project, {
     ExportOptions options = const ExportOptions(
