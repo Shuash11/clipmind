@@ -3,7 +3,8 @@ import 'package:clipmind/core/theme/clipmind_theme.dart';
 
 class SuggestedPromptChip extends StatelessWidget {
   final String text;
-  const SuggestedPromptChip({super.key, required this.text});
+  final VoidCallback? onPressed;
+  const SuggestedPromptChip({super.key, required this.text, this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +19,7 @@ class SuggestedPromptChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.compact,
-      onPressed: () {},
+      onPressed: onPressed,
     );
   }
 }

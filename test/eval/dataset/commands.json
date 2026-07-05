@@ -1,0 +1,501 @@
+[
+  {
+    "id": "trim_01",
+    "command": "trim the first 10 seconds",
+    "expected": {
+      "ops": [
+        { "type": "trim", "target_clip_id": "clip_1", "params": { "start": "00:00:00.000", "end": "00:00:10.000" } }
+      ],
+      "summary": "Trimmed the first 10 seconds"
+    },
+    "category": "trim",
+    "difficulty": "easy"
+  },
+  {
+    "id": "trim_02",
+    "command": "trim the video from 00:01:30 to 00:02:00",
+    "expected": {
+      "ops": [
+        { "type": "trim", "target_clip_id": "clip_1", "params": { "start": "00:01:30.000", "end": "00:02:00.000" } }
+      ],
+      "summary": "Trimmed the video from 00:01:30 to 00:02:00"
+    },
+    "category": "trim",
+    "difficulty": "easy"
+  },
+  {
+    "id": "trim_03",
+    "command": "keep only the part between 5 seconds and 30 seconds",
+    "expected": {
+      "ops": [
+        { "type": "trim", "target_clip_id": "clip_1", "params": { "start": "00:00:05.000", "end": "00:00:30.000" } }
+      ],
+      "summary": "Trimmed to 5-30 seconds"
+    },
+    "category": "trim",
+    "difficulty": "medium"
+  },
+  {
+    "id": "trim_04",
+    "command": "cut the beginning off, remove the first 15 seconds",
+    "expected": {
+      "ops": [
+        { "type": "trim", "target_clip_id": "clip_1", "params": { "start": "00:00:15.000", "end": "00:10:00.000" } }
+      ],
+      "summary": "Trimmed off the first 15 seconds"
+    },
+    "category": "trim",
+    "difficulty": "medium"
+  },
+  {
+    "id": "cut_01",
+    "command": "remove the section from 10 seconds to 20 seconds",
+    "expected": {
+      "ops": [
+        { "type": "cut", "target_clip_id": "clip_1", "params": { "remove_start": "00:00:10.000", "remove_end": "00:00:20.000" } }
+      ],
+      "summary": "Removed the section from 10s to 20s"
+    },
+    "category": "cut",
+    "difficulty": "easy"
+  },
+  {
+    "id": "cut_02",
+    "command": "cut out the middle part from 00:00:15 to 00:00:25",
+    "expected": {
+      "ops": [
+        { "type": "cut", "target_clip_id": "clip_1", "params": { "remove_start": "00:00:15.000", "remove_end": "00:00:25.000" } }
+      ],
+      "summary": "Cut out the middle section"
+    },
+    "category": "cut",
+    "difficulty": "easy"
+  },
+  {
+    "id": "cut_03",
+    "command": "delete the segment from 2 minutes to 2 minutes 30 seconds",
+    "expected": {
+      "ops": [
+        { "type": "cut", "target_clip_id": "clip_1", "params": { "remove_start": "00:02:00.000", "remove_end": "00:02:30.000" } }
+      ],
+      "summary": "Deleted the segment from 2:00 to 2:30"
+    },
+    "category": "cut",
+    "difficulty": "medium"
+  },
+  {
+    "id": "merge_01",
+    "command": "merge clip 1 and clip 2 together",
+    "expected": {
+      "ops": [
+        { "type": "merge", "target_clip_id": "clip_1", "params": { "clip_ids": ["clip_1", "clip_2"] } }
+      ],
+      "summary": "Merged clips"
+    },
+    "category": "cut",
+    "difficulty": "medium"
+  },
+  {
+    "id": "speed_01",
+    "command": "speed this up 2x",
+    "expected": {
+      "ops": [
+        { "type": "change_speed", "target_clip_id": "clip_1", "params": { "factor": 2.0 } }
+      ],
+      "summary": "Sped up 2x"
+    },
+    "category": "speed",
+    "difficulty": "easy"
+  },
+  {
+    "id": "speed_02",
+    "command": "slow it down to half speed",
+    "expected": {
+      "ops": [
+        { "type": "change_speed", "target_clip_id": "clip_1", "params": { "factor": 0.5 } }
+      ],
+      "summary": "Slowed to half speed"
+    },
+    "category": "speed",
+    "difficulty": "easy"
+  },
+  {
+    "id": "speed_03",
+    "command": "play at 1.5 times speed",
+    "expected": {
+      "ops": [
+        { "type": "change_speed", "target_clip_id": "clip_1", "params": { "factor": 1.5 } }
+      ],
+      "summary": "Changed speed to 1.5x"
+    },
+    "category": "speed",
+    "difficulty": "medium"
+  },
+  {
+    "id": "resize_01",
+    "command": "resize to 1920x1080",
+    "expected": {
+      "ops": [
+        { "type": "resize", "target_clip_id": "clip_1", "params": { "width": 1920, "height": 1080 } }
+      ],
+      "summary": "Resized to 1920x1080"
+    },
+    "category": "resize",
+    "difficulty": "easy"
+  },
+  {
+    "id": "resize_02",
+    "command": "crop to 1080x1080 square",
+    "expected": {
+      "ops": [
+        { "type": "resize", "target_clip_id": "clip_1", "params": { "width": 1080, "height": 1080, "fit": "fill" } }
+      ],
+      "summary": "Cropped to 1080x1080"
+    },
+    "category": "resize",
+    "difficulty": "medium"
+  },
+  {
+    "id": "resize_03",
+    "command": "change resolution to 4k",
+    "expected": {
+      "ops": [
+        { "type": "resize", "target_clip_id": "clip_1", "params": { "width": 3840, "height": 2160 } }
+      ],
+      "summary": "Changed resolution to 4K"
+    },
+    "category": "resize",
+    "difficulty": "medium"
+  },
+  {
+    "id": "rotate_01",
+    "command": "rotate 90 degrees clockwise",
+    "expected": {
+      "ops": [
+        { "type": "rotate", "target_clip_id": "clip_1", "params": { "degrees": 90 } }
+      ],
+      "summary": "Rotated 90 degrees"
+    },
+    "category": "resize",
+    "difficulty": "easy"
+  },
+  {
+    "id": "rotate_02",
+    "command": "flip the video 180 degrees",
+    "expected": {
+      "ops": [
+        { "type": "rotate", "target_clip_id": "clip_1", "params": { "degrees": 180 } }
+      ],
+      "summary": "Rotated 180 degrees"
+    },
+    "category": "resize",
+    "difficulty": "easy"
+  },
+  {
+    "id": "mute_01",
+    "command": "mute the audio completely",
+    "expected": {
+      "ops": [
+        { "type": "mute", "target_clip_id": "clip_1", "params": {} }
+      ],
+      "summary": "Muted audio"
+    },
+    "category": "effects",
+    "difficulty": "easy"
+  },
+  {
+    "id": "volume_01",
+    "command": "increase volume by 2x",
+    "expected": {
+      "ops": [
+        { "type": "change_volume", "target_clip_id": "clip_1", "params": { "factor": 2.0 } }
+      ],
+      "summary": "Increased volume 2x"
+    },
+    "category": "effects",
+    "difficulty": "easy"
+  },
+  {
+    "id": "volume_02",
+    "command": "set volume to 50 percent",
+    "expected": {
+      "ops": [
+        { "type": "change_volume", "target_clip_id": "clip_1", "params": { "factor": 0.5 } }
+      ],
+      "summary": "Set volume to 50%"
+    },
+    "category": "effects",
+    "difficulty": "easy"
+  },
+  {
+    "id": "brightness_01",
+    "command": "make the video brighter",
+    "expected": {
+      "ops": [
+        { "type": "adjust_brightness", "target_clip_id": "clip_1", "params": { "value": 0.2 } }
+      ],
+      "summary": "Brightened video"
+    },
+    "category": "effects",
+    "difficulty": "easy"
+  },
+  {
+    "id": "brightness_02",
+    "command": "brighten the image by 0.3",
+    "expected": {
+      "ops": [
+        { "type": "adjust_brightness", "target_clip_id": "clip_1", "params": { "value": 0.3 } }
+      ],
+      "summary": "Brightened by 0.3"
+    },
+    "category": "effects",
+    "difficulty": "medium"
+  },
+  {
+    "id": "text_01",
+    "command": "add text Hello World",
+    "expected": {
+      "ops": [
+        { "type": "overlay_text", "target_clip_id": "clip_1", "params": { "text": "Hello World" } }
+      ],
+      "summary": "Added text overlay"
+    },
+    "category": "text",
+    "difficulty": "easy"
+  },
+  {
+    "id": "text_02",
+    "command": "put a title My Video at the top center",
+    "expected": {
+      "ops": [
+        { "type": "overlay_text", "target_clip_id": "clip_1", "params": { "text": "My Video", "position": "top-center" } }
+      ],
+      "summary": "Added title text"
+    },
+    "category": "text",
+    "difficulty": "medium"
+  },
+  {
+    "id": "watermark_01",
+    "command": "add a watermark using logo.png in the bottom right corner",
+    "expected": {
+      "ops": [
+        { "type": "overlay_watermark", "target_clip_id": "clip_1", "params": { "image_path": "logo.png", "position": "bottom-right", "opacity": 0.7 } }
+      ],
+      "summary": "Added watermark"
+    },
+    "category": "text",
+    "difficulty": "medium"
+  },
+  {
+    "id": "format_01",
+    "command": "export as mp4",
+    "expected": {
+      "ops": [
+        { "type": "change_format", "target_clip_id": "clip_1", "params": { "target_ext": "mp4" } }
+      ],
+      "summary": "Exported as MP4"
+    },
+    "category": "export",
+    "difficulty": "easy"
+  },
+  {
+    "id": "format_02",
+    "command": "convert to webm format",
+    "expected": {
+      "ops": [
+        { "type": "change_format", "target_clip_id": "clip_1", "params": { "target_ext": "webm" } }
+      ],
+      "summary": "Converted to WebM"
+    },
+    "category": "export",
+    "difficulty": "easy"
+  },
+  {
+    "id": "extract_01",
+    "command": "extract the audio track from the video",
+    "expected": {
+      "ops": [
+        { "type": "extract_audio", "target_clip_id": "clip_1", "params": {} }
+      ],
+      "summary": "Extracted audio track"
+    },
+    "category": "export",
+    "difficulty": "easy"
+  },
+  {
+    "id": "thumbnail_01",
+    "command": "generate a thumbnail at 10 seconds",
+    "expected": {
+      "ops": [
+        { "type": "generate_thumbnail", "target_clip_id": "clip_1", "params": { "timestamp": "00:00:10.000" } }
+      ],
+      "summary": "Generated thumbnail at 10s"
+    },
+    "category": "export",
+    "difficulty": "easy"
+  },
+  {
+    "id": "multi_01",
+    "command": "trim the first 10 seconds and speed it up 2x",
+    "expected": {
+      "ops": [
+        { "type": "trim", "target_clip_id": "clip_1", "params": { "start": "00:00:00.000", "end": "00:00:10.000" } },
+        { "type": "change_speed", "target_clip_id": "clip_1", "params": { "factor": 2.0 } }
+      ],
+      "summary": "Trimmed first 10s and sped up 2x"
+    },
+    "category": "multi_op",
+    "difficulty": "medium"
+  },
+  {
+    "id": "multi_02",
+    "command": "crop to 1080x1080 and add centered text Hello",
+    "expected": {
+      "ops": [
+        { "type": "resize", "target_clip_id": "clip_1", "params": { "width": 1080, "height": 1080, "fit": "fill" } },
+        { "type": "overlay_text", "target_clip_id": "clip_1", "params": { "text": "Hello" } }
+      ],
+      "summary": "Cropped to square and added text"
+    },
+    "category": "multi_op",
+    "difficulty": "medium"
+  },
+  {
+    "id": "multi_03",
+    "command": "cut the section from 5 to 15 seconds and rotate 90 degrees",
+    "expected": {
+      "ops": [
+        { "type": "cut", "target_clip_id": "clip_1", "params": { "remove_start": "00:00:05.000", "remove_end": "00:00:15.000" } },
+        { "type": "rotate", "target_clip_id": "clip_1", "params": { "degrees": 90 } }
+      ],
+      "summary": "Cut a section and rotated"
+    },
+    "category": "multi_op",
+    "difficulty": "medium"
+  },
+  {
+    "id": "multi_04",
+    "command": "resize to 1920x1080 and add a watermark logo.png",
+    "expected": {
+      "ops": [
+        { "type": "resize", "target_clip_id": "clip_1", "params": { "width": 1920, "height": 1080 } },
+        { "type": "overlay_watermark", "target_clip_id": "clip_1", "params": { "image_path": "logo.png", "position": "bottom-right", "opacity": 0.7 } }
+      ],
+      "summary": "Resized and added watermark"
+    },
+    "category": "multi_op",
+    "difficulty": "medium"
+  },
+  {
+    "id": "multi_05",
+    "command": "trim from 00:00:10 to 00:01:00, increase volume by 1.5x, and export as mp4",
+    "expected": {
+      "ops": [
+        { "type": "trim", "target_clip_id": "clip_1", "params": { "start": "00:00:10.000", "end": "00:01:00.000" } },
+        { "type": "change_volume", "target_clip_id": "clip_1", "params": { "factor": 1.5 } },
+        { "type": "change_format", "target_clip_id": "clip_1", "params": { "target_ext": "mp4" } }
+      ],
+      "summary": "Trimmed, boosted volume, exported as MP4"
+    },
+    "category": "multi_op",
+    "difficulty": "hard"
+  },
+  {
+    "id": "multi_06",
+    "command": "mute the audio and add text Subtitled at the bottom",
+    "expected": {
+      "ops": [
+        { "type": "mute", "target_clip_id": "clip_1", "params": {} },
+        { "type": "overlay_text", "target_clip_id": "clip_1", "params": { "text": "Subtitled" } }
+      ],
+      "summary": "Muted audio and added text overlay"
+    },
+    "category": "multi_op",
+    "difficulty": "hard"
+  },
+  {
+    "id": "edge_empty",
+    "command": "",
+    "expected": {
+      "stage1_error": true,
+      "stage": 1,
+      "ops": []
+    },
+    "category": "edge_cases",
+    "difficulty": "easy"
+  },
+  {
+    "id": "edge_whitespace",
+    "command": "   ",
+    "expected": {
+      "stage1_error": true,
+      "stage": 1,
+      "ops": []
+    },
+    "category": "edge_cases",
+    "difficulty": "easy"
+  },
+  {
+    "id": "edge_invalid_trim",
+    "command": "cut the clip from 00:02:00 to 00:01:00",
+    "expected": {
+      "stage4_error": true,
+      "stage": 4,
+      "mock_response": {
+        "ops": [
+          { "type": "trim", "target_clip_id": "clip_1", "params": { "start": "00:02:00.000", "end": "00:01:00.000" } }
+        ],
+        "summary": "Invalid trim"
+      },
+      "ops": []
+    },
+    "category": "edge_cases",
+    "difficulty": "hard"
+  },
+  {
+    "id": "edge_duplicate_format",
+    "command": "export to mp4 and also export to webm",
+    "expected": {
+      "stage4_error": true,
+      "stage": 4,
+      "mock_response": {
+        "ops": [
+          { "type": "change_format", "target_clip_id": "clip_1", "params": { "target_ext": "mp4" } },
+          { "type": "change_format", "target_clip_id": "clip_1", "params": { "target_ext": "webm" } }
+        ],
+        "summary": "Two formats"
+      },
+      "ops": []
+    },
+    "category": "edge_cases",
+    "difficulty": "hard"
+  },
+  {
+    "id": "edge_ambiguous",
+    "command": "do something cool with the video",
+    "expected": {
+      "clarification": true,
+      "ops": []
+    },
+    "category": "edge_cases",
+    "difficulty": "hard"
+  },
+  {
+    "id": "edge_missing_params",
+    "command": "trim the video",
+    "expected": {
+      "stage4_error": true,
+      "stage": 4,
+      "mock_response": {
+        "ops": [
+          { "type": "trim", "target_clip_id": "clip_1", "params": { "start": "00:00:00.000" } }
+        ],
+        "summary": "Trim without end"
+      },
+      "ops": []
+    },
+    "category": "edge_cases",
+    "difficulty": "hard"
+  }
+]
