@@ -1,9 +1,9 @@
-name: Build Windows
+name: Release
 
 on:
   push:
-  pull_request:
-  workflow_dispatch:
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Apply ATL patch (flutter_secure_storage_windows)
+      - name: Apply ATL patch
         run: scripts/patch-atl.ps1
 
       - name: Analyze
@@ -43,8 +43,21 @@ jobs:
       - name: Build Windows (release)
         run: flutter build windows --release
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Zip the build
+        run: |
+          cd build\windows\x64\runner\Release
+          Compress-Archive -Path * -DestinationPath "${{ github.workspace }}\clipmind-windows.zip"
+        shell: pwsh
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: clipmind-windows-${{ github.sha }}
-          path: build\windows\x64\runner\Release\
+          name: ClipMind ${{ github.ref_name }}
+          body: |
+            **ClipMind ${{ github.ref_name }}**
+
+            See [CHANGELOG](CHANGELOG.md) for details.
+
+            ### Downloads
+            - **Windows** — clipmind-windows.zip (extract and run clipmind.exe)
+          files: clipmind-windows.zip

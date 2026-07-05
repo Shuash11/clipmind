@@ -1,12 +1,11 @@
-name: Build Windows
+name: PR Checks
 
 on:
-  push:
   pull_request:
-  workflow_dispatch:
+    branches: [ "opencode/clipmind-build", "feat/ci-workflow" ]
 
 jobs:
-  build:
+  check:
     runs-on: windows-latest
 
     steps:
@@ -31,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Apply ATL patch (flutter_secure_storage_windows)
+      - name: Apply ATL patch
         run: scripts/patch-atl.ps1
 
       - name: Analyze
@@ -39,12 +38,3 @@ jobs:
 
       - name: Run tests
         run: flutter test
-
-      - name: Build Windows (release)
-        run: flutter build windows --release
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: clipmind-windows-${{ github.sha }}
-          path: build\windows\x64\runner\Release\
