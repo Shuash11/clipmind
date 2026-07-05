@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:clipmind/data/models/app_settings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class SettingsRepository {
@@ -21,7 +22,9 @@ class SettingsRepository {
         _cached = AppSettings.fromJson(json as Map<String, dynamic>);
         return _cached!;
       }
-    } catch (_) {}
+    } catch (e, s) {
+      debugPrint('SettingsRepository error: $e\n$s');
+    }
     _cached = const AppSettings();
     return _cached!;
   }
@@ -32,7 +35,9 @@ class SettingsRepository {
       final dir = await getApplicationSupportDirectory();
       final file = File('${dir.path}/settings.json');
       await file.writeAsString(jsonEncode(settings.toJson()));
-    } catch (_) {}
+    } catch (e, s) {
+      debugPrint('SettingsRepository error: $e\n$s');
+    }
     if (!_disposed) _controller.add(settings);
   }
 

@@ -15,8 +15,25 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   return repo;
 });
 
+class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
+  final SettingsRepository _repository;
+
+  SettingsNotifier(this._repository) : super(const AsyncValue.loading()) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    state = AsyncValue.data(await _repository.load());
+  }
+
+  Future<void> update(AppSettings settings) async {
+    await _repository.save(settings);
+    state = AsyncValue.data(settings);
+  }
+}
+
 final settingsProvider = StateNotifierProvider<SettingsNotifier, AsyncValue<AppSettings>>((ref) {
-  return SettingsNotifier(ref);
+  return SettingsNotifier(ref.read(settingsRepositoryProvider));
 });
 
 final activeProviderIdProvider = Provider<String>((ref) {
@@ -28,22 +45,3 @@ final activeModelProvider = Provider<String>((ref) {
   final settings = ref.watch(settingsProvider);
   return settings.valueOrNull?.activeModel ?? '';
 });
-
-class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
-  final Ref _ref;
-
-  SettingsNotifier(this._ref) : super(const AsyncValue.loading()) {
-    _load();
-  }
-
-  Future<void> _load() async {
-    final repo = _ref.read(settingsRepositoryProvider);
-    state = AsyncValue.data(await repo.load());
-  }
-
-  Future<void> update(AppSettings settings) async {
-    final repo = _ref.read(settingsRepositoryProvider);
-    await repo.save(settings);
-    state = AsyncValue.data(settings);
-  }
-}

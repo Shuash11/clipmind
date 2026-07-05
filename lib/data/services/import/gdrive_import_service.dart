@@ -97,25 +97,27 @@ class GDriveImportService {
       downloadOptions: drive.DownloadOptions.fullMedia,
     );
 
-    if (response is drive.Media) {
-      final file = File(outputPath);
-      final sink = file.openWrite();
-      int totalDownloaded = 0;
-      final totalBytes = response.length ?? -1;
+    try {
+      if (response is drive.Media) {
+        final file = File(outputPath);
+        final sink = file.openWrite();
+        int totalDownloaded = 0;
+        final totalBytes = response.length ?? -1;
 
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        totalDownloaded += chunk.length;
-        if (totalBytes > 0) {
-          _progress?.add(totalDownloaded / totalBytes);
+        await for (final chunk in response.stream) {
+          sink.add(chunk);
+          totalDownloaded += chunk.length;
+          if (totalBytes > 0) {
+            _progress?.add(totalDownloaded / totalBytes);
+          }
         }
+        await sink.flush();
+        await sink.close();
       }
-      await sink.flush();
-      await sink.close();
+      return outputPath;
+    } finally {
+      client.close();
     }
-
-    client.close();
-    return outputPath;
   }
 
   void cancel() {

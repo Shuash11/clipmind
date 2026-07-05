@@ -1,11 +1,9 @@
 ﻿{
   "tasks": [
-    { "id": 1, "description": "Fix nvidia_nim_provider.dart line 241 - .get() missing type arg", "status": "done" },
-    { "id": 2, "description": "Fix ollama_provider.dart line 47 - .get() missing type arg", "status": "done" },
-    { "id": 3, "description": "Fix ollama_provider.dart line 81 - .post() missing type arg", "status": "done" },
-    { "id": 4, "description": "Fix ollama_provider.dart line 178 - .get() missing type arg", "status": "done" },
-    { "id": 5, "description": "Fix openai_provider.dart line 97 - .post() missing type arg", "status": "done" },
-    { "id": 6, "description": "Fix openai_provider.dart line 240 - .get() missing type arg", "status": "done" }
+    { "id": 1, "description": "Fix ffmpeg_service.dart — input existence check + output dir creation before Process.start", "status": "done" },
+    { "id": 2, "description": "Fix chat_repository.dart — move _controller.add() after DB write to avoid in-memory/DB divergence", "status": "done" },
+    { "id": 3, "description": "Fix stage_4_output_validation.dart — empty string/zero-value checks for params", "status": "done" },
+    { "id": 4, "description": "Fix stage_6_execution.dart — verify copy succeeded after File.copy()", "status": "done" }
   ],
   "completed": true
 }

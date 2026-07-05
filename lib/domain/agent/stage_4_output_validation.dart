@@ -84,6 +84,13 @@ class OutputValidator {
       for (final param in required) {
         if (!params.containsKey(param) || params[param] == null) {
           errors.add('Operation "$id": missing required param "$param" for $type');
+        } else {
+          final value = params[param];
+          if (value is String && value.trim().isEmpty) {
+            errors.add('Operation "$id": param "$param" value is empty');
+          } else if (value is num && num.parse(value.toString()) <= 0) {
+            errors.add('Operation "$id": param "$param" must be a positive number, got "$value"');
+          }
         }
       }
 

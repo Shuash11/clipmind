@@ -14,10 +14,10 @@ class ChatRepository {
 
   Future<void> add(ChatMessage message, {String? projectId}) async {
     _messages.add(message);
-    _controller.add(List.unmodifiable(_messages));
     if (projectId != null) {
       await _db.saveChatMessage(projectId, message);
     }
+    _controller.add(List.unmodifiable(_messages));
   }
 
   Future<void> getHistory(String projectId) async {

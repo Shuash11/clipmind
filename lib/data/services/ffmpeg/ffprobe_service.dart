@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'ffmpeg_binary_resolver.dart';
 
@@ -51,7 +52,8 @@ class FfprobeService {
 
       final data = jsonDecode(result.stdout as String) as Map<String, dynamic>;
       return _parseMetadata(data);
-    } catch (_) {
+    } catch (e, s) {
+      debugPrint('FFprobe error: $e\n$s');
       return null;
     }
   }
@@ -128,7 +130,8 @@ class FfprobeService {
       if (result.exitCode != 0) return null;
       if (!File(out).existsSync()) return null;
       return out;
-    } catch (_) {
+    } catch (e, s) {
+      debugPrint('FFprobe error: $e\n$s');
       return null;
     }
   }

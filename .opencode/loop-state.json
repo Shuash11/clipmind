@@ -1,11 +1,12 @@
 {
-  "loopName": "ci-warning-fix",
-  "iterations": 1,
-  "maxIterations": 3,
-  "noProgressCount": 0,
-  "criteria": [
-    "flutter analyze exits with code 0 (zero errors, zero warnings)",
-    "flutter test passes (113/113)",
-    "No production logic changed - only type annotations and unused imports"
-  ]
+    "criteria":  [
+                     "all 4 critical bugs fixed (project_file_store, ffprobe_service, youtube_import_service, llm_providers_dispose)",
+                     "all 4 high bugs fixed (ffmpeg_preflight, ffmpeg_error_field, preview_player_subscriptions, settings_providers_constructor)",
+                     "all 12 medium bugs fixed",
+                     "flutter analyze exits 0",
+                     "flutter test 113/113 pass"
+                 ],
+    "iteration":  1,
+    "maxIterations":  3,
+    "noProgressLimit":  2
 }

@@ -36,6 +36,13 @@ class ProviderRegistry {
     _cachedActive = null;
   }
 
+  void dispose() {
+    for (final provider in _providers.values) {
+      (provider as dynamic).dispose();
+    }
+    _providers.clear();
+  }
+
   Future<void> initializeAll() async {
     final settings = await _settingsRepository.load();
     final ollamaEndpoint = settings.ollamaEndpoint;
