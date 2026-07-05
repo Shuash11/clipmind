@@ -43,11 +43,19 @@ jobs:
       - name: Build Windows (release)
         run: flutter build windows --release
 
-      - name: Zip the build
-        run: |
-          cd build\windows\x64\runner\Release
-          Compress-Archive -Path * -DestinationPath "${{ github.workspace }}\clipmind-windows.zip"
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
         shell: pwsh
+
+      - name: Build installer
+        run: iscc installer\clipmind.iss
+        shell: pwsh
+
+      - name: Upload setup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClipMind-Setup
+          path: build\installer\ClipMind-Setup-*.exe
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -59,5 +67,8 @@ jobs:
             See [CHANGELOG](CHANGELOG.md) for details.
 
             ### Downloads
-            - **Windows** — clipmind-windows.zip (extract and run clipmind.exe)
-          files: clipmind-windows.zip
+            - **Windows Installer** — `ClipMind-Setup-${{ github.ref_name }}.exe` (run to install)
+            - **Portable ZIP** — `clipmind-windows.zip` (extract and run clipmind.exe)
+          files: |
+            build\installer\ClipMind-Setup-*.exe
+            build\windows\x64\runner\Release\clipmind.exe
