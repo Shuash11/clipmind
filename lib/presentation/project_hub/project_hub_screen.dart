@@ -1,16 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/state/project_providers.dart';
+import 'package:clipmind/state/update_providers.dart';
+import 'package:clipmind/presentation/settings/widgets/update_dialog.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'widgets/upload_dropzone.dart';
 import 'widgets/import_source_card.dart';
 import 'widgets/recent_project_card.dart';
 
-class ProjectHubScreen extends ConsumerWidget {
+class ProjectHubScreen extends ConsumerStatefulWidget {
   const ProjectHubScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProjectHubScreen> createState() => _ProjectHubScreenState();
+}
+
+class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _initUpdateCheck();
+  }
+
+  Future<void> _initUpdateCheck() async {
+    final info = await PackageInfo.fromPlatform();
+    ref.read(updateNotifierProvider.notifier).checkForUpdate(
+      currentVersion: '${info.version}+${info.buildNumber}',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<UpdateState>(updateNotifierProvider, (previous, next) {
+      if (next.status == UpdateStatus.available && next.release != null) {
+        final r = next.release!;
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!context.mounted) return;
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => UpdateDialog(release: r),
+          );
+        });
+      }
+    });
+
     final theme = Theme.of(context);
     final recentProjectsAsync = ref.watch(recentProjectsProvider);
 
@@ -18,6 +54,12 @@ class ProjectHubScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text('ClipMind', style: theme.textTheme.displaySmall),
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => context.go('/settings'),
+          ),
+        ],
       ),
       body: Column(
         children: [

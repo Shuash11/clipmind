@@ -61,6 +61,9 @@ dependencies:
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
   collection: ^1.19.1
+  # Update check
+  url_launcher: ^6.3.0
+  package_info_plus: ^8.0.0
 
 dev_dependencies:
   flutter_test:

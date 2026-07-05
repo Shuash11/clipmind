@@ -1,9 +1,8 @@
 ﻿{
   "tasks": [
-    { "id": 1, "description": "Fix ffmpeg_service.dart — input existence check + output dir creation before Process.start", "status": "done" },
-    { "id": 2, "description": "Fix chat_repository.dart — move _controller.add() after DB write to avoid in-memory/DB divergence", "status": "done" },
-    { "id": 3, "description": "Fix stage_4_output_validation.dart — empty string/zero-value checks for params", "status": "done" },
-    { "id": 4, "description": "Fix stage_6_execution.dart — verify copy succeeded after File.copy()", "status": "done" }
+    { "id": 1, "description": "Add url_launcher and package_info_plus to pubspec.yaml", "status": "done" },
+    { "id": 2, "description": "Create update_dialog.dart at lib/presentation/settings/widgets/", "status": "done" },
+    { "id": 3, "description": "Modify project_hub_screen.dart: imports, stateful widget, update check, settings button", "status": "done" }
   ],
   "completed": true
 }
