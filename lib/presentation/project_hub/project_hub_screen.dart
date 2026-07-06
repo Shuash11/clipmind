@@ -60,7 +60,7 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
       ref
           .read(updateNotifierProvider.notifier)
           .checkForUpdate(
-            currentVersion: '${info.version}+${info.buildNumber}',
+            currentVersion: info.version,
           );
     } catch (_) {
       // Update checks should never block the hub from loading.
