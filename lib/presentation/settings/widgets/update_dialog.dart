@@ -16,40 +16,9 @@ class UpdateDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.system_update, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
-          const Text('Update Available'),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Version ${release.tagName} is available',
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                release.releaseNotes,
-                style: theme.textTheme.bodySmall,
-              ),
-            ),
-          ],
-        ),
-      ),
+      title: const Text('New Version Available'),
+      content: Text('Version ${release.tagName} is ready to download.'),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -64,7 +33,7 @@ class UpdateDialog extends StatelessWidget {
             });
           },
           icon: const Icon(Icons.download),
-          label: const Text('Download'),
+          label: const Text('Update'),
         ),
       ],
     );
