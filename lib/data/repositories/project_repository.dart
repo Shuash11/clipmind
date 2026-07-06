@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:uuid/uuid.dart';
+import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/project.dart';
+import 'package:clipmind/data/models/track.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
 import 'package:clipmind/data/local/project_file_store.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,13 +14,22 @@ class ProjectRepository {
 
   ProjectRepository(this._db) : _fileStore = ProjectFileStore();
 
-  Future<Project> createNew(String name) async {
+  Future<Project> createNew(
+    String name, {
+    List<String> sourceMediaPaths = const [],
+    int durationMs = 0,
+    String? thumbnailPath,
+  }) async {
     final now = DateTime.now();
     final project = Project(
       id: _uuid.v4(),
       name: name,
       createdAt: now,
       updatedAt: now,
+      sourceMediaPaths: sourceMediaPaths,
+      tracks: _buildInitialTracks(sourceMediaPaths, durationMs),
+      durationMs: durationMs,
+      thumbnailPath: thumbnailPath,
     );
     await save(project);
     return project;
@@ -62,5 +73,39 @@ class ProjectRepository {
     final dir = Directory('${appDir.path}/projects');
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir;
+  }
+
+  List<Track> _buildInitialTracks(
+    List<String> sourceMediaPaths,
+    int durationMs,
+  ) {
+    if (sourceMediaPaths.isEmpty) return const [];
+
+    final trackId = _uuid.v4();
+    final sourcePath = sourceMediaPaths.first;
+    return [
+      Track(
+        id: trackId,
+        type: TrackType.video,
+        label: 'Video',
+        clips: [
+          Clip(
+            id: _uuid.v4(),
+            trackId: trackId,
+            sourcePath: sourcePath,
+            startMs: 0,
+            endMs: durationMs,
+            positionMs: 0,
+            label: _fileNameFromPath(sourcePath),
+          ),
+        ],
+      ),
+    ];
+  }
+
+  String _fileNameFromPath(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final name = normalized.split('/').last.trim();
+    return name.isEmpty ? 'Untitled video' : name;
   }
 }

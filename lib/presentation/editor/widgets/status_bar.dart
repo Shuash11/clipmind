@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 
 class StatusBar extends StatelessWidget {
@@ -6,46 +6,60 @@ class StatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: const BoxDecoration(
-        color: ClipMindColors.bgSurface,
+        color: ClipMindColors.bgBase,
         border: Border(top: BorderSide(color: ClipMindColors.borderColor)),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          const _StatusDot(color: ClipMindColors.statusReady),
-          const SizedBox(width: 6),
-          Text('Ready', style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
-          const SizedBox(width: 16),
-          const _StatusDot(color: ClipMindColors.statusReady),
-          const SizedBox(width: 6),
-          Text('Flash · connected', style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
-          const SizedBox(width: 16),
-          const _StatusDot(color: ClipMindColors.statusReady),
-          const SizedBox(width: 6),
-          Text('FFmpeg ready', style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
+          _StatusPill(color: ClipMindColors.statusReady, label: 'Ready'),
+          SizedBox(width: 8),
+          _StatusPill(
+            color: ClipMindColors.accentPrimary,
+            label: 'Flash connected',
+          ),
+          SizedBox(width: 8),
+          _StatusPill(color: ClipMindColors.statusReady, label: 'FFmpeg ready'),
         ],
       ),
     );
   }
 }
 
-class _StatusDot extends StatelessWidget {
+class _StatusPill extends StatelessWidget {
   final Color color;
-  const _StatusDot({required this.color});
+  final String label;
+
+  const _StatusPill({required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 6,
-      height: 6,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4),
+        color: ClipMindColors.bgElevated,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: ClipMindColors.borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );

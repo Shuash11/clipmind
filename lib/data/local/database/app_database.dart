@@ -50,14 +50,17 @@ class EditHistory extends Table {
 
 @DriftDatabase(tables: [Projects, ChatMessages, EditHistory])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
   int get schemaVersion => 1;
 
-  // ── Project DAOs ──────────────────────────────────────────────
+  // Project DAOs
 
-  Future<void> upsertProject(models.Project project, {String projectPath = ''}) async {
+  Future<void> upsertProject(
+    models.Project project, {
+    String projectPath = '',
+  }) async {
     await into(projects).insertOnConflictUpdate(
       ProjectRow(
         id: project.id,
@@ -73,16 +76,24 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<models.Project?> getProject(String id) async {
-    final row = await (select(projects)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final row = await (select(
+      projects,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
     if (row == null) return null;
     return _projectRowToModel(row);
   }
 
   Future<List<models.Project>> listRecentProjects({int limit = 20}) async {
-    final rows = await (select(projects)
-      ..orderBy([(t) => OrderingTerm(expression: t.updatedAt, mode: OrderingMode.desc)])
-      ..limit(limit)
-    ).get();
+    final rows =
+        await (select(projects)
+              ..orderBy([
+                (t) => OrderingTerm(
+                  expression: t.updatedAt,
+                  mode: OrderingMode.desc,
+                ),
+              ])
+              ..limit(limit))
+            .get();
     return rows.map(_projectRowToModel).toList();
   }
 
@@ -91,13 +102,18 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<String?> getProjectPath(String id) async {
-    final row = await (select(projects)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final row = await (select(
+      projects,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
     return row?.projectPath;
   }
 
-  // ── Chat Message DAOs ─────────────────────────────────────────
+  // Chat Message DAOs
 
-  Future<void> saveChatMessage(String projectId, chat_models.ChatMessage msg) async {
+  Future<void> saveChatMessage(
+    String projectId,
+    chat_models.ChatMessage msg,
+  ) async {
     await into(chatMessages).insertOnConflictUpdate(
       ChatMessageRow(
         id: msg.id,
@@ -110,21 +126,34 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  Future<List<chat_models.ChatMessage>> getChatMessages(String projectId) async {
-    final rows = await (select(chatMessages)
-      ..where((t) => t.projectId.equals(projectId))
-      ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.asc)])
-    ).get();
+  Future<List<chat_models.ChatMessage>> getChatMessages(
+    String projectId,
+  ) async {
+    final rows =
+        await (select(chatMessages)
+              ..where((t) => t.projectId.equals(projectId))
+              ..orderBy([
+                (t) => OrderingTerm(
+                  expression: t.timestamp,
+                  mode: OrderingMode.asc,
+                ),
+              ]))
+            .get();
     return rows.map(_chatMessageRowToModel).toList();
   }
 
   Future<void> deleteChatMessages(String projectId) async {
-    await (delete(chatMessages)..where((t) => t.projectId.equals(projectId))).go();
+    await (delete(
+      chatMessages,
+    )..where((t) => t.projectId.equals(projectId))).go();
   }
 
-  // ── Edit History DAOs ─────────────────────────────────────────
+  // Edit History DAOs
 
-  Future<void> saveEditOperation(String projectId, edit_models.EditOperation op) async {
+  Future<void> saveEditOperation(
+    String projectId,
+    edit_models.EditOperation op,
+  ) async {
     await into(editHistory).insertOnConflictUpdate(
       EditHistoryData(
         id: op.id,
@@ -136,19 +165,29 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  Future<List<edit_models.EditOperation>> getEditHistory(String projectId) async {
-    final rows = await (select(editHistory)
-      ..where((t) => t.projectId.equals(projectId))
-      ..orderBy([(t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.asc)])
-    ).get();
+  Future<List<edit_models.EditOperation>> getEditHistory(
+    String projectId,
+  ) async {
+    final rows =
+        await (select(editHistory)
+              ..where((t) => t.projectId.equals(projectId))
+              ..orderBy([
+                (t) => OrderingTerm(
+                  expression: t.createdAt,
+                  mode: OrderingMode.asc,
+                ),
+              ]))
+            .get();
     return rows.map(_editHistoryRowToModel).toList();
   }
 
   Future<void> deleteEditHistory(String projectId) async {
-    await (delete(editHistory)..where((t) => t.projectId.equals(projectId))).go();
+    await (delete(
+      editHistory,
+    )..where((t) => t.projectId.equals(projectId))).go();
   }
 
-  // ── Conversion helpers ────────────────────────────────────────
+  // Conversion helpers
 
   models.Project _projectRowToModel(ProjectRow row) {
     return models.Project(
@@ -170,14 +209,18 @@ class AppDatabase extends _$AppDatabase {
       role: chat_models.ChatRole.values.firstWhere((r) => r.name == row.role),
       content: row.content,
       timestamp: DateTime.fromMillisecondsSinceEpoch(row.timestamp),
-      status: chat_models.MessageStatus.values.firstWhere((s) => s.name == row.status),
+      status: chat_models.MessageStatus.values.firstWhere(
+        (s) => s.name == row.status,
+      ),
     );
   }
 
   edit_models.EditOperation _editHistoryRowToModel(EditHistoryData row) {
     return edit_models.EditOperation(
       id: row.id,
-      type: edit_models.EditOperationType.values.firstWhere((t) => t.name == row.operationType),
+      type: edit_models.EditOperationType.values.firstWhere(
+        (t) => t.name == row.operationType,
+      ),
       params: row.params.isNotEmpty
           ? Map<String, dynamic>.from(jsonDecode(row.params))
           : {},

@@ -41,12 +41,16 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _isLoading) return;
 
-    ref.read(chatMessagesProvider.notifier).add(ChatMessage(
-      id: _uuid.v4(),
-      role: ChatRole.user,
-      content: trimmed,
-      timestamp: DateTime.now(),
-    ));
+    ref
+        .read(chatMessagesProvider.notifier)
+        .add(
+          ChatMessage(
+            id: _uuid.v4(),
+            role: ChatRole.user,
+            content: trimmed,
+            timestamp: DateTime.now(),
+          ),
+        );
 
     _controller.clear();
     setState(() => _isLoading = true);
@@ -61,35 +65,53 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
       final provider = await registry.getActiveProvider();
 
       if (provider == null) {
-        ref.read(chatMessagesProvider.notifier).add(ChatMessage(
-          id: _uuid.v4(),
-          role: ChatRole.agent,
-          content: 'No LLM provider configured. Add an API key in Settings.',
-          timestamp: DateTime.now(),
-          status: MessageStatus.error,
-        ));
+        ref
+            .read(chatMessagesProvider.notifier)
+            .add(
+              ChatMessage(
+                id: _uuid.v4(),
+                role: ChatRole.agent,
+                content:
+                    'No LLM provider configured. Add an API key in Settings.',
+                timestamp: DateTime.now(),
+                status: MessageStatus.error,
+              ),
+            );
         return;
       }
 
       final pipeline = ref.read(nl2vecPipelineProvider);
-      final result = await pipeline.submitCommand(trimmed, snapshot, provider: provider);
+      final result = await pipeline.submitCommand(
+        trimmed,
+        snapshot,
+        provider: provider,
+      );
 
       final isError = result.startsWith('Error:');
-      ref.read(chatMessagesProvider.notifier).add(ChatMessage(
-        id: _uuid.v4(),
-        role: ChatRole.agent,
-        content: isError ? result.replaceFirst('Error: ', '') : result,
-        timestamp: DateTime.now(),
-        status: isError ? MessageStatus.error : MessageStatus.applied,
-      ));
+      ref
+          .read(chatMessagesProvider.notifier)
+          .add(
+            ChatMessage(
+              id: _uuid.v4(),
+              role: ChatRole.agent,
+              content: isError ? result.replaceFirst('Error: ', '') : result,
+              timestamp: DateTime.now(),
+              status: isError ? MessageStatus.error : MessageStatus.applied,
+            ),
+          );
     } catch (e) {
-      ref.read(chatMessagesProvider.notifier).add(ChatMessage(
-        id: _uuid.v4(),
-        role: ChatRole.agent,
-        content: 'Unexpected error: $e',
-        timestamp: DateTime.now(),
-        status: MessageStatus.error,
-      ));
+      ref
+          .read(chatMessagesProvider.notifier)
+          .add(
+            ChatMessage(
+              id: _uuid.v4(),
+              role: ChatRole.agent,
+              content:
+                  'Something went wrong while processing that command. Check provider settings and try again.',
+              timestamp: DateTime.now(),
+              status: MessageStatus.error,
+            ),
+          );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -99,14 +121,16 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
     final clipSnapshots = <ClipSnapshot>[];
     for (final track in project.tracks) {
       for (final clip in track.clips) {
-        clipSnapshots.add(ClipSnapshot(
-          id: clip.id,
-          trackId: clip.trackId,
-          label: clip.label ?? clip.id,
-          startMs: clip.startMs,
-          endMs: clip.endMs,
-          positionMs: clip.positionMs,
-        ));
+        clipSnapshots.add(
+          ClipSnapshot(
+            id: clip.id,
+            trackId: clip.trackId,
+            label: clip.label ?? clip.id,
+            startMs: clip.startMs,
+            endMs: clip.endMs,
+            positionMs: clip.positionMs,
+          ),
+        );
       }
     }
     return ProjectSnapshot(
@@ -148,11 +172,17 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: ClipMindColors.borderColor)),
+              border: Border(
+                bottom: BorderSide(color: ClipMindColors.borderColor),
+              ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.auto_awesome, size: 16, color: ClipMindColors.accentPrimary),
+                const Icon(
+                  Icons.auto_awesome,
+                  size: 16,
+                  color: ClipMindColors.accentPrimary,
+                ),
                 const SizedBox(width: 8),
                 Text('AI Assistant', style: theme.textTheme.titleMedium),
                 const Spacer(),
@@ -168,10 +198,12 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
                 spacing: 6,
                 runSpacing: 6,
                 children: AgentChatPanel.suggestedPrompts
-                    .map((String p) => SuggestedPromptChip(
-                      text: p,
-                      onPressed: _isLoading ? null : () => _submitPrompt(p),
-                    ))
+                    .map(
+                      (String p) => SuggestedPromptChip(
+                        text: p,
+                        onPressed: _isLoading ? null : () => _submitPrompt(p),
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -189,7 +221,9 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: ClipMindColors.borderColor)),
+              border: Border(
+                top: BorderSide(color: ClipMindColors.borderColor),
+              ),
             ),
             child: Row(
               children: [
@@ -198,17 +232,22 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
                     controller: _controller,
                     enabled: !_isLoading,
                     decoration: InputDecoration(
-                      hintText: _isLoading ? 'Processing...' : 'Type a command...',
+                      hintText: _isLoading
+                          ? 'Processing...'
+                          : 'Type a command...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10,
+                        horizontal: 12,
+                        vertical: 10,
                       ),
                     ),
                     maxLines: 1,
                     style: theme.textTheme.bodyLarge,
-                    onSubmitted: _isLoading ? null : (value) => _submitPrompt(value),
+                    onSubmitted: _isLoading
+                        ? null
+                        : (value) => _submitPrompt(value),
                     textInputAction: TextInputAction.send,
                   ),
                 ),
@@ -236,7 +275,11 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
                           ),
                         )
                       : IconButton(
-                          icon: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                          icon: const Icon(
+                            Icons.send_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
                           onPressed: () => _submitPrompt(_controller.text),
                         ),
                 ),

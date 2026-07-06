@@ -1,0 +1,12 @@
+﻿{
+  "criteria": [
+    "Project hub has a modern responsive layout with polished import, recent, empty, loading, and error states",
+    "Editor chrome uses consistent modern styling and all visible controls remain wired",
+    "Newly imported local media creates project-backed timeline clip data instead of only demo clip UI",
+    "User-facing errors avoid raw exception leaks and mojibake is removed from touched UI",
+    "flutter analyze --no-pub and flutter test --no-pub complete successfully"
+  ],
+  "maxIterations": 3,
+  "noProgressLimit": 2,
+  "escalationMessage": "Unable to meet ClipMind modern UI criteria after {iterations} iterations. Last attempt: {summary}"
+}

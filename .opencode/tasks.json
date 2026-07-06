@@ -1,8 +1,30 @@
-{
+﻿{
   "tasks": [
-    { "id": 1, "description": "Fix upload_dropzone.dart - add callbacks (onBrowse, onDragDone, onDragEntered, onDragExited, isDragActive) and wire them", "status": "pending" },
-    { "id": 2, "description": "Fix import_source_card.dart - add onTap callback", "status": "pending" },
-    { "id": 3, "description": "Fix project_hub_screen.dart - wire all buttons with FilePicker, import services, navigation", "status": "pending" }
+    {
+      "id": 1,
+      "description": "Refresh loop criteria for the modern UI pass",
+      "status": "in_progress"
+    },
+    {
+      "id": 2,
+      "description": "Modernize the hub, import cards, recent cards, and URL import bar",
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "description": "Modernize editor chrome and replace demo-looking timeline data with project clips",
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "description": "Fix user-facing polish bugs found during UI work",
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "description": "Run Flutter analyzer/tests and update loop state",
+      "status": "pending"
+    }
   ],
   "completed": false
 }
