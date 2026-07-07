@@ -375,6 +375,18 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
             builder: (_) => UpdateDialog(release: r),
           );
         });
+      } else if (next.status == UpdateStatus.upToDate &&
+          previous?.status == UpdateStatus.checking) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("You're up to date!"),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        });
       }
     });
 
