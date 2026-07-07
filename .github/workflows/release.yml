@@ -43,12 +43,20 @@ jobs:
       - name: Build Windows (release)
         run: flutter build windows --release
 
+      - name: Package portable zip
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart("v")
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "build\clipmind-windows-${{ github.ref_name }}.zip" -CompressionLevel Optimal
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
         shell: pwsh
 
       - name: Build installer
-        run: iscc installer\clipmind.iss
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart("v")
+          (Get-Content "installer\clipmind.iss") -replace '#define MyAppVersion ".+"', "#define MyAppVersion `"$ver`"" | Set-Content "installer\clipmind.iss"
+          iscc installer\clipmind.iss
         shell: pwsh
 
       - name: Upload setup artifact
@@ -67,8 +75,8 @@ jobs:
             See [CHANGELOG](CHANGELOG.md) for details.
 
             ### Downloads
-            - **Windows Installer** — `ClipMind-Setup-${{ github.ref_name }}.exe` (run to install)
-            - **Portable ZIP** — `clipmind-windows.zip` (extract and run clipmind.exe)
+            - **Windows Installer** — `ClipMind-Setup-${{ github.ref_name }}.exe` (recommended)
+            - **Portable ZIP** — `clipmind-windows-${{ github.ref_name }}.zip` (extract and run)
           files: |
             build\installer\ClipMind-Setup-*.exe
-            build\windows\x64\runner\Release\clipmind.exe
+            build\clipmind-windows-*.zip

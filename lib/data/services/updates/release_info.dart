@@ -1,19 +1,21 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+class ReleaseInfo {
+  final String tagName;
+  final int major;
+  final int minor;
+  final int patch;
+  final String releaseNotes;
+  final String downloadUrl;
+  final String assetType;
+  final DateTime publishedAt;
 
-part 'release_info.freezed.dart';
-part 'release_info.g.dart';
-
-@freezed
-class ReleaseInfo with _$ReleaseInfo {
-  const factory ReleaseInfo({
-    required String tagName,
-    required int major,
-    required int minor,
-    required int patch,
-    required String releaseNotes,
-    required String downloadUrl,
-    required DateTime publishedAt,
-  }) = _ReleaseInfo;
-
-  factory ReleaseInfo.fromJson(Map<String, dynamic> json) => _$ReleaseInfoFromJson(json);
+  const ReleaseInfo({
+    required this.tagName,
+    required this.major,
+    required this.minor,
+    required this.patch,
+    required this.releaseNotes,
+    required this.downloadUrl,
+    required this.assetType,
+    required this.publishedAt,
+  });
 }

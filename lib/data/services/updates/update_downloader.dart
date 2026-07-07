@@ -4,79 +4,69 @@ import 'package:http/io_client.dart';
 
 class UpdateDownloader {
   final String downloadUrl;
+  final String assetType;
   final void Function(double? progress, String status)? onProgress;
 
-  UpdateDownloader({required this.downloadUrl, this.onProgress});
+  UpdateDownloader({
+    required this.downloadUrl,
+    this.assetType = 'zip',
+    this.onProgress,
+  });
 
   Future<void> downloadAndInstall() async {
     if (downloadUrl.isEmpty) {
-      throw Exception('Download URL is empty - no release asset found');
+      throw Exception('Download URL is empty');
     }
 
+    final isInstaller = assetType == 'installer' || downloadUrl.endsWith('.exe');
     onProgress?.call(0, 'Starting download...');
 
-    final tempDir = await Directory.systemTemp.createTemp('clipmind_update_');
-    final zipPath = '${tempDir.path}\\update.zip';
+    final tempDir = await Directory.systemTemp.createTemp('clipmind_update');
+    final fileName = isInstaller ? 'setup.exe' : 'update.zip';
+    final filePath = '${tempDir.path}\\$fileName';
 
     try {
-      await _downloadFile(downloadUrl, zipPath);
+      await _downloadFile(downloadUrl, filePath, isInstaller);
 
-      onProgress?.call(0.7, 'Extracting...');
-
-      await _extractZip(zipPath, tempDir.path);
-
-      final extractedDir = Directory('${tempDir.path}\\new');
-      if (!extractedDir.existsSync() || extractedDir.listSync().isEmpty) {
-        throw Exception('Extraction produced no files');
+      if (isInstaller) {
+        await _runInstaller(filePath);
+      } else {
+        await _extractAndInstallZip(filePath, tempDir.path);
       }
-
-      onProgress?.call(0.85, 'Installing...');
-
-      final appDir = File(Platform.resolvedExecutable).parent.path;
-      await _runUpdate(appDir, tempDir.path);
     } catch (e) {
-      try {
-        await tempDir.delete(recursive: true);
-      } catch (_) {}
+      try { await tempDir.delete(recursive: true); } catch (_) {}
       rethrow;
     }
   }
 
-  Future<void> _downloadFile(String url, String destPath) async {
-    final innerClient = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 30);
+  Future<void> _downloadFile(String url, String destPath, bool isInstaller) async {
+    final innerClient = HttpClient()..connectionTimeout = const Duration(seconds: 30);
     final client = IOClient(innerClient);
     try {
       final request = http.Request('GET', Uri.parse(url));
-      final response = await client
-          .send(request)
-          .timeout(const Duration(minutes: 5));
+      final response = await client.send(request).timeout(const Duration(minutes: 5));
 
       if (response.statusCode != 200) {
-        throw Exception(
-            'Download failed (HTTP ${response.statusCode})');
+        throw Exception('Download failed (HTTP ${response.statusCode})');
       }
 
       final total = response.contentLength;
       var received = 0;
-      final file = File(destPath);
-      final sink = file.openWrite();
+      final sink = File(destPath).openWrite();
 
       try {
         await for (final chunk in response.stream) {
           received += chunk.length;
           sink.add(chunk);
-          if (total != null && total > 0) {
-            onProgress?.call(
-              (received / total) * 0.7,
-              'Downloading (${_formatSize(received)} / ${_formatSize(total)})',
-            );
-          } else {
-            onProgress?.call(
-              null,
-              'Downloading (${_formatSize(received)}...)',
-            );
-          }
+          final pct = total != null && total > 0
+              ? (received / total) * (isInstaller ? 0.9 : 0.7)
+              : null;
+          onProgress?.call(
+            pct,
+            total != null && total > 0
+                ? 'Downloading (${_formatSize(received)} / ${_formatSize(total)})'
+                : 'Downloading (${_formatSize(received)}...)',
+          );
         }
       } finally {
         await sink.close();
@@ -85,15 +75,6 @@ class UpdateDownloader {
       final written = File(destPath);
       if (!written.existsSync() || written.lengthSync() == 0) {
         throw Exception('Downloaded file is empty');
-      }
-
-      final header = await written.openRead(0, 4).first;
-      if (header.length < 4 ||
-          header[0] != 0x50 ||
-          header[1] != 0x4B ||
-          header[2] != 0x03 ||
-          header[3] != 0x04) {
-        throw Exception('Downloaded file is not a valid ZIP archive');
       }
     } finally {
       client.close();
@@ -106,107 +87,44 @@ class UpdateDownloader {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  Future<void> _extractZip(String zipPath, String destPath) async {
+  Future<void> _extractAndInstallZip(String zipPath, String tempPath) async {
+    onProgress?.call(0.7, 'Extracting...');
     final result = await Process.run(
       'powershell',
-      [
-        '-NoProfile',
-        '-Command',
-        'Expand-Archive',
-        '-Path',
-        zipPath,
-        '-DestinationPath',
-        '$destPath\\new',
-        '-Force',
-      ],
+      ['-NoProfile', '-Command', 'Expand-Archive', '-Path', zipPath, '-DestinationPath', r'$tempPath\new', '-Force'],
     );
     if (result.exitCode != 0) {
-      throw Exception('Extraction failed: ${result.stderr}');
+      throw Exception('Extraction failed: \${result.stderr}');
     }
-  }
-
-  Future<void> _runUpdate(String appDir, String tempPath) async {
-    const script = r'''
-param($appDir, $tempPath)
-
-$exePath = Join-Path $appDir "clipmind.exe"
-$logPath = Join-Path $env:TEMP "clipmind_update.log"
-
-# Let parent process fully release file handles
-Start-Sleep -Seconds 3
-
-Add-Content $logPath "Update script started at $(Get-Date)"
-
-# Wait for clipmind to exit
-$timeout = 30
-$elapsed = 0
-while ($elapsed -lt $timeout) {
-  $procs = Get-Process -Name "clipmind" -ErrorAction SilentlyContinue
-  if ($procs.Count -eq 0) { break }
-  Start-Sleep -Seconds 1
-  $elapsed++
-}
-
-if ($elapsed -ge $timeout) {
-  Add-Content $logPath "ERROR: Timed out waiting for clipmind to exit"
-  exit 1
-}
-
-# Copy files with retry (ErrorAction Stop makes errors catchable)
-$maxRetries = 10
-for ($i = 0; $i -lt $maxRetries; $i++) {
-  try {
-    Copy-Item "$tempPath\new\*" $appDir -Recurse -Force -ErrorAction Stop
-    Add-Content $logPath "Copied files successfully"
-    break
-  } catch {
-    if ($i -eq $maxRetries - 1) {
-      Add-Content $logPath "ERROR: Copy failed after $maxRetries retries: $_"
-      exit 1
+    final extractedDir = Directory(r'$tempPath\new');
+    if (!extractedDir.existsSync() || extractedDir.listSync().isEmpty) {
+      throw Exception('Extraction produced no files');
     }
-    Start-Sleep -Seconds 2
-  }
-}
+    onProgress?.call(0.85, 'Installing...');
+    final appDir = File(Platform.resolvedExecutable).parent.path;
+    final tempEscaped = tempPath.replaceAll(r'\', '\\\\');
+    final appEscaped = appDir.replaceAll(r'\', '\\\\');
 
-# Cleanup temp
-Remove-Item $tempPath -Recurse -Force -ErrorAction SilentlyContinue
+    const script = r"powershell -NoProfile -Command 'Start-Sleep -Seconds 3; \$p = Get-Process clipmind -ErrorAction SilentlyContinue; if (\$p) { Stop-Process -Name clipmind -Force }; Copy-Item ''{0}\new\*'' ''{1}'' -Recurse -Force -ErrorAction Stop; Start-Process ''{1}\clipmind.exe'' '";
+    final scriptFilled = script.replaceAll('{0}', tempEscaped).replaceAll('{1}', appEscaped);
 
-# Restart
-try {
-  Start-Process $exePath
-  Add-Content $logPath "Started new clipmind.exe"
-} catch {
-  Add-Content $logPath "ERROR: Failed to start clipmind.exe: $_"
-  exit 1
-}
-
-# Self-delete
-Start-Sleep -Seconds 2
-Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue
-Remove-Item $logPath -Force -ErrorAction SilentlyContinue
-''';
-
-    final scriptPath = '$appDir\\update.ps1';
-    await File(scriptPath).writeAsString(script);
-
-    onProgress?.call(1.0, 'Restarting...');
-
+    const scriptPath = r'$appDir\update.ps1';
+    await File(scriptPath).writeAsString(scriptFilled);
     await Process.start(
       'powershell',
-      [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        scriptPath,
-        '-appDir',
-        appDir,
-        '-tempPath',
-        tempPath,
-      ],
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath],
       mode: ProcessStartMode.detached,
     );
+    exit(0);
+  }
 
+  Future<void> _runInstaller(String exePath) async {
+    onProgress?.call(0.9, 'Running installer...');
+    await Process.start(
+      exePath,
+      ['/VERYSILENT', '/NORESTART', '/CLOSEAPPLICATIONS'],
+      mode: ProcessStartMode.detached,
+    );
     exit(0);
   }
 }

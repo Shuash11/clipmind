@@ -2,7 +2,8 @@
 ; Produces a single ClipMind-Setup.exe with all dependencies
 
 #define MyAppName "ClipMind"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.0+1"
+; NOTE: CI replaces this line with the actual version before building
 #define MyAppPublisher "ClipMind"
 #define MyAppURL "https://github.com/Shuash11/clipmind"
 #define MyAppExeName "clipmind.exe"

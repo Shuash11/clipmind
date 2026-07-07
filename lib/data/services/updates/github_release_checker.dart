@@ -39,12 +39,26 @@ class GithubReleaseChecker {
 
       final assets = json['assets'] as List<dynamic>? ?? [];
       String downloadUrl = '';
+      String assetType = '';
       if (assets.isNotEmpty) {
         final typed = assets.cast<Map<String, dynamic>>();
-        final zip = typed.where(
+        final setups = typed.where(
+          (a) => (a['name'] as String? ?? '').endsWith('.exe'),
+        );
+        final zips = typed.where(
           (a) => (a['name'] as String? ?? '').endsWith('.zip'),
         );
-        final asset = zip.isNotEmpty ? zip.first : typed.first;
+        Map<String, dynamic> asset;
+        if (setups.isNotEmpty) {
+          asset = setups.first;
+          assetType = 'installer';
+        } else if (zips.isNotEmpty) {
+          asset = zips.first;
+          assetType = 'zip';
+        } else {
+          asset = typed.first;
+          assetType = 'unknown';
+        }
         downloadUrl = asset['browser_download_url'] as String? ?? '';
         if (downloadUrl.isEmpty) {
           debugPrint('GithubReleaseChecker: asset has no browser_download_url');
@@ -58,6 +72,7 @@ class GithubReleaseChecker {
         patch: parsed.$3,
         releaseNotes: json['body'] as String? ?? '',
         downloadUrl: downloadUrl,
+        assetType: assetType,
         publishedAt: DateTime.tryParse(
               json['published_at'] as String? ?? '',
             ) ??

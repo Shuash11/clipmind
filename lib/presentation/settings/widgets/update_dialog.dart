@@ -126,6 +126,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     try {
       final downloader = UpdateDownloader(
         downloadUrl: widget.release.downloadUrl,
+        assetType: widget.release.assetType,
         onProgress: (progress, status) {
           if (mounted) {
             setState(() {
