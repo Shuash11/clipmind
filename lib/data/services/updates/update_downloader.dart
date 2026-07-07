@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 
 class UpdateDownloader {
   final String downloadUrl;
-  final void Function(double progress, String status)? onProgress;
+  final void Function(double? progress, String status)? onProgress;
 
   UpdateDownloader({required this.downloadUrl, this.onProgress});
 
@@ -17,20 +18,34 @@ class UpdateDownloader {
     final tempDir = await Directory.systemTemp.createTemp('clipmind_update_');
     final zipPath = '${tempDir.path}\\update.zip';
 
-    await _downloadFile(downloadUrl, zipPath);
+    try {
+      await _downloadFile(downloadUrl, zipPath);
 
-    onProgress?.call(0.7, 'Extracting...');
+      onProgress?.call(0.7, 'Extracting...');
 
-    await _extractZip(zipPath, tempDir.path);
+      await _extractZip(zipPath, tempDir.path);
 
-    onProgress?.call(0.85, 'Installing...');
+      final extractedDir = Directory('${tempDir.path}\\new');
+      if (!extractedDir.existsSync() || extractedDir.listSync().isEmpty) {
+        throw Exception('Extraction produced no files');
+      }
 
-    final appDir = File(Platform.resolvedExecutable).parent.path;
-    await _runUpdate(appDir, tempDir.path);
+      onProgress?.call(0.85, 'Installing...');
+
+      final appDir = File(Platform.resolvedExecutable).parent.path;
+      await _runUpdate(appDir, tempDir.path);
+    } catch (e) {
+      try {
+        await tempDir.delete(recursive: true);
+      } catch (_) {}
+      rethrow;
+    }
   }
 
   Future<void> _downloadFile(String url, String destPath) async {
-    final client = http.Client();
+    final innerClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 30);
+    final client = IOClient(innerClient);
     try {
       final request = http.Request('GET', Uri.parse(url));
       final response = await client
@@ -42,27 +57,53 @@ class UpdateDownloader {
             'Download failed (HTTP ${response.statusCode})');
       }
 
-      final total = response.contentLength ?? 0;
+      final total = response.contentLength;
       var received = 0;
       final file = File(destPath);
       final sink = file.openWrite();
 
-      await for (final chunk in response.stream) {
-        received += chunk.length;
-        sink.add(chunk);
-        if (total > 0) {
-          onProgress?.call((received / total) * 0.7, 'Downloading...');
+      try {
+        await for (final chunk in response.stream) {
+          received += chunk.length;
+          sink.add(chunk);
+          if (total != null && total > 0) {
+            onProgress?.call(
+              (received / total) * 0.7,
+              'Downloading (${_formatSize(received)} / ${_formatSize(total)})',
+            );
+          } else {
+            onProgress?.call(
+              null,
+              'Downloading (${_formatSize(received)}...)',
+            );
+          }
         }
+      } finally {
+        await sink.close();
       }
-      await sink.close();
 
       final written = File(destPath);
       if (!written.existsSync() || written.lengthSync() == 0) {
         throw Exception('Downloaded file is empty');
       }
+
+      final header = await written.openRead(0, 4).first;
+      if (header.length < 4 ||
+          header[0] != 0x50 ||
+          header[1] != 0x4B ||
+          header[2] != 0x03 ||
+          header[3] != 0x04) {
+        throw Exception('Downloaded file is not a valid ZIP archive');
+      }
     } finally {
       client.close();
     }
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   Future<void> _extractZip(String zipPath, String destPath) async {
@@ -89,7 +130,10 @@ class UpdateDownloader {
 param($appDir, $tempPath)
 
 $exePath = Join-Path $appDir "clipmind.exe"
-$logPath = Join-Path $appDir "update.log"
+$logPath = Join-Path $env:TEMP "clipmind_update.log"
+
+# Let parent process fully release file handles
+Start-Sleep -Seconds 3
 
 Add-Content $logPath "Update script started at $(Get-Date)"
 
@@ -108,13 +152,11 @@ if ($elapsed -ge $timeout) {
   exit 1
 }
 
-Start-Sleep -Seconds 1
-
-# Copy files with retry
+# Copy files with retry (ErrorAction Stop makes errors catchable)
 $maxRetries = 10
 for ($i = 0; $i -lt $maxRetries; $i++) {
   try {
-    Copy-Item "$tempPath\new\*" $appDir -Recurse -Force
+    Copy-Item "$tempPath\new\*" $appDir -Recurse -Force -ErrorAction Stop
     Add-Content $logPath "Copied files successfully"
     break
   } catch {
@@ -130,8 +172,13 @@ for ($i = 0; $i -lt $maxRetries; $i++) {
 Remove-Item $tempPath -Recurse -Force -ErrorAction SilentlyContinue
 
 # Restart
-Start-Process $exePath
-Add-Content $logPath "Started new clipmind.exe"
+try {
+  Start-Process $exePath
+  Add-Content $logPath "Started new clipmind.exe"
+} catch {
+  Add-Content $logPath "ERROR: Failed to start clipmind.exe: $_"
+  exit 1
+}
 
 # Self-delete
 Start-Sleep -Seconds 2
@@ -143,6 +190,7 @@ Remove-Item $logPath -Force -ErrorAction SilentlyContinue
     await File(scriptPath).writeAsString(script);
 
     onProgress?.call(1.0, 'Restarting...');
+
     await Process.start(
       'powershell',
       [
@@ -156,9 +204,9 @@ Remove-Item $logPath -Force -ErrorAction SilentlyContinue
         '-tempPath',
         tempPath,
       ],
-      runInShell: true,
       mode: ProcessStartMode.detached,
     );
-    Future.delayed(const Duration(milliseconds: 500), () => exit(0));
+
+    exit(0);
   }
 }

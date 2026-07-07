@@ -21,7 +21,7 @@ class UpdateDialog extends StatefulWidget {
 
 class _UpdateDialogState extends State<UpdateDialog> {
   bool _isDownloading = false;
-  double _progress = 0;
+  double? _progress;
   String _status = '';
   String? _error;
 
@@ -63,7 +63,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LinearProgressIndicator(value: _progress > 0 ? _progress : null),
+            LinearProgressIndicator(value: _progress),
             const SizedBox(height: 12),
             Text(_status, style: Theme.of(context).textTheme.bodySmall),
           ],
@@ -75,19 +75,51 @@ class _UpdateDialogState extends State<UpdateDialog> {
   Widget _buildErrorDialog() {
     return AlertDialog(
       title: const Text('Update Failed'),
-      content: Text(_error!),
+      content: Text(_userFriendlyError(_error!)),
       actions: [
-        FilledButton(
+        TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
+        ),
+        FilledButton.icon(
+          onPressed: () {
+            setState(() {
+              _error = null;
+              _isDownloading = false;
+              _progress = 0;
+              _status = '';
+            });
+          },
+          icon: const Icon(Icons.refresh),
+          label: const Text('Retry'),
         ),
       ],
     );
   }
 
+  String _userFriendlyError(String error) {
+    if (error.contains('HTTP 404') || error.contains('HTTP 403')) {
+      return 'Could not find the update file. Please try again later or download from the website.';
+    }
+    if (error.contains('HTTP')) {
+      return 'Download failed due to a network error. Please check your connection and try again.';
+    }
+    if (error.contains('timeout') || error.contains('Timeout')) {
+      return 'The download timed out. Please check your internet connection and try again.';
+    }
+    if (error.contains('Extraction failed')) {
+      return 'The downloaded file was corrupted. Please try downloading again.';
+    }
+    if (error.contains('ZIP') || error.contains('empty') || error.contains('Copy failed')) {
+      return 'The update data is corrupted. Please try again or download from the website.';
+    }
+    return 'An unexpected error occurred. Please try again later.';
+  }
+
   Future<void> _startUpdate() async {
     setState(() {
       _isDownloading = true;
+      _progress = 0;
       _status = 'Starting...';
     });
 

@@ -1,30 +1,11 @@
 ﻿{
   "tasks": [
-    {
-      "id": 1,
-      "description": "Refresh loop criteria for the modern UI pass",
-      "status": "in_progress"
-    },
-    {
-      "id": 2,
-      "description": "Modernize the hub, import cards, recent cards, and URL import bar",
-      "status": "pending"
-    },
-    {
-      "id": 3,
-      "description": "Modernize editor chrome and replace demo-looking timeline data with project clips",
-      "status": "pending"
-    },
-    {
-      "id": 4,
-      "description": "Fix user-facing polish bugs found during UI work",
-      "status": "pending"
-    },
-    {
-      "id": 5,
-      "description": "Run Flutter analyzer/tests and update loop state",
-      "status": "pending"
-    }
+    { "id": 1, "description": "Read update_downloader.dart and analyze for bugs", "status": "done" },
+    { "id": 2, "description": "Read update_dialog.dart and analyze for bugs", "status": "done" },
+    { "id": 3, "description": "Check if Dart http Client.send() follows redirects", "status": "done" },
+    { "id": 4, "description": "Write diagnostic test at test/diagnostic/download_test.dart", "status": "done" },
+    { "id": 5, "description": "Run diagnostic test and report output", "status": "done" },
+    { "id": 6, "description": "Deliver structured bug report", "status": "done" }
   ],
-  "completed": false
+  "completed": true
 }
