@@ -71,7 +71,9 @@ class GithubReleaseChecker {
   }
 
   (int, int, int)? _parseTag(String tag) {
-    final clean = tag.startsWith('v') ? tag.substring(1) : tag;
+    var clean = tag.startsWith('v') ? tag.substring(1) : tag;
+    final plusIdx = clean.indexOf('+');
+    if (plusIdx >= 0) clean = clean.substring(0, plusIdx);
     final parts = clean.split('.');
     if (parts.length != 3) return null;
     final major = int.tryParse(parts[0]);
