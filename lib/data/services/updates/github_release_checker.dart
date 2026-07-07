@@ -21,13 +21,23 @@ class GithubReleaseChecker {
       final parsed = _parseTag(tagName);
       if (parsed == null) return null;
 
+      final assets = json['assets'] as List<dynamic>? ?? [];
+      String downloadUrl = '';
+      if (assets.isNotEmpty) {
+        final zip = assets.cast<Map<String, dynamic>>().where(
+          (a) => (a['name'] as String? ?? '').endsWith('.zip'),
+        );
+        final asset = zip.isNotEmpty ? zip.first : assets.first as Map<String, dynamic>;
+        downloadUrl = asset['browser_download_url'] as String? ?? '';
+      }
+
       return ReleaseInfo(
         tagName: tagName,
         major: parsed.$1,
         minor: parsed.$2,
         patch: parsed.$3,
         releaseNotes: json['body'] as String? ?? '',
-        downloadUrl: json['html_url'] as String? ?? '',
+        downloadUrl: downloadUrl,
         publishedAt: DateTime.tryParse(json['published_at'] as String? ?? '') ?? DateTime.now(),
       );
     } catch (e) {
