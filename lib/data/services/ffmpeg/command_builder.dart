@@ -3,10 +3,10 @@ class CommandBuilder {
     return ['-i', input, '-ss', start, '-to', end, '-c', 'copy'];
   }
 
-  static List<String> cut(
-      String input, String removeStart, String removeEnd) {
+  static List<String> cut(String input, String removeStart, String removeEnd) {
     return [
-      '-i', input,
+      '-i',
+      input,
       '-vf',
       "select='not(between(t,$removeStart,$removeEnd))',"
           'setpts=N/FRAME_RATE/TB',
@@ -26,8 +26,10 @@ class CommandBuilder {
     args.addAll([
       '-filter_complex',
       '${streamSpecs}concat=n=$n:v=1:a=1[outv][outa]',
-      '-map', '[outv]',
-      '-map', '[outa]',
+      '-map',
+      '[outv]',
+      '-map',
+      '[outa]',
     ]);
     return args;
   }
@@ -47,11 +49,14 @@ class CommandBuilder {
     final audioFilterStr = audioFilters.join(',');
 
     return [
-      '-i', input,
+      '-i',
+      input,
       '-filter_complex',
       '[0:v]setpts=PTS/$factor[vout];[0:a]$audioFilterStr[aout]',
-      '-map', '[vout]',
-      '-map', '[aout]',
+      '-map',
+      '[vout]',
+      '-map',
+      '[aout]',
     ];
   }
 
@@ -101,7 +106,8 @@ class CommandBuilder {
         : '';
 
     return [
-      '-i', input,
+      '-i',
+      input,
       '-vf',
       "drawtext=text='$escaped':"
           'fontsize=$fontSize:'
@@ -112,8 +118,7 @@ class CommandBuilder {
     ];
   }
 
-  static List<String> resize(
-      String input, int width, int height, String fit) {
+  static List<String> resize(String input, int width, int height, String fit) {
     String scaleFilter;
     switch (fit) {
       case 'fill':
@@ -123,7 +128,7 @@ class CommandBuilder {
       case 'fit':
         scaleFilter =
             'scale=$width:$height:force_original_aspect_ratio=1,'
-                'pad=$width:$height:(ow-iw)/2:(oh-ih)/2';
+            'pad=$width:$height:(ow-iw)/2:(oh-ih)/2';
         break;
       case 'stretch':
         scaleFilter = 'scale=$width:$height';
@@ -160,7 +165,10 @@ class CommandBuilder {
   }
 
   static List<String> changeFormat(
-      String input, String targetExt, String? codecPreset) {
+    String input,
+    String targetExt,
+    String? codecPreset,
+  ) {
     final (videoCodec, audioCodec) = switch (targetExt) {
       'mp4' => ('libx264', 'aac'),
       'webm' => ('libvpx-vp9', 'libopus'),
@@ -211,13 +219,17 @@ class CommandBuilder {
     }
 
     return [
-      '-i', input,
-      '-i', watermarkPath,
+      '-i',
+      input,
+      '-i',
+      watermarkPath,
       '-filter_complex',
       '[1:v]format=rgba,colorchannelmixer=aa=$clampedOpacity[wm];'
           '[0:v][wm]overlay=$overlayPos[outv]',
-      '-map', '[outv]',
-      '-map', '0:a',
+      '-map',
+      '[outv]',
+      '-map',
+      '0:a',
     ];
   }
 }

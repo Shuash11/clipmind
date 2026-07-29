@@ -36,22 +36,22 @@ class AnthropicProvider implements LlmProvider {
   @override
   String get id => 'anthropic:${config.model}';
 
-  AnthropicProvider({
-    AnthropicConfig? config,
-    SecureKeyStore? keyStore,
-  })  : config = config ?? const AnthropicConfig(),
-        _keyStore = keyStore ?? SecureKeyStore() {
-    _dio = Dio(BaseOptions(
-      baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(seconds: 30),
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': config?.apiKey ?? '',
-        'anthropic-version': _apiVersion,
-      },
-    ));
+  AnthropicProvider({AnthropicConfig? config, SecureKeyStore? keyStore})
+    : config = config ?? const AnthropicConfig(),
+      _keyStore = keyStore ?? SecureKeyStore() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: _baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(seconds: 30),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': config?.apiKey ?? '',
+          'anthropic-version': _apiVersion,
+        },
+      ),
+    );
   }
 
   Future<String> _resolveApiKey() async {
@@ -79,7 +79,10 @@ class AnthropicProvider implements LlmProvider {
         final schema = _buildSchema(request.schemaJson);
 
         final messages = [
-          {'role': 'user', 'content': '${request.systemPrompt}\n\n${request.userCommand}'},
+          {
+            'role': 'user',
+            'content': '${request.systemPrompt}\n\n${request.userCommand}',
+          },
         ];
 
         final body = {
@@ -257,7 +260,9 @@ class AnthropicProvider implements LlmProvider {
         data: {
           'model': config.model,
           'max_tokens': 1,
-          'messages': [{'role': 'user', 'content': 'test'}],
+          'messages': [
+            {'role': 'user', 'content': 'test'},
+          ],
         },
         options: Options(
           receiveTimeout: const Duration(seconds: 5),

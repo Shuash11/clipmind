@@ -14,9 +14,11 @@ class ThumbnailService {
     }
 
     final thumbPath = '${videoPath}_thumb.jpg';
-    final result =
-        await _ffprobeService.generateThumbnail(videoPath,
-            atMs: atMs, outputPath: thumbPath);
+    final result = await _ffprobeService.generateThumbnail(
+      videoPath,
+      atMs: atMs,
+      outputPath: thumbPath,
+    );
 
     if (result != null) {
       _cache[videoPath] = result;

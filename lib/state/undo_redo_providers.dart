@@ -20,12 +20,14 @@ class UndoRedoNotifier extends StateNotifier<UndoRedoState> {
   final UndoRedoUseCase _useCase;
 
   UndoRedoNotifier(this._useCase)
-      : super(const UndoRedoState(
+    : super(
+        const UndoRedoState(
           canUndo: false,
           canRedo: false,
           historyCount: 0,
           position: -1,
-        ));
+        ),
+      );
 
   UndoRedoUseCase get useCase => _useCase;
 
@@ -67,8 +69,9 @@ class UndoRedoNotifier extends StateNotifier<UndoRedoState> {
   }
 }
 
-final undoRedoProvider =
-    StateNotifierProvider<UndoRedoNotifier, UndoRedoState>((ref) {
-  final useCase = UndoRedoUseCase();
-  return UndoRedoNotifier(useCase);
-});
+final undoRedoProvider = StateNotifierProvider<UndoRedoNotifier, UndoRedoState>(
+  (ref) {
+    final useCase = UndoRedoUseCase();
+    return UndoRedoNotifier(useCase);
+  },
+);

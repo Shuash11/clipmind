@@ -73,7 +73,10 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
     final current = _player.state.position;
     final target = current + Duration(milliseconds: ms);
     final clamped = Duration(
-      milliseconds: target.inMilliseconds.clamp(0, _player.state.duration.inMilliseconds),
+      milliseconds: target.inMilliseconds.clamp(
+        0,
+        _player.state.duration.inMilliseconds,
+      ),
     );
     _player.seek(clamped);
   }
@@ -113,7 +116,8 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Drop a video or click to import',
+              Text(
+                'Drop a video or click to import',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: ClipMindColors.textSecondary,
                 ),
@@ -138,10 +142,7 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Video(
-                    controller: _controller,
-                    fill: Colors.transparent,
-                  ),
+                  Video(controller: _controller, fill: Colors.transparent),
                   Center(
                     child: GestureDetector(
                       onTap: _togglePlayPause,
@@ -223,7 +224,8 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
                             : 0.0,
                         onChanged: (value) {
                           final target = Duration(
-                            milliseconds: (value * duration.inMilliseconds).round(),
+                            milliseconds: (value * duration.inMilliseconds)
+                                .round(),
                           );
                           _player.seek(target);
                         },

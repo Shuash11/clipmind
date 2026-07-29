@@ -10,19 +10,12 @@ class OpenAiConfig {
   final String model;
   final String apiKey;
 
-  const OpenAiConfig({
-    this.model = 'gpt-4o',
-    this.apiKey = '',
-  });
+  const OpenAiConfig({this.model = 'gpt-4o', this.apiKey = ''});
 }
 
 class OpenAiProvider implements LlmProvider {
   static const _baseUrl = 'https://api.openai.com';
-  static const _models = [
-    'gpt-4o',
-    'gpt-4o-mini',
-    'gpt-4-turbo',
-  ];
+  static const _models = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'];
 
   final OpenAiConfig config;
   final SecureKeyStore _keyStore;
@@ -35,21 +28,21 @@ class OpenAiProvider implements LlmProvider {
   @override
   String get id => 'openai:${config.model}';
 
-  OpenAiProvider({
-    OpenAiConfig? config,
-    SecureKeyStore? keyStore,
-  })  : config = config ?? const OpenAiConfig(),
-        _keyStore = keyStore ?? SecureKeyStore() {
-    _dio = Dio(BaseOptions(
-      baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(seconds: 30),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${config?.apiKey ?? ''}',
-      },
-    ));
+  OpenAiProvider({OpenAiConfig? config, SecureKeyStore? keyStore})
+    : config = config ?? const OpenAiConfig(),
+      _keyStore = keyStore ?? SecureKeyStore() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: _baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(seconds: 30),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${config?.apiKey ?? ''}',
+        },
+      ),
+    );
   }
 
   Future<String> _resolveApiKey() async {
@@ -86,10 +79,7 @@ class OpenAiProvider implements LlmProvider {
           'messages': messages,
           'response_format': {
             'type': 'json_schema',
-            'json_schema': {
-              'name': 'clipmind_ops',
-              'schema': schema,
-            },
+            'json_schema': {'name': 'clipmind_ops', 'schema': schema},
           },
           'temperature': 0.1,
         };

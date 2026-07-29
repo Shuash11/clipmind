@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 2,
+  "id": "tag-marker-project",
+  "name": "Tag and marker fixture",
+  "createdAt": "2026-07-27T12:00:00.000Z",
+  "updatedAt": "2026-07-27T12:05:00.000Z",
+  "outputDirectory": "C:\\exports",
+  "currentState": {
+    "assets": [
+      {
+        "id": "asset-1",
+        "sourcePath": "C:\\media\\tagged-source.mp4",
+        "displayName": "tagged-source.mp4",
+        "durationMs": 1200,
+        "tagIds": ["tag-1"]
+      }
+    ],
+    "tracks": [
+      {
+        "id": "track-1",
+        "kind": "video",
+        "clips": [
+          {
+            "id": "clip-1",
+            "assetId": "asset-1",
+            "trackId": "track-1",
+            "startMs": 0,
+            "endMs": 1200,
+            "positionMs": 0,
+            "tagIds": ["tag-1"],
+            "transform": {
+              "width": 1920,
+              "height": 1080,
+              "fit": "contain",
+              "rotationDegrees": 0
+            },
+            "speed": 1.0,
+            "muted": false,
+            "volume": 1.0,
+            "brightness": 0.0
+          }
+        ]
+      }
+    ],
+    "tags": [
+      {"id": "tag-1", "name": "Travel", "color": "#2255AA"},
+      {"id": "tag-2", "name": "Interview", "color": "#AA5522"}
+    ],
+    "markers": [
+      {
+        "id": "marker-point-1",
+        "label": "Opening",
+        "color": "#22AA55",
+        "atMs": 240,
+        "startMs": null,
+        "endMs": null
+      },
+      {
+        "id": "marker-range-1",
+        "label": "Key section",
+        "color": "#AA22AA",
+        "atMs": null,
+        "startMs": 400,
+        "endMs": 900
+      }
+    ],
+    "overlays": []
+  },
+  "revision": 3,
+  "history": [
+    {
+      "planId": "manual-tag-update-1",
+      "beforeState": {
+        "assets": [
+          {
+            "id": "asset-1",
+            "sourcePath": "C:\\media\\tagged-source.mp4",
+            "displayName": "tagged-source.mp4",
+            "durationMs": 1200,
+            "tagIds": ["tag-1"]
+          }
+        ],
+        "tracks": [
+          {
+            "id": "track-1",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "clip-1",
+                "assetId": "asset-1",
+                "trackId": "track-1",
+                "startMs": 0,
+                "endMs": 1200,
+                "positionMs": 0,
+                "tagIds": ["tag-1"],
+                "transform": {
+                  "width": 1920,
+                  "height": 1080,
+                  "fit": "contain",
+                  "rotationDegrees": 0
+                },
+                "speed": 1.0,
+                "muted": false,
+                "volume": 1.0,
+                "brightness": 0.0
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {"id": "tag-1", "name": "Travel", "color": "#113377"},
+          {"id": "tag-2", "name": "Interview", "color": "#AA5522"}
+        ],
+        "markers": [
+          {
+            "id": "marker-point-1",
+            "label": "Opening",
+            "color": "#22AA55",
+            "atMs": 240,
+            "startMs": null,
+            "endMs": null
+          },
+          {
+            "id": "marker-range-1",
+            "label": "Key section",
+            "color": "#AA22AA",
+            "atMs": null,
+            "startMs": 400,
+            "endMs": 900
+          }
+        ],
+        "overlays": []
+      },
+      "afterState": {
+        "assets": [
+          {
+            "id": "asset-1",
+            "sourcePath": "C:\\media\\tagged-source.mp4",
+            "displayName": "tagged-source.mp4",
+            "durationMs": 1200,
+            "tagIds": ["tag-1"]
+          }
+        ],
+        "tracks": [
+          {
+            "id": "track-1",
+            "kind": "video",
+            "clips": [
+              {
+                "id": "clip-1",
+                "assetId": "asset-1",
+                "trackId": "track-1",
+                "startMs": 0,
+                "endMs": 1200,
+                "positionMs": 0,
+                "tagIds": ["tag-1"],
+                "transform": {
+                  "width": 1920,
+                  "height": 1080,
+                  "fit": "contain",
+                  "rotationDegrees": 0
+                },
+                "speed": 1.0,
+                "muted": false,
+                "volume": 1.0,
+                "brightness": 0.0
+              }
+            ]
+          }
+        ],
+        "tags": [
+          {"id": "tag-1", "name": "Travel", "color": "#2255AA"},
+          {"id": "tag-2", "name": "Interview", "color": "#AA5522"}
+        ],
+        "markers": [
+          {
+            "id": "marker-point-1",
+            "label": "Opening",
+            "color": "#22AA55",
+            "atMs": 240,
+            "startMs": null,
+            "endMs": null
+          },
+          {
+            "id": "marker-range-1",
+            "label": "Key section",
+            "color": "#AA22AA",
+            "atMs": null,
+            "startMs": 400,
+            "endMs": 900
+          }
+        ],
+        "overlays": []
+      },
+      "commands": [
+        {"type": "update_tag", "targetIds": ["tag-1"]}
+      ],
+      "appliedAt": "2026-07-27T12:05:00.000Z",
+      "sourceKind": "manual"
+    }
+  ],
+  "historyCursor": 0
+}

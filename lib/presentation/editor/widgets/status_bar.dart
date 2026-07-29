@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 
 class StatusBar extends StatelessWidget {
@@ -16,11 +16,6 @@ class StatusBar extends StatelessWidget {
       child: const Row(
         children: [
           _StatusPill(color: ClipMindColors.statusReady, label: 'Ready'),
-          SizedBox(width: 8),
-          _StatusPill(
-            color: ClipMindColors.accentPrimary,
-            label: 'Flash connected',
-          ),
           SizedBox(width: 8),
           _StatusPill(color: ClipMindColors.statusReady, label: 'FFmpeg ready'),
         ],

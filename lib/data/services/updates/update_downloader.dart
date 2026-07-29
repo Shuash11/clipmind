@@ -18,7 +18,8 @@ class UpdateDownloader {
       throw Exception('Download URL is empty');
     }
 
-    final isInstaller = assetType == 'installer' || downloadUrl.endsWith('.exe');
+    final isInstaller =
+        assetType == 'installer' || downloadUrl.endsWith('.exe');
     onProgress?.call(0, 'Starting download...');
 
     final tempDir = await Directory.systemTemp.createTemp('clipmind_update');
@@ -34,17 +35,26 @@ class UpdateDownloader {
         await _extractAndInstallZip(filePath, tempDir.path);
       }
     } catch (e) {
-      try { await tempDir.delete(recursive: true); } catch (_) {}
+      try {
+        await tempDir.delete(recursive: true);
+      } catch (_) {}
       rethrow;
     }
   }
 
-  Future<void> _downloadFile(String url, String destPath, bool isInstaller) async {
-    final innerClient = HttpClient()..connectionTimeout = const Duration(seconds: 30);
+  Future<void> _downloadFile(
+    String url,
+    String destPath,
+    bool isInstaller,
+  ) async {
+    final innerClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 30);
     final client = IOClient(innerClient);
     try {
       final request = http.Request('GET', Uri.parse(url));
-      final response = await client.send(request).timeout(const Duration(minutes: 5));
+      final response = await client
+          .send(request)
+          .timeout(const Duration(minutes: 5));
 
       if (response.statusCode != 200) {
         throw Exception('Download failed (HTTP ${response.statusCode})');
@@ -89,10 +99,16 @@ class UpdateDownloader {
 
   Future<void> _extractAndInstallZip(String zipPath, String tempPath) async {
     onProgress?.call(0.7, 'Extracting...');
-    final result = await Process.run(
-      'powershell',
-      ['-NoProfile', '-Command', 'Expand-Archive', '-Path', zipPath, '-DestinationPath', r'$tempPath\new', '-Force'],
-    );
+    final result = await Process.run('powershell', [
+      '-NoProfile',
+      '-Command',
+      'Expand-Archive',
+      '-Path',
+      zipPath,
+      '-DestinationPath',
+      r'$tempPath\new',
+      '-Force',
+    ]);
     if (result.exitCode != 0) {
       throw Exception('Extraction failed: \${result.stderr}');
     }
@@ -105,26 +121,31 @@ class UpdateDownloader {
     final tempEscaped = tempPath.replaceAll(r'\', '\\\\');
     final appEscaped = appDir.replaceAll(r'\', '\\\\');
 
-    const script = r"powershell -NoProfile -Command 'Start-Sleep -Seconds 3; \$p = Get-Process clipmind -ErrorAction SilentlyContinue; if (\$p) { Stop-Process -Name clipmind -Force }; Copy-Item ''{0}\new\*'' ''{1}'' -Recurse -Force -ErrorAction Stop; Start-Process ''{1}\clipmind.exe'' '";
-    final scriptFilled = script.replaceAll('{0}', tempEscaped).replaceAll('{1}', appEscaped);
+    const script =
+        r"powershell -NoProfile -Command 'Start-Sleep -Seconds 3; \$p = Get-Process clipmind -ErrorAction SilentlyContinue; if (\$p) { Stop-Process -Name clipmind -Force }; Copy-Item ''{0}\new\*'' ''{1}'' -Recurse -Force -ErrorAction Stop; Start-Process ''{1}\clipmind.exe'' '";
+    final scriptFilled = script
+        .replaceAll('{0}', tempEscaped)
+        .replaceAll('{1}', appEscaped);
 
     const scriptPath = r'$appDir\update.ps1';
     await File(scriptPath).writeAsString(scriptFilled);
-    await Process.start(
-      'powershell',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath],
-      mode: ProcessStartMode.detached,
-    );
+    await Process.start('powershell', [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      scriptPath,
+    ], mode: ProcessStartMode.detached);
     exit(0);
   }
 
   Future<void> _runInstaller(String exePath) async {
     onProgress?.call(0.9, 'Running installer...');
-    await Process.start(
-      exePath,
-      ['/VERYSILENT', '/NORESTART', '/CLOSEAPPLICATIONS'],
-      mode: ProcessStartMode.detached,
-    );
+    await Process.start(exePath, [
+      '/VERYSILENT',
+      '/NORESTART',
+      '/CLOSEAPPLICATIONS',
+    ], mode: ProcessStartMode.detached);
     exit(0);
   }
 }

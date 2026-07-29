@@ -10,10 +10,13 @@ class SuggestedPromptChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ActionChip(
-      label: Text(text, style: theme.textTheme.bodySmall?.copyWith(
-        color: ClipMindColors.accentPrimary,
-        fontSize: 11,
-      )),
+      label: Text(
+        text,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: ClipMindColors.accentPrimary,
+          fontSize: 11,
+        ),
+      ),
       backgroundColor: ClipMindColors.accentPrimary.withValues(alpha: 0.08),
       side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: 4),

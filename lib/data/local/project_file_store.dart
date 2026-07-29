@@ -53,7 +53,9 @@ class ProjectFileStore {
     try {
       final exportDir = Directory(path);
       if (!await exportDir.exists()) await exportDir.create(recursive: true);
-      final sanitizedName = project.name.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
+      final sanitizedName = project.name
+          .replaceAll(RegExp(r'[^\w\s-]'), '')
+          .trim();
       final fileName = '${sanitizedName}_${project.id.substring(0, 8)}';
       final file = File('${exportDir.path}/$fileName.cmproj');
       final exportData = {
