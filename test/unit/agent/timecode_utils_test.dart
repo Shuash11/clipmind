@@ -41,7 +41,10 @@ void main() {
 
     test('parses HH:MM:SS format', () => _tc('01:30:00', equals(5400000)));
 
-    test('parses HH:MM:SS.mmm format', () => _tc('01:30:00.250', equals(5400250)));
+    test(
+      'parses HH:MM:SS.mmm format',
+      () => _tc('01:30:00.250', equals(5400250)),
+    );
 
     test('returns null for non-timecode string', () {
       expect(TimecodeUtils.parseToMilliseconds('hello'), isNull);

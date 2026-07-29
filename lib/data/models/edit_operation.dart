@@ -4,10 +4,20 @@ part 'edit_operation.freezed.dart';
 part 'edit_operation.g.dart';
 
 enum EditOperationType {
-  trim, cut, merge, changeSpeed, mute,
-  overlayText, resize, rotate, extractAudio,
-  generateThumbnail, changeFormat, adjustBrightness,
-  changeVolume, overlayWatermark;
+  trim,
+  cut,
+  merge,
+  changeSpeed,
+  mute,
+  overlayText,
+  resize,
+  rotate,
+  extractAudio,
+  generateThumbnail,
+  changeFormat,
+  adjustBrightness,
+  changeVolume,
+  overlayWatermark;
 
   String get jsonValue => name;
 }

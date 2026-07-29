@@ -31,14 +31,16 @@ class OllamaProvider implements LlmProvider {
   String get id => 'ollama:${config.model}';
 
   OllamaProvider({OllamaConfig? config})
-      : config = config ?? const OllamaConfig() {
-    _dio = Dio(BaseOptions(
-      baseUrl: this.config.baseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 60),
-      sendTimeout: const Duration(seconds: 60),
-      headers: {'Content-Type': 'application/json'},
-    ));
+    : config = config ?? const OllamaConfig() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: this.config.baseUrl,
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 60),
+        sendTimeout: const Duration(seconds: 60),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
   }
 
   @override
@@ -72,10 +74,7 @@ class OllamaProvider implements LlmProvider {
         'messages': messages,
         'stream': false,
         'format': _jsonSchemaToOllamaFormat(request.schemaJson),
-        'options': {
-          'temperature': 0.1,
-          'num_predict': 2048,
-        },
+        'options': {'temperature': 0.1, 'num_predict': 2048},
       };
 
       final response = await _dio.post<Map<String, dynamic>>(
@@ -98,11 +97,7 @@ class OllamaProvider implements LlmProvider {
       final parsed = jsonDecode(cleaned) as Map<String, dynamic>;
       return EditOperationSet.fromJson(parsed);
     } on DioException catch (e) {
-      throw ProviderFailure(
-        id,
-        _formatDioError(e),
-        e,
-      );
+      throw ProviderFailure(id, _formatDioError(e), e);
     } on FormatException catch (e) {
       throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
     } on ProviderFailure {
@@ -175,7 +170,10 @@ class OllamaProvider implements LlmProvider {
   Future<void> _checkHealth() async {
     _connectionCtrl.add(ConnectionStatus.connecting);
     try {
-      await _dio.get<Map<String, dynamic>>('/api/tags', options: Options(receiveTimeout: const Duration(seconds: 3)));
+      await _dio.get<Map<String, dynamic>>(
+        '/api/tags',
+        options: Options(receiveTimeout: const Duration(seconds: 3)),
+      );
       if (_status != ConnectionStatus.connected) {
         _status = ConnectionStatus.connected;
         _connectionCtrl.add(ConnectionStatus.connected);

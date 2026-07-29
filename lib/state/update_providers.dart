@@ -9,9 +9,17 @@ class UpdateState {
   final ReleaseInfo? release;
   final String? errorMessage;
 
-  const UpdateState({this.status = UpdateStatus.idle, this.release, this.errorMessage});
+  const UpdateState({
+    this.status = UpdateStatus.idle,
+    this.release,
+    this.errorMessage,
+  });
 
-  UpdateState copyWith({UpdateStatus? status, ReleaseInfo? release, String? errorMessage}) {
+  UpdateState copyWith({
+    UpdateStatus? status,
+    ReleaseInfo? release,
+    String? errorMessage,
+  }) {
     return UpdateState(
       status: status ?? this.status,
       release: release ?? this.release,
@@ -30,16 +38,25 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     try {
       final release = await _checker.checkForUpdate();
       if (release == null) {
-        state = state.copyWith(status: UpdateStatus.error, errorMessage: 'Could not reach update server');
+        state = state.copyWith(
+          status: UpdateStatus.error,
+          errorMessage: 'Could not reach update server',
+        );
         return;
       }
       if (_checker.isNewer(release, currentVersion)) {
-        state = state.copyWith(status: UpdateStatus.available, release: release);
+        state = state.copyWith(
+          status: UpdateStatus.available,
+          release: release,
+        );
       } else {
         state = state.copyWith(status: UpdateStatus.upToDate);
       }
     } catch (e) {
-      state = state.copyWith(status: UpdateStatus.error, errorMessage: e.toString());
+      state = state.copyWith(
+        status: UpdateStatus.error,
+        errorMessage: e.toString(),
+      );
     }
   }
 
@@ -50,7 +67,8 @@ final githubReleaseCheckerProvider = Provider<GithubReleaseChecker>((ref) {
   return GithubReleaseChecker();
 });
 
-final updateNotifierProvider = StateNotifierProvider<UpdateNotifier, UpdateState>((ref) {
-  final checker = ref.watch(githubReleaseCheckerProvider);
-  return UpdateNotifier(checker);
-});
+final updateNotifierProvider =
+    StateNotifierProvider<UpdateNotifier, UpdateState>((ref) {
+      final checker = ref.watch(githubReleaseCheckerProvider);
+      return UpdateNotifier(checker);
+    });

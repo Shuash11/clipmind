@@ -8,9 +8,10 @@ final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
   return ProjectRepository(db);
 });
 
-final projectProvider = StateNotifierProvider<ProjectNotifier, AsyncValue<Project?>>((ref) {
-  return ProjectNotifier();
-});
+final projectProvider =
+    StateNotifierProvider<ProjectNotifier, AsyncValue<Project?>>((ref) {
+      return ProjectNotifier();
+    });
 
 final recentProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final repository = ref.watch(projectRepositoryProvider);

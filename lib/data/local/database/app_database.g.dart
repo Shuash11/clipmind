@@ -93,6 +93,27 @@ class $ProjectsTable extends Projects
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _documentSchemaVersionMeta =
+      const VerificationMeta('documentSchemaVersion');
+  @override
+  late final GeneratedColumn<int> documentSchemaVersion = GeneratedColumn<int>(
+    'document_schema_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _documentRevisionMeta = const VerificationMeta(
+    'documentRevision',
+  );
+  @override
+  late final GeneratedColumn<int> documentRevision = GeneratedColumn<int>(
+    'document_revision',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -103,6 +124,8 @@ class $ProjectsTable extends Projects
     createdAt,
     updatedAt,
     sourceMediaPaths,
+    documentSchemaVersion,
+    documentRevision,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -184,6 +207,24 @@ class $ProjectsTable extends Projects
     } else if (isInserting) {
       context.missing(_sourceMediaPathsMeta);
     }
+    if (data.containsKey('document_schema_version')) {
+      context.handle(
+        _documentSchemaVersionMeta,
+        documentSchemaVersion.isAcceptableOrUnknown(
+          data['document_schema_version']!,
+          _documentSchemaVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('document_revision')) {
+      context.handle(
+        _documentRevisionMeta,
+        documentRevision.isAcceptableOrUnknown(
+          data['document_revision']!,
+          _documentRevisionMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -225,6 +266,14 @@ class $ProjectsTable extends Projects
         DriftSqlType.string,
         data['${effectivePrefix}source_media_paths'],
       )!,
+      documentSchemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}document_schema_version'],
+      ),
+      documentRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}document_revision'],
+      ),
     );
   }
 
@@ -243,6 +292,8 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
   final int createdAt;
   final int updatedAt;
   final String sourceMediaPaths;
+  final int? documentSchemaVersion;
+  final int? documentRevision;
   const ProjectRow({
     required this.id,
     required this.name,
@@ -252,6 +303,8 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
     required this.createdAt,
     required this.updatedAt,
     required this.sourceMediaPaths,
+    this.documentSchemaVersion,
+    this.documentRevision,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -266,6 +319,12 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
     map['source_media_paths'] = Variable<String>(sourceMediaPaths);
+    if (!nullToAbsent || documentSchemaVersion != null) {
+      map['document_schema_version'] = Variable<int>(documentSchemaVersion);
+    }
+    if (!nullToAbsent || documentRevision != null) {
+      map['document_revision'] = Variable<int>(documentRevision);
+    }
     return map;
   }
 
@@ -281,6 +340,12 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       sourceMediaPaths: Value(sourceMediaPaths),
+      documentSchemaVersion: documentSchemaVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(documentSchemaVersion),
+      documentRevision: documentRevision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(documentRevision),
     );
   }
 
@@ -298,6 +363,10 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       sourceMediaPaths: serializer.fromJson<String>(json['sourceMediaPaths']),
+      documentSchemaVersion: serializer.fromJson<int?>(
+        json['documentSchemaVersion'],
+      ),
+      documentRevision: serializer.fromJson<int?>(json['documentRevision']),
     );
   }
   @override
@@ -312,6 +381,8 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'sourceMediaPaths': serializer.toJson<String>(sourceMediaPaths),
+      'documentSchemaVersion': serializer.toJson<int?>(documentSchemaVersion),
+      'documentRevision': serializer.toJson<int?>(documentRevision),
     };
   }
 
@@ -324,6 +395,8 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
     int? createdAt,
     int? updatedAt,
     String? sourceMediaPaths,
+    Value<int?> documentSchemaVersion = const Value.absent(),
+    Value<int?> documentRevision = const Value.absent(),
   }) => ProjectRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -335,6 +408,12 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     sourceMediaPaths: sourceMediaPaths ?? this.sourceMediaPaths,
+    documentSchemaVersion: documentSchemaVersion.present
+        ? documentSchemaVersion.value
+        : this.documentSchemaVersion,
+    documentRevision: documentRevision.present
+        ? documentRevision.value
+        : this.documentRevision,
   );
   ProjectRow copyWithCompanion(ProjectsCompanion data) {
     return ProjectRow(
@@ -354,6 +433,12 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
       sourceMediaPaths: data.sourceMediaPaths.present
           ? data.sourceMediaPaths.value
           : this.sourceMediaPaths,
+      documentSchemaVersion: data.documentSchemaVersion.present
+          ? data.documentSchemaVersion.value
+          : this.documentSchemaVersion,
+      documentRevision: data.documentRevision.present
+          ? data.documentRevision.value
+          : this.documentRevision,
     );
   }
 
@@ -367,7 +452,9 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
           ..write('durationMs: $durationMs, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('sourceMediaPaths: $sourceMediaPaths')
+          ..write('sourceMediaPaths: $sourceMediaPaths, ')
+          ..write('documentSchemaVersion: $documentSchemaVersion, ')
+          ..write('documentRevision: $documentRevision')
           ..write(')'))
         .toString();
   }
@@ -382,6 +469,8 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
     createdAt,
     updatedAt,
     sourceMediaPaths,
+    documentSchemaVersion,
+    documentRevision,
   );
   @override
   bool operator ==(Object other) =>
@@ -394,7 +483,9 @@ class ProjectRow extends DataClass implements Insertable<ProjectRow> {
           other.durationMs == this.durationMs &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.sourceMediaPaths == this.sourceMediaPaths);
+          other.sourceMediaPaths == this.sourceMediaPaths &&
+          other.documentSchemaVersion == this.documentSchemaVersion &&
+          other.documentRevision == this.documentRevision);
 }
 
 class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
@@ -406,6 +497,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
   final Value<int> createdAt;
   final Value<int> updatedAt;
   final Value<String> sourceMediaPaths;
+  final Value<int?> documentSchemaVersion;
+  final Value<int?> documentRevision;
   final Value<int> rowid;
   const ProjectsCompanion({
     this.id = const Value.absent(),
@@ -416,6 +509,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.sourceMediaPaths = const Value.absent(),
+    this.documentSchemaVersion = const Value.absent(),
+    this.documentRevision = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProjectsCompanion.insert({
@@ -427,6 +522,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
     required int createdAt,
     required int updatedAt,
     required String sourceMediaPaths,
+    this.documentSchemaVersion = const Value.absent(),
+    this.documentRevision = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -444,6 +541,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
     Expression<String>? sourceMediaPaths,
+    Expression<int>? documentSchemaVersion,
+    Expression<int>? documentRevision,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -455,6 +554,9 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (sourceMediaPaths != null) 'source_media_paths': sourceMediaPaths,
+      if (documentSchemaVersion != null)
+        'document_schema_version': documentSchemaVersion,
+      if (documentRevision != null) 'document_revision': documentRevision,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -468,6 +570,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
     Value<int>? createdAt,
     Value<int>? updatedAt,
     Value<String>? sourceMediaPaths,
+    Value<int?>? documentSchemaVersion,
+    Value<int?>? documentRevision,
     Value<int>? rowid,
   }) {
     return ProjectsCompanion(
@@ -479,6 +583,9 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       sourceMediaPaths: sourceMediaPaths ?? this.sourceMediaPaths,
+      documentSchemaVersion:
+          documentSchemaVersion ?? this.documentSchemaVersion,
+      documentRevision: documentRevision ?? this.documentRevision,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -510,6 +617,14 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
     if (sourceMediaPaths.present) {
       map['source_media_paths'] = Variable<String>(sourceMediaPaths.value);
     }
+    if (documentSchemaVersion.present) {
+      map['document_schema_version'] = Variable<int>(
+        documentSchemaVersion.value,
+      );
+    }
+    if (documentRevision.present) {
+      map['document_revision'] = Variable<int>(documentRevision.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -527,6 +642,8 @@ class ProjectsCompanion extends UpdateCompanion<ProjectRow> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('sourceMediaPaths: $sourceMediaPaths, ')
+          ..write('documentSchemaVersion: $documentSchemaVersion, ')
+          ..write('documentRevision: $documentRevision, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1332,6 +1449,8 @@ typedef $$ProjectsTableCreateCompanionBuilder =
       required int createdAt,
       required int updatedAt,
       required String sourceMediaPaths,
+      Value<int?> documentSchemaVersion,
+      Value<int?> documentRevision,
       Value<int> rowid,
     });
 typedef $$ProjectsTableUpdateCompanionBuilder =
@@ -1344,6 +1463,8 @@ typedef $$ProjectsTableUpdateCompanionBuilder =
       Value<int> createdAt,
       Value<int> updatedAt,
       Value<String> sourceMediaPaths,
+      Value<int?> documentSchemaVersion,
+      Value<int?> documentRevision,
       Value<int> rowid,
     });
 
@@ -1393,6 +1514,16 @@ class $$ProjectsTableFilterComposer
 
   ColumnFilters<String> get sourceMediaPaths => $composableBuilder(
     column: $table.sourceMediaPaths,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get documentSchemaVersion => $composableBuilder(
+    column: $table.documentSchemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get documentRevision => $composableBuilder(
+    column: $table.documentRevision,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1445,6 +1576,16 @@ class $$ProjectsTableOrderingComposer
     column: $table.sourceMediaPaths,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get documentSchemaVersion => $composableBuilder(
+    column: $table.documentSchemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get documentRevision => $composableBuilder(
+    column: $table.documentRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProjectsTableAnnotationComposer
@@ -1485,6 +1626,16 @@ class $$ProjectsTableAnnotationComposer
 
   GeneratedColumn<String> get sourceMediaPaths => $composableBuilder(
     column: $table.sourceMediaPaths,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get documentSchemaVersion => $composableBuilder(
+    column: $table.documentSchemaVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get documentRevision => $composableBuilder(
+    column: $table.documentRevision,
     builder: (column) => column,
   );
 }
@@ -1528,6 +1679,8 @@ class $$ProjectsTableTableManager
                 Value<int> createdAt = const Value.absent(),
                 Value<int> updatedAt = const Value.absent(),
                 Value<String> sourceMediaPaths = const Value.absent(),
+                Value<int?> documentSchemaVersion = const Value.absent(),
+                Value<int?> documentRevision = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProjectsCompanion(
                 id: id,
@@ -1538,6 +1691,8 @@ class $$ProjectsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 sourceMediaPaths: sourceMediaPaths,
+                documentSchemaVersion: documentSchemaVersion,
+                documentRevision: documentRevision,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1550,6 +1705,8 @@ class $$ProjectsTableTableManager
                 required int createdAt,
                 required int updatedAt,
                 required String sourceMediaPaths,
+                Value<int?> documentSchemaVersion = const Value.absent(),
+                Value<int?> documentRevision = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProjectsCompanion.insert(
                 id: id,
@@ -1560,6 +1717,8 @@ class $$ProjectsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 sourceMediaPaths: sourceMediaPaths,
+                documentSchemaVersion: documentSchemaVersion,
+                documentRevision: documentRevision,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

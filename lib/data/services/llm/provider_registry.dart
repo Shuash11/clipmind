@@ -17,8 +17,8 @@ class ProviderRegistry {
   ProviderRegistry({
     SecureKeyStore? keyStore,
     SettingsRepository? settingsRepository,
-  })  : _keyStore = keyStore ?? SecureKeyStore(),
-        _settingsRepository = settingsRepository ?? SettingsRepository();
+  }) : _keyStore = keyStore ?? SecureKeyStore(),
+       _settingsRepository = settingsRepository ?? SettingsRepository();
 
   void register(LlmProvider provider) {
     _providers[provider.id] = provider;
@@ -49,10 +49,7 @@ class ProviderRegistry {
     final uri = Uri.parse(ollamaEndpoint);
 
     final ollama = OllamaProvider(
-      config: OllamaConfig(
-        host: uri.host,
-        port: uri.port,
-      ),
+      config: OllamaConfig(host: uri.host, port: uri.port),
     );
     register(ollama);
 

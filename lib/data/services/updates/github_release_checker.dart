@@ -16,13 +16,15 @@ class GithubReleaseChecker {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse(_apiUrl),
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': _userAgent,
-        },
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse(_apiUrl),
+            headers: {
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': _userAgent,
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {
         debugPrint('GithubReleaseChecker: HTTP ${response.statusCode}');
@@ -73,9 +75,8 @@ class GithubReleaseChecker {
         releaseNotes: json['body'] as String? ?? '',
         downloadUrl: downloadUrl,
         assetType: assetType,
-        publishedAt: DateTime.tryParse(
-              json['published_at'] as String? ?? '',
-            ) ??
+        publishedAt:
+            DateTime.tryParse(json['published_at'] as String? ?? '') ??
             DateTime.now(),
       );
       return _cachedRelease;

@@ -13,11 +13,19 @@ class AppConstants {
   static const double defaultVolume = 1.0;
 
   static const List<String> supportedVideoFormats = [
-    'mp4', 'mov', 'avi', 'webm', 'mkv', 'm4v',
+    'mp4',
+    'mov',
+    'avi',
+    'webm',
+    'mkv',
+    'm4v',
   ];
 
   static const List<String> supportedImageFormats = [
-    'png', 'jpg', 'jpeg', 'webp',
+    'png',
+    'jpg',
+    'jpeg',
+    'webp',
   ];
 
   static const String ollamaDefaultEndpoint = 'http://localhost:11434';

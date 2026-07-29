@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/core/router/app_router.dart';
-import 'package:clipmind/state/agent_providers.dart';
+import 'package:clipmind/state/ffmpeg_providers.dart';
 import 'package:clipmind/state/player_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/update_providers.dart';
@@ -59,9 +59,7 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
       if (!mounted) return;
       ref
           .read(updateNotifierProvider.notifier)
-          .checkForUpdate(
-            currentVersion: info.version,
-          );
+          .checkForUpdate(currentVersion: info.version);
     } catch (_) {
       // Update checks should never block the hub from loading.
     }
@@ -594,6 +592,7 @@ class _HubTopBar extends StatelessWidget {
           Tooltip(
             message: 'Settings',
             child: IconButton(
+              key: const ValueKey('project-hub-settings'),
               icon: const Icon(Icons.settings_rounded),
               onPressed: onSettings,
             ),
