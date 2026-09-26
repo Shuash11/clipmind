@@ -52,9 +52,9 @@ class GDriveImportService {
     try {
       final fileId = _extractFileId(fileUrl);
       if (fileId == null) {
-        return _downloadDirect(fileUrl, outputPath);
+        return await _downloadDirect(fileUrl, outputPath);
       }
-      return _downloadViaApi(fileId, outputPath);
+      return await _downloadViaApi(fileId, outputPath);
     } catch (e) {
       _errorStream?.add(e.toString());
       return null;

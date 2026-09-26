@@ -62,7 +62,7 @@ class ReadToolExecutor implements ToolExecutor {
         case 'list_project_clips':
           return _listClips();
         case 'probe_video':
-          return _probeVideo(call.args);
+          return await _probeVideo(call.args);
         case 'get_edit_history':
           return _editHistory();
         default:

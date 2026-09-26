@@ -43,7 +43,7 @@ final class ProviderPlatformStartup {
         migrate: migration.migrate,
         transport: DioProviderHttpTransport(dio: Dio()),
       );
-      return bootstrap.initialize(networkEnabled: networkEnabled);
+      return await bootstrap.initialize(networkEnabled: networkEnabled);
     } catch (_) {
       return const Failure<ProviderPlatformBootstrapResult>(
         ProviderPersistenceFailure(
