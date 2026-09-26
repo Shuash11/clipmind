@@ -1,17 +1,16 @@
 import 'package:clipmind/core/theme/clipmind_theme.dart';
-import 'package:clipmind/data/models/chat_message.dart';
-import 'package:clipmind/features/agent/presentation/providers/edit_plan_providers.dart';
-import 'package:clipmind/features/agent/presentation/widgets/edit_plan_card.dart';
-import 'package:clipmind/features/agent/presentation/widgets/revise_plan_dialog.dart';
+import 'package:clipmind/domain/agent/agent_activity.dart';
 import 'package:clipmind/state/agent_providers.dart';
+import 'package:clipmind/state/agent_run_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import 'chat_bubble.dart';
 import 'model_selector_dropdown.dart';
 import 'suggested_prompt_chip.dart';
 
+/// Dumb view over [AgentRunController]: submits commands, shows busy/cancel
+/// state and a compact inline activity feed. All run logic lives in state.
 class AgentChatPanel extends ConsumerStatefulWidget {
   const AgentChatPanel({super.key});
 
@@ -29,7 +28,6 @@ class AgentChatPanel extends ConsumerStatefulWidget {
 
 class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
   final _controller = TextEditingController();
-  final _uuid = const Uuid();
 
   @override
   void dispose() {
@@ -39,42 +37,18 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
 
   Future<void> _submitPrompt(String text) async {
     final trimmed = text.trim();
-    final editState = ref.read(editPlanNotifierProvider);
-    if (trimmed.isEmpty || editState.isBusy) return;
-    ref
-        .read(chatMessagesProvider.notifier)
-        .add(
-          ChatMessage(
-            id: _uuid.v4(),
-            role: ChatRole.user,
-            content: trimmed,
-            timestamp: DateTime.now(),
-          ),
-        );
+    if (trimmed.isEmpty) return;
     _controller.clear();
-    await ref.read(editPlanNotifierProvider.notifier).submit(trimmed);
-  }
-
-  void _showReviseDialog(String planId) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => RevisePlanDialog(
-        onRevise: (instruction) {
-          ref
-              .read(editPlanNotifierProvider.notifier)
-              .revise(planId, instruction);
-        },
-      ),
-    );
+    await ref.read(agentRunControllerProvider.notifier).submit(trimmed);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final messages = ref.watch(chatMessagesProvider);
-    final editState = ref.watch(editPlanNotifierProvider);
-    final isBusy = editState.isBusy;
-    final plan = editState.plan;
+    final runState = ref.watch(agentRunControllerProvider);
+    final isBusy = runState == AgentRunState.running;
+    final feed = ref.watch(agentActivityFeedProvider);
 
     return Container(
       decoration: const BoxDecoration(
@@ -104,7 +78,7 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
               ],
             ),
           ),
-          if (messages.isEmpty && plan == null && !isBusy)
+          if (messages.isEmpty && !isBusy)
             Padding(
               padding: const EdgeInsets.all(12),
               child: Wrap(
@@ -125,34 +99,8 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
               padding: const EdgeInsets.all(12),
               children: [
                 ...messages.map((message) => ChatBubble(message: message)),
-                if (plan != null)
-                  EditPlanCard(
-                    plan: plan,
-                    action: editState.action,
-                    failureMessage: editState.failureMessage,
-                    saveOutcome: editState.saveOutcome,
-                    onApply: () {
-                      ref
-                          .read(editPlanNotifierProvider.notifier)
-                          .apply(plan.id);
-                    },
-                    onCancel: () {
-                      ref
-                          .read(editPlanNotifierProvider.notifier)
-                          .cancel(plan.id);
-                    },
-                    onRevise: () => _showReviseDialog(plan.id),
-                  )
-                else if (editState.failureMessage != null)
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      editState.failureMessage!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: ClipMindColors.statusWarning,
-                      ),
-                    ),
-                  ),
+                if (isBusy && feed.isNotEmpty)
+                  _ActivityFeed(feed: feed),
               ],
             ),
           ),
@@ -170,9 +118,7 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
                     controller: _controller,
                     enabled: !isBusy,
                     decoration: InputDecoration(
-                      hintText: isBusy
-                          ? 'Preparing preview...'
-                          : 'Type a command...',
+                      hintText: isBusy ? 'Working...' : 'Type a command...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -188,42 +134,130 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: isBusy
-                        ? ClipMindColors.textMuted
-                        : ClipMindColors.accentPrimary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: isBusy
-                      ? const SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: Center(
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        )
-                      : IconButton(
-                          icon: const Icon(
-                            Icons.send_rounded,
-                            size: 18,
+                if (isBusy) ...[
+                  Container(
+                    decoration: BoxDecoration(
+                      color: ClipMindColors.textMuted,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
                             color: Colors.white,
                           ),
-                          onPressed: () => _submitPrompt(_controller.text),
                         ),
-                ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: ClipMindColors.bgSurface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: ClipMindColors.borderColor,
+                      ),
+                    ),
+                    child: IconButton(
+                      key: const ValueKey('agent-run-cancel'),
+                      icon: const Icon(Icons.stop_rounded, size: 18),
+                      tooltip: 'Cancel run',
+                      onPressed: () => ref
+                          .read(agentRunControllerProvider.notifier)
+                          .cancel(),
+                    ),
+                  ),
+                ] else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: ClipMindColors.accentPrimary,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.send_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      onPressed: () => _submitPrompt(_controller.text),
+                    ),
+                  ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+/// Compact inline feed: tool name + status + duration while running.
+class _ActivityFeed extends StatelessWidget {
+  const _ActivityFeed({required this.feed});
+
+  final List<AgentActivityEvent> feed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visible = feed.length > 3 ? feed.sublist(feed.length - 3) : feed;
+    return Container(
+      key: const ValueKey('agent-activity-feed'),
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: ClipMindColors.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final event in visible)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                _label(event),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: event.kind == AgentActivityKind.toolCallFailed
+                      ? ClipMindColors.statusWarning
+                      : ClipMindColors.textSecondary,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _label(AgentActivityEvent event) {
+    switch (event.kind) {
+      case AgentActivityKind.runStarted:
+        return 'Run started';
+      case AgentActivityKind.llmRoundStarted:
+        return 'Thinking (round ${event.round})…';
+      case AgentActivityKind.llmRoundCompleted:
+        return 'Round ${event.round} planned';
+      case AgentActivityKind.toolCallStarted:
+        return 'Running ${event.toolName ?? 'tool'}…';
+      case AgentActivityKind.toolCallCompleted:
+        final duration = event.durationMs != null
+            ? ' · ${event.durationMs}ms'
+            : '';
+        return '${event.toolName ?? 'Tool'} done$duration';
+      case AgentActivityKind.toolCallFailed:
+        return '${event.toolName ?? 'Tool'} failed';
+      case AgentActivityKind.runCompleted:
+        return event.summary ?? 'Done';
+      case AgentActivityKind.runFailed:
+        return event.summary ?? 'Failed';
+      case AgentActivityKind.runCancelled:
+        return event.summary ?? 'Cancelled';
+    }
   }
 }

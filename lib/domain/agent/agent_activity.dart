@@ -11,6 +11,7 @@ enum AgentActivityKind {
   toolCallFailed,
   runCompleted,
   runFailed,
+  runCancelled,
 }
 
 class AgentActivityEvent {

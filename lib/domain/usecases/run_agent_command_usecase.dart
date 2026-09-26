@@ -1,3 +1,4 @@
+import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
@@ -5,6 +6,10 @@ import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 
+/// Single entry point from the state layer into the Gen A tool path.
+///
+/// Thin wrapper over [Nl2VecPipeline.submitCommand] (which owns the
+/// capability gate); constructed in app code by [AgentRunController].
 class RunAgentCommandUseCase {
   final Nl2VecPipeline _pipeline;
 
@@ -18,6 +23,7 @@ class RunAgentCommandUseCase {
     List<AgentRequest>? recentHistory,
     AgentEditApplier? applier,
     Project Function()? liveProject,
+    CancellationToken? cancellation,
   }) {
     return _pipeline.submitCommand(
       command,
@@ -27,6 +33,7 @@ class RunAgentCommandUseCase {
       recentHistory: recentHistory,
       applier: applier,
       liveProject: liveProject,
+      cancellation: cancellation,
     );
   }
 }

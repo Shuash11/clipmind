@@ -148,7 +148,7 @@ class GeminiProvider extends LlmProvider {
             'items': {
               'type': 'object',
               'properties': parsed,
-              'required': ['id', 'type', 'targetClipId', 'params'],
+              'required': ['id', 'type', 'target_clip_id', 'params'],
             },
           },
           'summary': {'type': 'string'},
@@ -266,3 +266,4 @@ class GeminiProvider extends LlmProvider {
     _connectionCtrl.close();
   }
 }
+

@@ -146,7 +146,7 @@ class NvidiaNimProvider extends LlmProvider {
             'items': {
               'type': 'object',
               'properties': parsed,
-              'required': ['id', 'type', 'targetClipId', 'params'],
+              'required': ['id', 'type', 'target_clip_id', 'params'],
             },
           },
           'summary': {'type': 'string'},
@@ -259,3 +259,4 @@ class NvidiaNimProvider extends LlmProvider {
     _connectionCtrl.close();
   }
 }
+

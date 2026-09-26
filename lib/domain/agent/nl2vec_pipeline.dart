@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/ffmpeg/filter_escaping.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
+import 'agent_activity.dart';
 import 'agent_edit_applier.dart';
 import 'stage_1_input_validation.dart';
 import 'stage_2_prompt_construction.dart';
@@ -22,7 +24,7 @@ enum PipelineStage {
   idle, validating, thinking, applying, ready, error
 }
 
-enum SubmitStatus { success, clarificationNeeded, error }
+enum SubmitStatus { success, clarificationNeeded, error, cancelled }
 
 class SubmitResult {
   final SubmitStatus status;
@@ -53,6 +55,13 @@ class Nl2VecPipeline {
 
   Stream<PipelineEvent> get events => _events.stream;
 
+  /// Broadcast agent activity for the visible pipeline (Phase-4 seed).
+  /// The legacy one-shot path emits nothing here.
+  final StreamController<AgentActivityEvent> _agentActivity =
+      StreamController<AgentActivityEvent>.broadcast();
+
+  Stream<AgentActivityEvent> get agentActivity => _agentActivity.stream;
+
   Nl2VecPipeline({
     required this.ffmpegService,
     FfprobeService? ffprobeService,
@@ -66,6 +75,7 @@ class Nl2VecPipeline {
     List<AgentRequest>? recentHistory,
     AgentEditApplier? applier,
     Project Function()? liveProject,
+    CancellationToken? cancellation,
   }) async {
     if (provider == null) {
       const result = SubmitResult(
@@ -101,6 +111,7 @@ class Nl2VecPipeline {
           recentHistory: recentHistory,
           applier: applier,
           liveProject: liveProject,
+          cancellation: cancellation,
         );
       }
 
@@ -253,6 +264,7 @@ class Nl2VecPipeline {
     required List<AgentRequest>? recentHistory,
     required AgentEditApplier? applier,
     required Project Function()? liveProject,
+    required CancellationToken? cancellation,
   }) async {
     _events.add(const PipelineEvent(PipelineStage.thinking, 'Planning with tools...'));
 
@@ -271,17 +283,29 @@ class Nl2VecPipeline {
       applier: applier ?? AgentEditApplier(onApply: (_, _) async {}),
       ffmpegService: ffmpegService,
       ffprobeService: ffprobeService,
+      cancellation: cancellation,
     );
     final agent = ToolCallingAgent(provider: provider, context: ctx);
+    final forward = agent.activityEvents.listen(_agentActivity.add);
     try {
       final run = await agent.run(
         validated: validated,
         recentHistory: recentHistory,
+        cancellation: cancellation,
       );
       if (run.status == AgentRunStatus.error) {
         return SubmitResult(
           status: SubmitStatus.error,
           message: run.message,
+        );
+      }
+      if (run.status == AgentRunStatus.cancelled) {
+        _events.add(PipelineEvent(PipelineStage.ready, run.message));
+        return SubmitResult(
+          status: SubmitStatus.cancelled,
+          message: run.message,
+          appliedOperations: run.appliedOperations,
+          outputPath: run.outputPath,
         );
       }
       _events.add(
@@ -294,6 +318,7 @@ class Nl2VecPipeline {
         outputPath: run.outputPath,
       );
     } finally {
+      await forward.cancel();
       agent.dispose();
     }
   }
@@ -305,7 +330,8 @@ class Nl2VecPipeline {
       final result = await fn();
       if (result.status != SubmitStatus.success) {
         _events.add(PipelineEvent(
-          result.status == SubmitStatus.clarificationNeeded
+          result.status == SubmitStatus.clarificationNeeded ||
+                  result.status == SubmitStatus.cancelled
               ? PipelineStage.ready
               : PipelineStage.error,
           result.message,
@@ -470,6 +496,7 @@ class Nl2VecPipeline {
 
   void dispose() {
     _events.close();
+    _agentActivity.close();
   }
 }
 

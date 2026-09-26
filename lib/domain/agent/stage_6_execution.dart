@@ -55,7 +55,12 @@ class ExecutionEngine {
 
     try {
       for (final job in jobs) {
-        final tempOutPath = '${tempDir.path}/${job.id}_output.mp4';
+        // Keep the job's own output extension (audio → .mp3/.aac/.wav,
+        // thumbnail → .jpg) so the temp file matches the final container.
+        final jobExt = job.outputPath.contains('.')
+            ? job.outputPath.substring(job.outputPath.lastIndexOf('.'))
+            : '.mp4';
+        final tempOutPath = '${tempDir.path}/${job.id}_output$jobExt';
         final tempJob = FfmpegJob(
           id: job.id,
           args: job.args,

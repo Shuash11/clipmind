@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:clipmind/core/async/cancellation_token.dart';
+import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/track.dart';
@@ -60,6 +62,28 @@ class _FailExecutor implements ToolExecutor {
   @override
   Future<ToolResult> execute(ToolCall call) async =>
       ToolResult.fail('Unknown clip ID "ghost".');
+}
+
+/// Journals one applied edit like the real edit executor, then cancels the
+/// run so the next boundary check observes cancellation mid-run.
+class _JournalAndCancel implements ToolExecutor {
+  _JournalAndCancel(this.ctx, this.controller);
+
+  final ToolExecutionContext ctx;
+  final CancellationController controller;
+
+  @override
+  Future<ToolResult> execute(ToolCall call) async {
+    ctx.appliedOperations.add(EditOperation(
+      id: call.id,
+      type: EditOperationType.trim,
+      targetClipIds: const ['clip_1'],
+      createdAt: DateTime(2026, 1, 1),
+    ));
+    ctx.outputPaths.add('/out/${call.id}.mp4');
+    controller.cancel();
+    return ToolResult.ok(summary: 'ok');
+  }
 }
 
 ToolRegistry _registryWith(Map<String, ToolExecutor> overrides) {
@@ -272,6 +296,126 @@ void main() {
       expect(result.status, equals(AgentRunStatus.success));
       expect(result.records.single.success, isFalse);
       expect(result.records.single.summary, contains('Unknown tool'));
+      agent.dispose();
+    });
+
+    test('round 2 keeps the original user turn, no phantom user message',
+        () async {
+      final provider = _ScriptProvider([
+        const AgentTurnResult(
+          toolCalls: [
+            AgentToolCall(
+              id: 'call_1',
+              name: 'trim_clip',
+              args: {'clip_id': 'clip_1'},
+            ),
+          ],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          text: 'Done.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(),
+        registry: _registryWith({}),
+      );
+
+      await agent.run(validated: _validated());
+
+      final round1 = provider.seen[0];
+      expect(round1.history, isEmpty);
+      expect(round1.userContent, contains('Trim the first 5 seconds'));
+      final round2 = provider.seen[1];
+      expect(round2.userContent, isEmpty);
+      expect(round2.history.first.role, equals(AgentTurnRole.user));
+      expect(
+        round2.history.first.content,
+        contains('Trim the first 5 seconds'),
+      );
+      final phantom = round2.history.where(
+        (m) =>
+            m.role == AgentTurnRole.user &&
+            (m.content ?? '').contains('Continue'),
+      );
+      expect(phantom, isEmpty);
+      agent.dispose();
+    });
+
+    test('cancellation between rounds returns partial applied edits',
+        () async {
+      final controller = CancellationController();
+      final provider = _ScriptProvider([
+        const AgentTurnResult(
+          toolCalls: [
+            AgentToolCall(
+              id: 'call_1',
+              name: 'trim_clip',
+              args: {'clip_id': 'clip_1'},
+            ),
+          ],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          text: 'Never reached.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final ctx = _context();
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: ctx,
+        registry: ToolRegistry(executors: {
+          for (final d in ToolRegistry.defaultDefinitions())
+            d.name: _JournalAndCancel(ctx, controller),
+        }),
+      );
+      final events = <AgentActivityEvent>[];
+      final sub = agent.activityEvents.listen(events.add);
+
+      final result = await agent.run(
+        validated: _validated(),
+        cancellation: controller.token,
+      );
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+
+      expect(provider.calls, equals(1));
+      expect(result.status, equals(AgentRunStatus.cancelled));
+      expect(result.message, equals('Cancelled — 1 edit(s) applied.'));
+      expect(result.appliedOperations, hasLength(1));
+      expect(
+        events.any((e) => e.kind == AgentActivityKind.runCancelled),
+        isTrue,
+      );
+      agent.dispose();
+    });
+
+    test('pre-cancelled token makes no provider calls', () async {
+      final controller = CancellationController()..cancel();
+      final provider = _ScriptProvider([
+        const AgentTurnResult(
+          text: 'Never reached.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(),
+        registry: _registryWith({}),
+      );
+
+      final result = await agent.run(
+        validated: _validated(),
+        cancellation: controller.token,
+      );
+
+      expect(provider.calls, equals(0));
+      expect(result.status, equals(AgentRunStatus.cancelled));
+      expect(result.message, equals('Cancelled — 0 edit(s) applied.'));
+      expect(result.appliedOperations, isEmpty);
       agent.dispose();
     });
 

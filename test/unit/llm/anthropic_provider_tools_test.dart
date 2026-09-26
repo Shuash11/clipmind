@@ -195,6 +195,73 @@ void main() {
     });
   });
 
+  group('AnthropicProvider empty userContent omission', () {
+    test('round-2 request omits the trailing user message', () async {
+      final dio = _MockDio();
+      Map<String, dynamic>? captured;
+      when(() => dio.post<Map<String, dynamic>>(
+            any(),
+            data: any(named: 'data'),
+            options: any(named: 'options'),
+          )).thenAnswer((invocation) async {
+        captured = Map<String, dynamic>.from(
+          invocation.namedArguments[#data] as Map,
+        );
+        return Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/v1/messages'),
+          statusCode: 200,
+          data: {
+            'stop_reason': 'end_turn',
+            'content': [
+              {'type': 'text', 'text': 'All set.'},
+            ],
+          },
+        );
+      });
+
+      final provider = AnthropicProvider(
+        config: const AnthropicConfig(apiKey: 'test-key'),
+        dio: dio,
+      );
+      await provider.chatWithTools(AgentTurnRequest(
+        systemPrompt: 'system',
+        userContent: '',
+        tools: _request().tools,
+        history: const [
+          AgentTurnMessage(
+            role: AgentTurnRole.user,
+            content: 'Trim then mute',
+          ),
+          AgentTurnMessage(
+            role: AgentTurnRole.assistant,
+            toolCalls: [
+              AgentToolCall(
+                id: 'toolu_1',
+                name: 'trim_clip',
+                args: {'clip_id': 'clip_1'},
+              ),
+            ],
+          ),
+          AgentTurnMessage(
+            role: AgentTurnRole.toolResult,
+            content: '{"success":true}',
+            toolCallId: 'toolu_1',
+          ),
+        ],
+      ));
+
+      final messages = captured!['messages'] as List;
+      // original user + assistant + tool_result: no trailing user.
+      expect(messages, hasLength(3));
+      expect((messages[0] as Map)['role'], equals('user'));
+      expect((messages[0] as Map)['content'], contains('Trim then mute'));
+      final last = messages.last as Map;
+      expect(last['role'], equals('user'));
+      final blocks = last['content'] as List;
+      expect(blocks.single['type'], equals('tool_result'));
+    });
+  });
+
   group('AnthropicProvider capability', () {
     test('supports tool calling', () {
       final provider = AnthropicProvider(

@@ -196,6 +196,77 @@ void main() {
     });
   });
 
+  group('OpenAiProvider empty userContent omission', () {
+    test('round-2 request omits the trailing user message', () async {
+      final dio = _MockDio();
+      Map<String, dynamic>? captured;
+      when(() => dio.post<Map<String, dynamic>>(
+            any(),
+            data: any(named: 'data'),
+            options: any(named: 'options'),
+          )).thenAnswer((invocation) async {
+        captured = Map<String, dynamic>.from(
+          invocation.namedArguments[#data] as Map,
+        );
+        return Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/v1/chat/completions'),
+          statusCode: 200,
+          data: {
+            'choices': [
+              {
+                'finish_reason': 'stop',
+                'message': {'role': 'assistant', 'content': 'Done.'},
+              },
+            ],
+          },
+        );
+      });
+
+      final provider = OpenAiProvider(
+        config: const OpenAiConfig(apiKey: 'test-key'),
+        dio: dio,
+      );
+      await provider.chatWithTools(AgentTurnRequest(
+        systemPrompt: 'system',
+        userContent: '',
+        tools: _request().tools,
+        history: const [
+          AgentTurnMessage(
+            role: AgentTurnRole.user,
+            content: 'Trim the first 5 seconds',
+          ),
+          AgentTurnMessage(
+            role: AgentTurnRole.assistant,
+            toolCalls: [
+              AgentToolCall(
+                id: 'call_1',
+                name: 'trim_clip',
+                args: {'clip_id': 'clip_1'},
+              ),
+            ],
+          ),
+          AgentTurnMessage(
+            role: AgentTurnRole.toolResult,
+            content: '{"success":true}',
+            toolCallId: 'call_1',
+          ),
+        ],
+      ));
+
+      final messages = captured!['messages'] as List;
+      // system + original user + assistant + tool: no trailing user.
+      expect(messages, hasLength(4));
+      expect((messages[1] as Map)['role'], equals('user'));
+      expect(
+        (messages[1] as Map)['content'],
+        contains('Trim the first 5 seconds'),
+      );
+      final last = messages.last as Map;
+      expect(last['role'], equals('tool'));
+      expect(last['tool_call_id'], equals('call_1'));
+    });
+  });
+
   group('OpenAiProvider capability + registry', () {
     test('supports tool calling', () {
       final provider = OpenAiProvider(

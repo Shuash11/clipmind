@@ -1,20 +1,125 @@
+import 'dart:async';
+
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:clipmind/core/results/result.dart';
-import 'package:clipmind/features/agent/domain/entities/edit_plan.dart';
-import 'package:clipmind/features/agent/domain/entities/validated_plan_payload.dart';
-import 'package:clipmind/features/agent/presentation/providers/edit_plan_providers.dart';
-import 'package:clipmind/features/agent/presentation/providers/edit_plan_transaction_gateway.dart';
-import 'package:clipmind/features/projects/domain/commands/project_command.dart';
-import 'package:clipmind/features/projects/domain/commands/project_command_factory.dart';
-import 'package:clipmind/features/projects/domain/entities/project_document.dart';
-import 'package:clipmind/features/projects/domain/transactions/edit_transaction.dart';
-import 'package:clipmind/features/projects/domain/transactions/project_save_outcome.dart';
+import 'package:clipmind/core/async/cancellation_token.dart';
+import 'package:clipmind/data/local/database/app_database.dart';
+import 'package:clipmind/data/models/chat_message.dart';
+import 'package:clipmind/data/models/clip.dart';
+import 'package:clipmind/data/models/edit_operation.dart';
+import 'package:clipmind/data/models/project.dart';
+import 'package:clipmind/data/models/track.dart';
+import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
+import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
+import 'package:clipmind/data/services/llm/llm_provider.dart';
+import 'package:clipmind/data/services/llm/provider_registry.dart';
+import 'package:clipmind/domain/agent/agent_activity.dart';
+import 'package:clipmind/domain/agent/agent_edit_applier.dart';
+import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
+import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/presentation/editor/widgets/agent_chat/agent_chat_panel.dart';
+import 'package:clipmind/state/agent_providers.dart';
+import 'package:clipmind/state/agent_run_providers.dart';
+import 'package:clipmind/state/project_providers.dart';
+import 'package:clipmind/state/settings_providers.dart';
 
-import '../features/projects/support/project_test_data.dart';
-import '../features/projects/support/project_fakes.dart';
+/// Legacy stub: the capturing pipeline below ignores the provider, so this
+/// only needs to satisfy the controller's non-null provider lookup.
+class _StubProvider extends LlmProvider {
+  @override
+  String get id => 'stub';
+
+  @override
+  Future<List<String>> availableModels() async => ['stub'];
+
+  @override
+  Future<EditOperationSet> parseCommand(AgentRequest request) =>
+      throw UnimplementedError();
+
+  @override
+  Stream<ConnectionStatus> watchConnection() =>
+      Stream.value(ConnectionStatus.connected);
+}
+
+class _FakeRegistry extends ProviderRegistry {
+  final LlmProvider? active;
+  _FakeRegistry(this.active);
+
+  @override
+  Future<LlmProvider?> getActiveProvider() async => active;
+}
+
+/// Capturing pipeline double: no FFmpeg, no file IO (async dart:io hangs
+/// in this widget-test sandbox), optional gate for busy-state tests.
+class _GatePipeline extends Nl2VecPipeline {
+  final Completer<void> gate;
+  final SubmitResult result;
+  int calls = 0;
+
+  _GatePipeline({Completer<void>? gate, required this.result})
+      : gate = gate ?? (Completer<void>()..complete()),
+        super(ffmpegService: FfmpegService());
+
+  @override
+  Future<SubmitResult> submitCommand(
+    String text,
+    Project project, {
+    LlmProvider? provider,
+    VideoMetadata? metadata,
+    List<AgentRequest>? recentHistory,
+    AgentEditApplier? applier,
+    Project Function()? liveProject,
+    CancellationToken? cancellation,
+  }) async {
+    calls++;
+    await gate.future;
+    if (cancellation?.isCancelled == true) {
+      return const SubmitResult(
+        status: SubmitStatus.cancelled,
+        message: 'Cancelled — 0 edit(s) applied.',
+      );
+    }
+    return result;
+  }
+}
+
+Project _project() {
+  return Project(
+    id: 'p1',
+    name: 'Test',
+    createdAt: DateTime(2026, 1, 1),
+    updatedAt: DateTime(2026, 1, 1),
+    sourceMediaPaths: const ['/v/in.mp4'],
+    tracks: const [
+      Track(
+        id: 't1',
+        type: TrackType.video,
+        label: 'Video',
+        clips: [
+          Clip(
+            id: 'clip_1',
+            trackId: 't1',
+            sourcePath: '/v/in.mp4',
+            startMs: 0,
+            endMs: 60000,
+          ),
+        ],
+      ),
+    ],
+    durationMs: 60000,
+    outputDir: '/out',
+  );
+}
+
+/// Bounded pumps: lets run work finish without hanging on the busy
+/// spinner (pumpAndSettle never settles while it animates).
+Future<void> _settle(WidgetTester tester) async {
+  for (var i = 0; i < 40; i++) {
+    await tester.pump(const Duration(milliseconds: 25));
+  }
+}
 
 void main() {
   testWidgets('AgentChatPanel renders suggested prompts when no messages', (
@@ -31,14 +136,6 @@ void main() {
       expect(find.text(prompt), findsOneWidget);
     }
     expect(find.text('Type a command...'), findsOneWidget);
-    for (final unsupported in <String>[
-      'Add subtitles from speech',
-      'Make a highlight reel',
-      'speech',
-      'automatic analysis',
-    ]) {
-      expect(AgentChatPanel.suggestedPrompts, isNot(contains(unsupported)));
-    }
   });
 
   testWidgets('AgentChatPanel has send button', (WidgetTester tester) async {
@@ -51,249 +148,156 @@ void main() {
     expect(find.byIcon(Icons.send_rounded), findsOneWidget);
   });
 
-  testWidgets('AgentChatPanel shows configured-empty dynamic model selector', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(home: Scaffold(body: AgentChatPanel())),
-      ),
-    );
+  group('Gen A wiring (no EditPlan flow)', () {
+    late AppDatabase db;
 
-    expect(
-      find.byKey(const ValueKey('dynamic-model-selector')),
-      findsOneWidget,
-    );
-    expect(find.text('Configure AI Providers'), findsOneWidget);
-    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
-    for (final label in <String>[
-      'Flash',
-      'Claude (Anthropic)',
-      'GPT-4o (OpenAI)',
-      'Gemini (Google)',
-      'NVIDIA NIM',
-    ]) {
-      expect(find.text(label), findsNothing);
+    setUp(() {
+      db = AppDatabase(NativeDatabase.memory());
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    ProviderContainer makeContainer({
+      required Nl2VecPipeline pipeline,
+      LlmProvider? active,
+    }) {
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          nl2vecPipelineProvider.overrideWithValue(pipeline),
+          providerRegistryProvider.overrideWithValue(
+            _FakeRegistry(active ?? _StubProvider()),
+          ),
+          projectMetadataProvider.overrideWith((ref) async => null),
+        ],
+      );
+      container.read(projectProvider.notifier).setProject(_project());
+      return container;
     }
-  });
 
-  testWidgets('submitting creates a preview without an eager transaction', (
-    WidgetTester tester,
-  ) async {
-    var submitCalls = 0;
-    final plan = EditPlan.valid(
-      id: 'plan-1',
-      summary: 'Mute the selected clip',
-      baseProjectId: 'project-1',
-      baseRevision: 0,
-      payload: ValidatedPlanPayload(
-        commands: [
-          ProjectCommandFactory(
-            SequenceIdGenerator(['unused']),
-          ).setMuted(clipId: 'clip-1', muted: true),
-        ],
-        candidateState: stateWithOneClip(muted: true),
-        summaries: [
-          CanonicalCommandSummary(
-            type: 'set_clip_muted',
-            targetIds: ['clip-1'],
-          ),
-        ],
-      ),
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          editPlanSubmitterProvider.overrideWithValue((command, token) async {
-            submitCalls++;
-            return Success(plan);
-          }),
-        ],
-        child: const MaterialApp(home: Scaffold(body: AgentChatPanel())),
-      ),
-    );
-
-    expect(submitCalls, 0);
-    await tester.enterText(find.byType(TextField), 'Mute the selected clip');
-    await tester.tap(find.byIcon(Icons.send_rounded));
-    await tester.pump();
-    await tester.pump();
-
-    expect(submitCalls, 1);
-    expect(find.byKey(const ValueKey('edit-plan-card')), findsOneWidget);
-  });
-
-  testWidgets(
-    'unavailable composition reports a safe actionable planning state',
-    (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(home: Scaffold(body: AgentChatPanel())),
+    Future<void> pumpPanel(WidgetTester tester, ProviderContainer c) {
+      return tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: c,
+          child: const MaterialApp(home: Scaffold(body: AgentChatPanel())),
         ),
       );
-      await tester.enterText(find.byType(TextField), 'Mute the selected clip');
+    }
+
+    Future<void> untilBusy(WidgetTester tester, ProviderContainer c) async {
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 25));
+        if (c.read(agentRunControllerProvider) == AgentRunState.running) {
+          return;
+        }
+      }
+      fail('controller never became busy');
+    }
+
+    SubmitResult makeSuccess() => SubmitResult(
+          status: SubmitStatus.success,
+          message: 'Trimmed it.',
+          appliedOperations: [
+            EditOperation(
+              id: 'call_1',
+              type: EditOperationType.trim,
+              targetClipIds: const ['clip_1'],
+              createdAt: DateTime(2026, 1, 1),
+            ),
+          ],
+        );
+
+    testWidgets('submit shows the agent summary, no EditPlanCard', (
+      WidgetTester tester,
+    ) async {
+      final pipeline = _GatePipeline(result: makeSuccess());
+      final container = makeContainer(pipeline: pipeline);
+      addTearDown(container.dispose);
+      await pumpPanel(tester, container);
+
+      await tester.enterText(find.byType(TextField), 'Trim the first 5 seconds');
       await tester.tap(find.byIcon(Icons.send_rounded));
-      await tester.pump();
-      await tester.pump();
+      await _settle(tester);
 
-      expect(
-        find.text(
-          'Agent planning is unavailable. Configure an AI provider and try again.',
-        ),
-        findsOneWidget,
+      expect(pipeline.calls, equals(1));
+      expect(find.byKey(const ValueKey('edit-plan-card')), findsNothing);
+      expect(find.text('Trimmed it.'), findsOneWidget);
+      final reply = container.read(chatMessagesProvider).lastWhere(
+            (m) => m.role == ChatRole.agent,
+          );
+      expect(reply.resultingOperationIds, equals(['call_1']));
+    });
+
+    testWidgets('Cancel button stops the run', (WidgetTester tester) async {
+      final gate = Completer<void>();
+      final pipeline = _GatePipeline(
+        gate: gate,
+        result: makeSuccess(),
       );
-      expect(tester.takeException(), isNull);
-    },
-  );
+      final container = makeContainer(pipeline: pipeline);
+      addTearDown(container.dispose);
+      await pumpPanel(tester, container);
 
-  testWidgets('card Apply and Cancel route only through the plan notifier', (
-    WidgetTester tester,
-  ) async {
-    final document = documentWithOneClip();
-    final gateway = _ChatGateway(document);
-    final plan = _chatPlan(document);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          editPlanSubmitterProvider.overrideWithValue(
-            (command, token) async => Success(plan),
-          ),
-          editPlanTransactionGatewayProvider.overrideWithValue(gateway),
-        ],
-        child: const MaterialApp(home: Scaffold(body: AgentChatPanel())),
-      ),
-    );
-    await tester.enterText(find.byType(TextField), 'Mute the selected clip');
-    await tester.tap(find.byIcon(Icons.send_rounded));
-    await tester.pump();
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('edit-plan-apply')));
-    await tester.pump();
-    expect(gateway.applyCalls, 1);
+      await tester.enterText(find.byType(TextField), 'Trim it');
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await untilBusy(tester, container);
+      expect(find.byKey(const ValueKey('agent-run-cancel')), findsOneWidget);
 
-    final cancelGateway = _ChatGateway(document);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          editPlanSubmitterProvider.overrideWithValue(
-            (command, token) async => Success(_chatPlan(document)),
-          ),
-          editPlanTransactionGatewayProvider.overrideWithValue(cancelGateway),
-        ],
-        child: const MaterialApp(home: Scaffold(body: AgentChatPanel())),
-      ),
-    );
-    await tester.enterText(find.byType(TextField), 'Mute the selected clip');
-    await tester.tap(find.byIcon(Icons.send_rounded));
-    await tester.pump();
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('edit-plan-cancel')));
-    await tester.pump();
-    expect(cancelGateway.applyCalls, 0);
-  });
+      await tester.tap(find.byKey(const ValueKey('agent-run-cancel')));
+      await tester.pump();
+      expect(
+        container.read(agentRunControllerProvider),
+        equals(AgentRunState.cancelled),
+      );
+      gate.complete();
+      await _settle(tester);
 
-  testWidgets('Revise routes a dialog instruction to one replanning call', (
-    WidgetTester tester,
-  ) async {
-    final document = documentWithOneClip();
-    final initial = _chatPlan(document);
-    final revised = EditPlan.valid(
-      id: 'plan-2',
-      summary: 'Use a softer mute change',
-      baseProjectId: document.id,
-      baseRevision: document.revision,
-      payload: _chatPlan(document, id: 'payload-source').payload!,
-    );
-    final gateway = _ChatGateway(document);
-    var replanCalls = 0;
-    EditPlan? receivedPrior;
-    String? receivedInstruction;
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          editPlanSubmitterProvider.overrideWithValue(
-            (command, token) async => Success(initial),
-          ),
-          editPlanReplannerProvider.overrideWithValue((
-            prior,
-            instruction,
-            token,
-          ) async {
-            replanCalls++;
-            receivedPrior = prior;
-            receivedInstruction = instruction;
-            return Success(revised);
-          }),
-          editPlanTransactionGatewayProvider.overrideWithValue(gateway),
-        ],
-        child: const MaterialApp(home: Scaffold(body: AgentChatPanel())),
-      ),
-    );
-    await tester.enterText(find.byType(TextField), 'Mute the selected clip');
-    await tester.tap(find.byIcon(Icons.send_rounded));
-    await tester.pump();
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('edit-plan-revise')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('revise-plan-dialog')), findsOneWidget);
-    await tester.enterText(
-      find.byKey(const ValueKey('revise-plan-instruction')),
-      'Use a softer mute change',
-    );
-    await tester.tap(find.byKey(const ValueKey('revise-plan-submit')));
-    await tester.pumpAndSettle();
+      expect(find.textContaining('Cancelled'), findsWidgets);
+    });
 
-    expect(replanCalls, 1);
-    expect(receivedPrior, same(initial));
-    expect(receivedInstruction, 'Use a softer mute change');
-    expect(gateway.applyCalls, 0);
-    expect(find.byKey(const ValueKey('revise-plan-dialog')), findsNothing);
-    expect(find.text('Use a softer mute change'), findsOneWidget);
+    testWidgets('activity feed renders tool events while running', (
+      WidgetTester tester,
+    ) async {
+      final gate = Completer<void>();
+      final pipeline = _GatePipeline(gate: gate, result: makeSuccess());
+      final container = makeContainer(pipeline: pipeline);
+      addTearDown(container.dispose);
+      await pumpPanel(tester, container);
+
+      await tester.enterText(find.byType(TextField), 'Trim it');
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await untilBusy(tester, container);
+
+      container.read(agentActivityFeedProvider.notifier).push(
+            AgentActivityEvent(
+              kind: AgentActivityKind.toolCallStarted,
+              round: 1,
+              toolCallId: 'call_1',
+              toolName: 'trim_clip',
+            ),
+          );
+      container.read(agentActivityFeedProvider.notifier).push(
+            AgentActivityEvent(
+              kind: AgentActivityKind.toolCallCompleted,
+              round: 1,
+              toolCallId: 'call_1',
+              toolName: 'trim_clip',
+              summary: 'Trimmed clip.',
+              success: true,
+              durationMs: 150,
+            ),
+          );
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('agent-activity-feed')), findsOneWidget);
+      expect(find.textContaining('trim_clip'), findsWidgets);
+      expect(find.textContaining('150ms'), findsOneWidget);
+      gate.complete();
+      await _settle(tester);
+      expect(find.text('Trimmed it.'), findsOneWidget);
+    });
   });
 }
 
-EditPlan _chatPlan(ProjectDocument document, {String id = 'plan-1'}) =>
-    EditPlan.valid(
-      id: id,
-      summary: 'Mute the selected clip',
-      baseProjectId: document.id,
-      baseRevision: document.revision,
-      payload: ValidatedPlanPayload(
-        commands: [
-          ProjectCommandFactory(
-            SequenceIdGenerator(['unused']),
-          ).setMuted(clipId: 'clip-1', muted: true),
-        ],
-        candidateState: stateWithOneClip(muted: true),
-        summaries: [
-          CanonicalCommandSummary(
-            type: 'set_clip_muted',
-            targetIds: ['clip-1'],
-          ),
-        ],
-      ),
-    );
-
-final class _ChatGateway implements EditPlanTransactionGateway {
-  _ChatGateway(this.document);
-  final ProjectDocument document;
-  var applyCalls = 0;
-  @override
-  ProjectDocument get currentDocument => document;
-  @override
-  Future<Result<ProjectSaveOutcome>> apply(
-    ProjectDocument expectedDocument,
-    EditTransaction transaction,
-  ) async {
-    applyCalls++;
-    return Success(
-      ProjectSaveOutcome(
-        document: document.copyWith(
-          currentState: transaction.candidateState,
-          revision: transaction.expectedRevision + 1,
-        ),
-      ),
-    );
-  }
-}

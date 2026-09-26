@@ -219,10 +219,15 @@ class AnthropicProvider extends LlmProvider {
     for (final turn in request.history) {
       messages.add(_turnToWire(turn));
     }
-    messages.add({
-      'role': 'user',
-      'content': request.userContent,
-    });
+    // Rounds 2+ send empty userContent (the original user turn already
+    // lives in history). Omitting keeps the trailing `tool_result`
+    // user message last, which the protocol requires after tool calls.
+    if (request.userContent.trim().isNotEmpty) {
+      messages.add({
+        'role': 'user',
+        'content': request.userContent,
+      });
+    }
     return messages;
   }
 
@@ -318,7 +323,7 @@ class AnthropicProvider extends LlmProvider {
             'items': {
               'type': 'object',
               'properties': parsed,
-              'required': ['id', 'type', 'targetClipId', 'params'],
+              'required': ['id', 'type', 'target_clip_id', 'params'],
             },
           },
           'summary': {'type': 'string'},
@@ -435,3 +440,4 @@ class AnthropicProvider extends LlmProvider {
     _connectionCtrl.close();
   }
 }
+

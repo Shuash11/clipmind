@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'agent_activity.dart';
@@ -10,7 +11,7 @@ import 'tools/tool_executors.dart';
 import 'tools/tool_prompts.dart';
 import 'tools/tool_registry.dart';
 
-enum AgentRunStatus { success, error }
+enum AgentRunStatus { success, error, cancelled }
 
 /// Final outcome of one agent run, mapped by the pipeline to [SubmitResult].
 class AgentRunResult {
@@ -61,6 +62,7 @@ class ToolCallingAgent {
     List<AgentRequest>? recentHistory,
     int timeoutSeconds = 60,
     double temperature = 0.1,
+    CancellationToken? cancellation,
   }) async {
     context.resetRun();
     final history = <AgentTurnMessage>[];
@@ -77,16 +79,19 @@ class ToolCallingAgent {
     final records = <AgentToolCallRecord>[];
 
     for (var round = 1; round <= ToolRegistry.maxToolRounds; round++) {
+      if (cancellation?.isCancelled == true) {
+        return _cancelled(records, round: round);
+      }
       _emit(AgentActivityKind.llmRoundStarted, round: round);
       AgentTurnResult turn;
       try {
         turn = await provider.chatWithTools(
           AgentTurnRequest(
             systemPrompt: systemPrompt,
-            userContent: round == 1
-                ? userContent
-                : 'Continue with the next step. If every requested edit is '
-                    'done, reply with a plain-text summary and no tool calls.',
+            // Round 1 carries the command as the trailing user message;
+            // rounds 2+ pass empty content — the original user turn already
+            // lives in history (providers omit empty trailing messages).
+            userContent: round == 1 ? userContent : '',
             tools: registry.definitions(),
             history: List.unmodifiable(history),
             timeoutSeconds: timeoutSeconds,
@@ -106,7 +111,21 @@ class ToolCallingAgent {
         );
       }
 
+      // The token may have been cancelled while the LLM call was in
+      // flight (chatWithTools itself is not cancellable).
+      if (cancellation?.isCancelled == true) {
+        return _cancelled(records, round: round);
+      }
+
       lastText = turn.text;
+      if (round == 1) {
+        // Seed history with the original user turn so rounds 2+ keep the
+        // command even though they send no trailing user message.
+        history.add(AgentTurnMessage(
+          role: AgentTurnRole.user,
+          content: userContent,
+        ));
+      }
       history.add(AgentTurnMessage(
         role: AgentTurnRole.assistant,
         content: turn.text.isEmpty ? null : turn.text,
@@ -123,6 +142,9 @@ class ToolCallingAgent {
       }
 
       for (final call in turn.toolCalls) {
+        if (cancellation?.isCancelled == true) {
+          return _cancelled(records, round: round);
+        }
         await _executeOne(round, call, history, records);
       }
       _emit(AgentActivityKind.llmRoundCompleted, round: round);
@@ -224,6 +246,31 @@ class ToolCallingAgent {
       summary: result.summary,
       success: result.success,
       durationMs: stopwatch.elapsedMilliseconds,
+    );
+  }
+
+  /// Partial result for a cancelled run: already-applied edits stay
+  /// (undoable via the applier); nothing further starts.
+  AgentRunResult _cancelled(
+    List<AgentToolCallRecord> records, {
+    required int round,
+  }) {
+    final applied = List<EditOperation>.from(context.appliedOperations);
+    final outputPath =
+        context.outputPaths.isEmpty ? null : context.outputPaths.first;
+    final message = 'Cancelled — ${applied.length} edit(s) applied.';
+    _emit(
+      AgentActivityKind.runCancelled,
+      round: round,
+      summary: message,
+      success: false,
+    );
+    return AgentRunResult(
+      status: AgentRunStatus.cancelled,
+      message: message,
+      appliedOperations: applied,
+      outputPath: outputPath,
+      records: List.unmodifiable(records),
     );
   }
 

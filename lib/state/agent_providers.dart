@@ -1,13 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
-import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/data/services/llm/provider_registry.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
-import 'package:clipmind/domain/agent/tool_calling_agent.dart';
-import 'package:clipmind/domain/agent/tools/tool_executors.dart';
-import 'package:clipmind/domain/agent/tools/tool_registry.dart';
 import 'package:clipmind/data/models/chat_message.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/settings_providers.dart';
@@ -31,39 +27,6 @@ final nl2vecPipelineProvider = Provider<Nl2VecPipeline>((ref) {
   final ffmpeg = ref.watch(ffmpegServiceProvider);
   final ffprobe = ref.watch(ffprobeServiceProvider);
   return Nl2VecPipeline(ffmpegService: ffmpeg, ffprobeService: ffprobe);
-});
-
-/// Live tool-execution context: reads the current project per call so the
-/// agent edits against live ground truth (domain never imports state).
-final toolContextProvider = Provider<ToolExecutionContext>((ref) {
-  return ToolExecutionContext(
-    project: () {
-      final project = ref.read(projectProvider).valueOrNull;
-      if (project == null) throw StateError('No project open.');
-      return project;
-    },
-    outputDir: ref.read(projectProvider).valueOrNull?.outputDir ?? '',
-    projectDir: ref.read(projectProvider).valueOrNull?.outputDir ?? '',
-    applier: ref.read(agentEditApplierProvider),
-    ffmpegService: ref.read(ffmpegServiceProvider),
-    ffprobeService: ref.read(ffprobeServiceProvider),
-  );
-});
-
-/// Registry with executors bound to the live context.
-final toolRegistryProvider = Provider<ToolRegistry>((ref) {
-  return createToolRegistry(ref.read(toolContextProvider));
-});
-
-/// Tool-calling loop for one LLM provider (per-run instance via family).
-final toolCallingAgentProvider =
-    Provider.family<ToolCallingAgent, LlmProvider>((ref, provider) {
-  final ctx = ref.read(toolContextProvider);
-  return ToolCallingAgent(
-    provider: provider,
-    context: ctx,
-    registry: createToolRegistry(ctx),
-  );
 });
 
 /// ffprobe metadata for an arbitrary file path (cached per path).

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/models/project.dart';
@@ -93,7 +94,7 @@ void main() {
     await tmp.delete(recursive: true);
   });
 
-  ToolExecutionContext ctx() {
+  ToolExecutionContext ctx({CancellationToken? cancellation}) {
     final project = _project(inputA, inputB, outDir);
     return ToolExecutionContext(
       project: () => project,
@@ -106,6 +107,7 @@ void main() {
       ),
       ffmpegService: ffmpeg,
       ffprobeService: _MockFfprobe(),
+      cancellation: cancellation,
     );
   }
 
@@ -205,6 +207,29 @@ void main() {
 
       expect(result.success, isTrue);
       expect(ffmpeg.lastJob!.args, contains('-an'));
+    });
+
+    test('cancelled-before-job fails fast without running FFmpeg', () async {
+      final controller = CancellationController()..cancel();
+      final executor = EditToolExecutor(
+        ctx(cancellation: controller.token),
+      );
+      final result = await executor.execute(
+        const ToolCall(
+          id: 'call_cancel',
+          name: 'trim_clip',
+          args: {
+            'clip_id': 'clip_1',
+            'start': '00:00:05.000',
+            'end': '00:00:15.000',
+          },
+        ),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, contains('Cancelled'));
+      expect(ffmpeg.lastJob, isNull);
+      expect(applied, isEmpty);
     });
 
     test('merge resolves every clip ID to a real path', () async {

@@ -61,11 +61,17 @@ class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
   }
 
   bool _isFirstClip(Project project, String clipId) {
+    return _firstClipId(project) == clipId;
+  }
+
+  /// The very first clip across all tracks (track order, then clip order),
+  /// or null when the project has no clips.
+  String? _firstClipId(Project project) {
     for (final track in project.tracks) {
-      for (final clip in track.clips) {
-        return clip.id == clipId;
+      if (track.clips.isNotEmpty) {
+        return track.clips.first.id;
       }
     }
-    return false;
+    return null;
   }
 }

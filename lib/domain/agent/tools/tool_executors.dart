@@ -1,3 +1,4 @@
+import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/core/utils/timecode_utils.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/models/project.dart';
@@ -25,6 +26,10 @@ class ToolExecutionContext {
   final FfprobeService ffprobeService;
   final int maxJobs;
 
+  /// Cooperative cancellation: checked before each FFmpeg job starts.
+  /// Mid-job kills go through [FfmpegService.cancel] directly.
+  final CancellationToken? cancellation;
+
   int jobsUsed = 0;
 
   /// Run journal: every successfully applied edit lands here so the agent
@@ -40,6 +45,7 @@ class ToolExecutionContext {
     required this.ffmpegService,
     required this.ffprobeService,
     this.maxJobs = ToolRegistry.maxEditJobsPerRun,
+    this.cancellation,
   });
 
   void resetRun() {
@@ -486,6 +492,11 @@ class EditToolExecutor implements ToolExecutor {
     required List<String> clipIds,
     required String summary,
   }) async {
+    if (_ctx.cancellation?.isCancelled == true) {
+      return ToolResult.fail(
+        'Cancelled — this edit did not run. Already-applied edits remain.',
+      );
+    }
     if (_ctx.jobsUsed + 1 > _ctx.maxJobs) {
       return ToolResult.fail(_budgetMessage);
     }
