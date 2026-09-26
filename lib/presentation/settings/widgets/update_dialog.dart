@@ -110,7 +110,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
     if (error.contains('Extraction failed')) {
       return 'The downloaded file was corrupted. Please try downloading again.';
     }
-    if (error.contains('ZIP') || error.contains('empty') || error.contains('Copy failed')) {
+    if (error.contains('ZIP') ||
+        error.contains('empty') ||
+        error.contains('Copy failed')) {
       return 'The update data is corrupted. Please try again or download from the website.';
     }
     return 'An unexpected error occurred. Please try again later.';

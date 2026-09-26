@@ -1,0 +1,25 @@
+{
+  "id": "legacy-v0-project",
+  "name": "Legacy v0 project",
+  "createdAt": "2026-07-01T00:00:00.000Z",
+  "updatedAt": "2026-07-01T00:00:00.000Z",
+  "outputDir": "C:\\exports",
+  "tracks": [
+    {
+      "id": "video-track",
+      "type": "video",
+      "label": "Video",
+      "clips": [
+        {
+          "id": "legacy-clip-v0",
+          "trackId": "video-track",
+          "sourcePath": "C:\\media\\legacy-v0.mp4",
+          "startMs": 100,
+          "endMs": 900,
+          "positionMs": 0,
+          "label": "legacy-v0.mp4"
+        }
+      ]
+    }
+  ]
+}

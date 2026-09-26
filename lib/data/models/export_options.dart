@@ -29,7 +29,13 @@ class ExportOptions {
   };
 
   static const List<String> formats = ['mp4', 'mov', 'webm', 'gif'];
-  static const List<String> resolutions = ['source', '480p', '720p', '1080p', '4K'];
+  static const List<String> resolutions = [
+    'source',
+    '480p',
+    '720p',
+    '1080p',
+    '4K',
+  ];
   static const List<String> qualities = ['low', 'medium', 'high', 'ultra'];
 
   static int crfForQuality(String quality) {

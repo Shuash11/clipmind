@@ -77,7 +77,11 @@ class _UatSurveyDialogState extends State<UatSurveyDialog> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.quiz, size: 20, color: ClipMindColors.accentPrimary),
+                  const Icon(
+                    Icons.quiz,
+                    size: 20,
+                    color: ClipMindColors.accentPrimary,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -163,9 +167,7 @@ class _UatSurveyDialogState extends State<UatSurveyDialog> {
     };
 
     final dir = await getApplicationDocumentsDirectory();
-    final file = File(
-      '${dir.path}/uat_results_${widget.sessionId}.json',
-    );
+    final file = File('${dir.path}/uat_results_${widget.sessionId}.json');
     await file.writeAsString(
       const JsonEncoder.withIndent('  ').convert(result),
     );
@@ -235,7 +237,10 @@ class _QuestionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(question.text, style: theme.textTheme.bodyLarge?.copyWith(fontSize: 13)),
+          Text(
+            question.text,
+            style: theme.textTheme.bodyLarge?.copyWith(fontSize: 13),
+          ),
           const SizedBox(height: 10),
           Row(
             children: List.generate(5, (i) {
@@ -260,9 +265,13 @@ class _QuestionCard extends StatelessWidget {
                     child: Text(
                       _getShortLabel(i),
                       style: TextStyle(
-                        color: value == i ? Colors.white : ClipMindColors.textMuted,
+                        color: value == i
+                            ? Colors.white
+                            : ClipMindColors.textMuted,
                         fontSize: 9,
-                        fontWeight: value == i ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: value == i
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                     ),
                   ),

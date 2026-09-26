@@ -62,11 +62,9 @@ class FfmpegService {
 
   Process? _process;
 
-  FfmpegService({
-    FfmpegBinaryResolver? resolver,
-    String? tempDir,
-  })  : _resolver = resolver ?? FfmpegBinaryResolver(),
-        _tempDir = tempDir ?? Directory.systemTemp.path;
+  FfmpegService({FfmpegBinaryResolver? resolver, String? tempDir})
+    : _resolver = resolver ?? FfmpegBinaryResolver(),
+      _tempDir = tempDir ?? Directory.systemTemp.path;
 
   String get tempDir => _tempDir;
 
@@ -91,7 +89,8 @@ class FfmpegService {
 
     final process = await Process.start(binary, [
       ...job.args,
-      '-progress', 'pipe:1',
+      '-progress',
+      'pipe:1',
       '-nostats',
       '-y',
       job.outputPath,

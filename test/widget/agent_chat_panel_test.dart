@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:clipmind/data/models/chat_message.dart';
-import 'package:clipmind/data/models/clip.dart';
-import 'package:clipmind/data/models/edit_operation.dart';
-import 'package:clipmind/data/models/project.dart';
-import 'package:clipmind/data/models/track.dart';
-import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
+import 'package:clipmind/core/results/result.dart';
+import 'package:clipmind/features/agent/domain/entities/edit_plan.dart';
+import 'package:clipmind/features/agent/domain/entities/validated_plan_payload.dart';
+import 'package:clipmind/features/agent/presentation/providers/edit_plan_providers.dart';
+import 'package:clipmind/features/agent/presentation/providers/edit_plan_transaction_gateway.dart';
+import 'package:clipmind/features/projects/domain/commands/project_command.dart';
+import 'package:clipmind/features/projects/domain/commands/project_command_factory.dart';
+import 'package:clipmind/features/projects/domain/entities/project_document.dart';
+import 'package:clipmind/features/projects/domain/transactions/edit_transaction.dart';
+import 'package:clipmind/features/projects/domain/transactions/project_save_outcome.dart';
 import 'package:clipmind/presentation/editor/widgets/agent_chat/agent_chat_panel.dart';
-import 'package:clipmind/state/agent_providers.dart';
-import 'package:clipmind/state/player_providers.dart';
-import 'package:clipmind/state/project_providers.dart';
+
+import '../features/projects/support/project_test_data.dart';
+import '../features/projects/support/project_fakes.dart';
 
 void main() {
   testWidgets('AgentChatPanel renders suggested prompts when no messages', (
@@ -18,11 +22,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const ProviderScope(
-        child: MaterialApp(
-          home: Scaffold(
-            body: AgentChatPanel(),
-          ),
-        ),
+        child: MaterialApp(home: Scaffold(body: AgentChatPanel())),
       ),
     );
 
@@ -31,152 +31,269 @@ void main() {
       expect(find.text(prompt), findsOneWidget);
     }
     expect(find.text('Type a command...'), findsOneWidget);
+    for (final unsupported in <String>[
+      'Add subtitles from speech',
+      'Make a highlight reel',
+      'speech',
+      'automatic analysis',
+    ]) {
+      expect(AgentChatPanel.suggestedPrompts, isNot(contains(unsupported)));
+    }
   });
 
   testWidgets('AgentChatPanel has send button', (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
-        child: MaterialApp(
-          home: Scaffold(
-            body: AgentChatPanel(),
-          ),
-        ),
+        child: MaterialApp(home: Scaffold(body: AgentChatPanel())),
       ),
     );
 
     expect(find.byIcon(Icons.send_rounded), findsOneWidget);
   });
 
-  testWidgets('AgentChatPanel shows model selector', (WidgetTester tester) async {
+  testWidgets('AgentChatPanel shows configured-empty dynamic model selector', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       const ProviderScope(
-        child: MaterialApp(
-          home: Scaffold(
-            body: AgentChatPanel(),
-          ),
-        ),
+        child: MaterialApp(home: Scaffold(body: AgentChatPanel())),
       ),
     );
 
-    expect(find.byIcon(Icons.memory), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('dynamic-model-selector')),
+      findsOneWidget,
+    );
+    expect(find.text('Configure AI Providers'), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
     expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
+    for (final label in <String>[
+      'Flash',
+      'Claude (Anthropic)',
+      'GPT-4o (OpenAI)',
+      'Gemini (Google)',
+      'NVIDIA NIM',
+    ]) {
+      expect(find.text(label), findsNothing);
+    }
   });
 
-  group('structured result mapping (no Error: string-matching)', () {
-    test('success maps to applied', () {
-      expect(
-        messageStatusForSubmit(SubmitStatus.success),
-        equals(MessageStatus.applied),
-      );
-    });
-
-    test('clarification maps to needsClarification', () {
-      expect(
-        messageStatusForSubmit(SubmitStatus.clarificationNeeded),
-        equals(MessageStatus.needsClarification),
-      );
-    });
-
-    test('error maps to error', () {
-      expect(
-        messageStatusForSubmit(SubmitStatus.error),
-        equals(MessageStatus.error),
-      );
-    });
-
-    test('agent message carries resulting operation IDs', () {
-      final message = ChatMessage(
-        id: 'm1',
-        role: ChatRole.agent,
-        content: 'Trimmed',
-        timestamp: DateTime(2026, 1, 1),
-        status: MessageStatus.applied,
-        resultingOperationIds: const ['op_1'],
-      );
-      expect(message.resultingOperationIds, equals(['op_1']));
-      expect(message.status, equals(MessageStatus.applied));
-    });
-  });
-
-  group('timeline + preview refresh after successful edit', () {
-    test('ProjectNotifier.applyEdit updates clip and edit history', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      const trackId = 'track_1';
-      const clipId = 'clip_1';
-      final project = Project(
-        id: 'p1',
-        name: 'Test',
-        createdAt: DateTime(2026, 1, 1),
-        updatedAt: DateTime(2026, 1, 1),
-        sourceMediaPaths: [r'C:\v\input.mp4'],
-        tracks: [
-          const Track(
-            id: trackId,
-            type: TrackType.video,
-            label: 'Video',
-            clips: [
-              Clip(
-                id: clipId,
-                trackId: trackId,
-                sourcePath: r'C:\v\input.mp4',
-                startMs: 0,
-                endMs: 60000,
-              ),
-            ],
+  testWidgets('submitting creates a preview without an eager transaction', (
+    WidgetTester tester,
+  ) async {
+    var submitCalls = 0;
+    final plan = EditPlan.valid(
+      id: 'plan-1',
+      summary: 'Mute the selected clip',
+      baseProjectId: 'project-1',
+      baseRevision: 0,
+      payload: ValidatedPlanPayload(
+        commands: [
+          ProjectCommandFactory(
+            SequenceIdGenerator(['unused']),
+          ).setMuted(clipId: 'clip-1', muted: true),
+        ],
+        candidateState: stateWithOneClip(muted: true),
+        summaries: [
+          CanonicalCommandSummary(
+            type: 'set_clip_muted',
+            targetIds: ['clip-1'],
           ),
         ],
-        durationMs: 60000,
-        outputDir: r'C:\out',
-      );
-      container.read(projectProvider.notifier).setProject(project);
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          editPlanSubmitterProvider.overrideWithValue((command, token) async {
+            submitCalls++;
+            return Success(plan);
+          }),
+        ],
+        child: const MaterialApp(home: Scaffold(body: AgentChatPanel())),
+      ),
+    );
 
-      final op = EditOperation(
-        id: 'op_1',
-        type: EditOperationType.trim,
-        targetClipIds: const [clipId],
-        params: const {'start': '5', 'end': '15'},
-        createdAt: DateTime(2026, 1, 2),
-        status: OperationStatus.applied,
-        ffmpegCommand: 'ffmpeg -i input',
-      );
-      container
-          .read(projectProvider.notifier)
-          .applyEdit(op, r'C:\out\op_1.mp4');
+    expect(submitCalls, 0);
+    await tester.enterText(find.byType(TextField), 'Mute the selected clip');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump();
 
-      final updated = container.read(projectProvider).valueOrNull!;
-      // Timeline watches projectProvider: clip source now points at output.
-      expect(updated.tracks.first.clips.first.sourcePath,
-          equals(r'C:\out\op_1.mp4'));
-      // Edit lands in history for undo/DB.
-      expect(updated.editHistory.map((e) => e.id), contains('op_1'));
-    });
-
-    test('preview path provider points at the new output after success', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      // Panel sets this after SubmitResult.success; PreviewPlayer watches it.
-      container.read(currentVideoPathProvider.notifier).state =
-          r'C:\out\op_1.mp4';
-      expect(container.read(currentVideoPathProvider),
-          equals(r'C:\out\op_1.mp4'));
-    });
-
-    test('chatMessagesProvider stores resultingOperationIds', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      container.read(chatMessagesProvider.notifier).addAgentResult(
-            id: 'm1',
-            content: 'Trimmed',
-            status: MessageStatus.applied,
-            resultingOperationIds: const ['op_1'],
-          );
-      final messages = container.read(chatMessagesProvider);
-      expect(messages, hasLength(1));
-      expect(messages.first.resultingOperationIds, equals(['op_1']));
-    });
+    expect(submitCalls, 1);
+    expect(find.byKey(const ValueKey('edit-plan-card')), findsOneWidget);
   });
+
+  testWidgets(
+    'unavailable composition reports a safe actionable planning state',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(home: Scaffold(body: AgentChatPanel())),
+        ),
+      );
+      await tester.enterText(find.byType(TextField), 'Mute the selected clip');
+      await tester.tap(find.byIcon(Icons.send_rounded));
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.text(
+          'Agent planning is unavailable. Configure an AI provider and try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('card Apply and Cancel route only through the plan notifier', (
+    WidgetTester tester,
+  ) async {
+    final document = documentWithOneClip();
+    final gateway = _ChatGateway(document);
+    final plan = _chatPlan(document);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          editPlanSubmitterProvider.overrideWithValue(
+            (command, token) async => Success(plan),
+          ),
+          editPlanTransactionGatewayProvider.overrideWithValue(gateway),
+        ],
+        child: const MaterialApp(home: Scaffold(body: AgentChatPanel())),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'Mute the selected clip');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('edit-plan-apply')));
+    await tester.pump();
+    expect(gateway.applyCalls, 1);
+
+    final cancelGateway = _ChatGateway(document);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          editPlanSubmitterProvider.overrideWithValue(
+            (command, token) async => Success(_chatPlan(document)),
+          ),
+          editPlanTransactionGatewayProvider.overrideWithValue(cancelGateway),
+        ],
+        child: const MaterialApp(home: Scaffold(body: AgentChatPanel())),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'Mute the selected clip');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('edit-plan-cancel')));
+    await tester.pump();
+    expect(cancelGateway.applyCalls, 0);
+  });
+
+  testWidgets('Revise routes a dialog instruction to one replanning call', (
+    WidgetTester tester,
+  ) async {
+    final document = documentWithOneClip();
+    final initial = _chatPlan(document);
+    final revised = EditPlan.valid(
+      id: 'plan-2',
+      summary: 'Use a softer mute change',
+      baseProjectId: document.id,
+      baseRevision: document.revision,
+      payload: _chatPlan(document, id: 'payload-source').payload!,
+    );
+    final gateway = _ChatGateway(document);
+    var replanCalls = 0;
+    EditPlan? receivedPrior;
+    String? receivedInstruction;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          editPlanSubmitterProvider.overrideWithValue(
+            (command, token) async => Success(initial),
+          ),
+          editPlanReplannerProvider.overrideWithValue((
+            prior,
+            instruction,
+            token,
+          ) async {
+            replanCalls++;
+            receivedPrior = prior;
+            receivedInstruction = instruction;
+            return Success(revised);
+          }),
+          editPlanTransactionGatewayProvider.overrideWithValue(gateway),
+        ],
+        child: const MaterialApp(home: Scaffold(body: AgentChatPanel())),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'Mute the selected clip');
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('edit-plan-revise')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('revise-plan-dialog')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('revise-plan-instruction')),
+      'Use a softer mute change',
+    );
+    await tester.tap(find.byKey(const ValueKey('revise-plan-submit')));
+    await tester.pumpAndSettle();
+
+    expect(replanCalls, 1);
+    expect(receivedPrior, same(initial));
+    expect(receivedInstruction, 'Use a softer mute change');
+    expect(gateway.applyCalls, 0);
+    expect(find.byKey(const ValueKey('revise-plan-dialog')), findsNothing);
+    expect(find.text('Use a softer mute change'), findsOneWidget);
+  });
+}
+
+EditPlan _chatPlan(ProjectDocument document, {String id = 'plan-1'}) =>
+    EditPlan.valid(
+      id: id,
+      summary: 'Mute the selected clip',
+      baseProjectId: document.id,
+      baseRevision: document.revision,
+      payload: ValidatedPlanPayload(
+        commands: [
+          ProjectCommandFactory(
+            SequenceIdGenerator(['unused']),
+          ).setMuted(clipId: 'clip-1', muted: true),
+        ],
+        candidateState: stateWithOneClip(muted: true),
+        summaries: [
+          CanonicalCommandSummary(
+            type: 'set_clip_muted',
+            targetIds: ['clip-1'],
+          ),
+        ],
+      ),
+    );
+
+final class _ChatGateway implements EditPlanTransactionGateway {
+  _ChatGateway(this.document);
+  final ProjectDocument document;
+  var applyCalls = 0;
+  @override
+  ProjectDocument get currentDocument => document;
+  @override
+  Future<Result<ProjectSaveOutcome>> apply(
+    ProjectDocument expectedDocument,
+    EditTransaction transaction,
+  ) async {
+    applyCalls++;
+    return Success(
+      ProjectSaveOutcome(
+        document: document.copyWith(
+          currentState: transaction.candidateState,
+          revision: transaction.expectedRevision + 1,
+        ),
+      ),
+    );
+  }
 }

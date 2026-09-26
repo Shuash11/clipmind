@@ -97,7 +97,10 @@ void main() {
 
     test('produces filter_complex with video and audio maps', () {
       final args = CommandBuilder.changeSpeed('input.mp4', 2.0);
-      expect(args, containsAll(['-filter_complex', '-map', '[vout]', '-map', '[aout]']));
+      expect(
+        args,
+        containsAll(['-filter_complex', '-map', '[vout]', '-map', '[aout]']),
+      );
     });
   });
 
@@ -254,7 +257,11 @@ void main() {
     });
 
     test('unknown format uses codecPreset when provided', () {
-      final args = CommandBuilder.changeFormat('input.mp4', 'custom', 'libx265');
+      final args = CommandBuilder.changeFormat(
+        'input.mp4',
+        'custom',
+        'libx265',
+      );
       expect(args, containsAll(['-c:v', 'libx265', '-c:a', 'aac']));
     });
   });
@@ -301,7 +308,10 @@ void main() {
   group('CommandBuilder.overlayWatermark', () {
     test('uses colorchannelmixer for opacity', () {
       final args = CommandBuilder.overlayWatermark(
-        'input.mp4', 'wm.png', 'bottom-right', 0.8,
+        'input.mp4',
+        'wm.png',
+        'bottom-right',
+        0.8,
       );
       final joined = args.join(' ');
       expect(joined, contains('colorchannelmixer=aa=0.8'));
@@ -310,21 +320,39 @@ void main() {
 
     test('center position', () {
       final args = CommandBuilder.overlayWatermark(
-        'input.mp4', 'wm.png', 'center', 1.0,
+        'input.mp4',
+        'wm.png',
+        'center',
+        1.0,
       );
       final joined = args.join(' ');
       expect(joined, contains('overlay=(W-w)/2:(H-h)/2'));
     });
 
     test('clamps opacity between 0 and 1', () {
-      final argsLow = CommandBuilder.overlayWatermark('input.mp4', 'wm.png', 'bottom-right', -0.5);
-      final argsHigh = CommandBuilder.overlayWatermark('input.mp4', 'wm.png', 'bottom-right', 2.0);
+      final argsLow = CommandBuilder.overlayWatermark(
+        'input.mp4',
+        'wm.png',
+        'bottom-right',
+        -0.5,
+      );
+      final argsHigh = CommandBuilder.overlayWatermark(
+        'input.mp4',
+        'wm.png',
+        'bottom-right',
+        2.0,
+      );
       expect(argsLow.join(' '), contains('aa=0.0'));
       expect(argsHigh.join(' '), contains('aa=1.0'));
     });
 
     test('maps video and audio streams', () {
-      final args = CommandBuilder.overlayWatermark('input.mp4', 'wm.png', 'bottom-right', 0.5);
+      final args = CommandBuilder.overlayWatermark(
+        'input.mp4',
+        'wm.png',
+        'bottom-right',
+        0.5,
+      );
       expect(args, containsAll(['-map', '[outv]', '-map', '0:a']));
     });
   });

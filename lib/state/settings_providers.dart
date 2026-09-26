@@ -32,9 +32,10 @@ class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
   }
 }
 
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AsyncValue<AppSettings>>((ref) {
-  return SettingsNotifier(ref.read(settingsRepositoryProvider));
-});
+final settingsProvider =
+    StateNotifierProvider<SettingsNotifier, AsyncValue<AppSettings>>((ref) {
+      return SettingsNotifier(ref.read(settingsRepositoryProvider));
+    });
 
 final activeProviderIdProvider = Provider<String>((ref) {
   final settings = ref.watch(settingsProvider);

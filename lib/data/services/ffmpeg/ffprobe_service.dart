@@ -30,7 +30,7 @@ class FfprobeService {
   final FfmpegBinaryResolver _resolver;
 
   FfprobeService({FfmpegBinaryResolver? resolver})
-      : _resolver = resolver ?? FfmpegBinaryResolver();
+    : _resolver = resolver ?? FfmpegBinaryResolver();
 
   Future<VideoMetadata?> extractMetadata(String filePath) async {
     final binary = _resolver.resolveFfprobe();
@@ -41,8 +41,10 @@ class FfprobeService {
 
     try {
       final result = await Process.run(binary, [
-        '-v', 'quiet',
-        '-print_format', 'json',
+        '-v',
+        'quiet',
+        '-print_format',
+        'json',
         '-show_format',
         '-show_streams',
         filePath,
@@ -120,10 +122,14 @@ class FfprobeService {
 
     try {
       final result = await Process.run(binary, [
-        '-ss', (atMs / 1000).toStringAsFixed(3),
-        '-i', filePath,
-        '-vframes', '1',
-        '-q:v', '2',
+        '-ss',
+        (atMs / 1000).toStringAsFixed(3),
+        '-i',
+        filePath,
+        '-vframes',
+        '1',
+        '-q:v',
+        '2',
         '-y',
         out,
       ]);

@@ -26,7 +26,7 @@ class ExportProjectUseCase {
   bool _cancelled = false;
 
   ExportProjectUseCase({FfmpegService? ffmpegService})
-      : _ffmpegService = ffmpegService ?? FfmpegService();
+    : _ffmpegService = ffmpegService ?? FfmpegService();
 
   Stream<double> get progressStream => _progressController.stream;
 
@@ -52,8 +52,7 @@ class ExportProjectUseCase {
     _cancelled = false;
 
     try {
-      final allClips =
-          project.tracks.expand((track) => track.clips).toList();
+      final allClips = project.tracks.expand((track) => track.clips).toList();
       if (allClips.isEmpty) {
         _progressController.add(1.0);
         return ExportResult(
@@ -79,9 +78,7 @@ class ExportProjectUseCase {
       final job = FfmpegJob(
         id: _uuid.v4(),
         args: args,
-        expectedDurationMs: project.durationMs > 0
-            ? project.durationMs
-            : 30000,
+        expectedDurationMs: project.durationMs > 0 ? project.durationMs : 30000,
         inputPath: allClips.first.sourcePath,
         outputPath: outputPath,
         label: 'Export ${project.name}',
@@ -112,10 +109,7 @@ class ExportProjectUseCase {
       }
 
       _progressController.add(1.0);
-      return ExportResult(
-        success: true,
-        outputPath: outputPath,
-      );
+      return ExportResult(success: true, outputPath: outputPath);
     } catch (e) {
       return ExportResult(
         success: false,
@@ -127,8 +121,7 @@ class ExportProjectUseCase {
 
   List<String> _buildExportArgs(Project project, ExportOptions options) {
     final args = <String>[];
-    final allClips =
-        project.tracks.expand((track) => track.clips).toList();
+    final allClips = project.tracks.expand((track) => track.clips).toList();
 
     final inputPaths = <String>[];
     for (final clip in allClips) {
@@ -156,8 +149,7 @@ class ExportProjectUseCase {
         final aLabel = 'c${i}a';
         filterParts.add('[$inputIndex:v:0]setpts=PTS-STARTPTS[$vLabel]');
         if (!clip.muted) {
-          filterParts
-              .add('[$inputIndex:a:0]asetpts=PTS-STARTPTS[$aLabel]');
+          filterParts.add('[$inputIndex:a:0]asetpts=PTS-STARTPTS[$aLabel]');
         } else {
           filterParts.add('anullsrc=r=44100:d=1[$aLabel]');
         }
@@ -196,9 +188,7 @@ class ExportProjectUseCase {
       args.addAll(['-filter_complex', filterParts.join(';')]);
       args.addAll(['-map', '[finalv]', '-map', '[outa]']);
     } else {
-      filterParts.add(
-        '${concatInputStr}concat=n=$n:v=1:a=1[outv][outa]',
-      );
+      filterParts.add('${concatInputStr}concat=n=$n:v=1:a=1[outv][outa]');
       args.addAll(['-filter_complex', filterParts.join(';')]);
       args.addAll(['-map', '[outv]', '-map', '[outa]']);
     }

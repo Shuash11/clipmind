@@ -1,9 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
+import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 
-final activeJobsProvider = StateNotifierProvider<ActiveJobsNotifier, List<FfmpegJob>>((ref) {
-  return ActiveJobsNotifier();
+final ffmpegServiceProvider = Provider<FfmpegService>((ref) {
+  return FfmpegService();
 });
+
+final ffprobeServiceProvider = Provider<FfprobeService>((ref) {
+  return FfprobeService();
+});
+
+final activeJobsProvider =
+    StateNotifierProvider<ActiveJobsNotifier, List<FfmpegJob>>((ref) {
+      return ActiveJobsNotifier();
+    });
 
 class ActiveJobsNotifier extends StateNotifier<List<FfmpegJob>> {
   ActiveJobsNotifier() : super([]);

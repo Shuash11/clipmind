@@ -10,10 +10,7 @@ class GeminiConfig {
   final String model;
   final String apiKey;
 
-  const GeminiConfig({
-    this.model = 'gemini-2.0-flash',
-    this.apiKey = '',
-  });
+  const GeminiConfig({this.model = 'gemini-2.0-flash', this.apiKey = ''});
 }
 
 class GeminiProvider implements LlmProvider {
@@ -35,18 +32,18 @@ class GeminiProvider implements LlmProvider {
   @override
   String get id => 'gemini:${config.model}';
 
-  GeminiProvider({
-    GeminiConfig? config,
-    SecureKeyStore? keyStore,
-  })  : config = config ?? const GeminiConfig(),
-        _keyStore = keyStore ?? SecureKeyStore() {
-    _dio = Dio(BaseOptions(
-      baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(seconds: 30),
-      headers: {'Content-Type': 'application/json'},
-    ));
+  GeminiProvider({GeminiConfig? config, SecureKeyStore? keyStore})
+    : config = config ?? const GeminiConfig(),
+      _keyStore = keyStore ?? SecureKeyStore() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: _baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(seconds: 30),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
   }
 
   Future<String> _resolveApiKey() async {
@@ -243,7 +240,9 @@ class GeminiProvider implements LlmProvider {
           'contents': [
             {
               'role': 'user',
-              'parts': [{'text': 'test'}],
+              'parts': [
+                {'text': 'test'},
+              ],
             },
           ],
           'generationConfig': {'maxOutputTokens': 1},

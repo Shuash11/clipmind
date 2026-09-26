@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:clipmind/presentation/editor/widgets/status_bar.dart';
 
 void main() {
-  testWidgets('StatusBar renders three status indicators', (
+  testWidgets('StatusBar renders truthful status indicators', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -11,8 +11,8 @@ void main() {
     );
 
     expect(find.text('Ready'), findsOneWidget);
-    expect(find.text('Flash connected'), findsOneWidget);
     expect(find.text('FFmpeg ready'), findsOneWidget);
+    expect(find.text('Flash connected'), findsNothing);
   });
 
   testWidgets('StatusBar renders status pill containers', (
@@ -22,6 +22,6 @@ void main() {
       const MaterialApp(home: Scaffold(body: StatusBar())),
     );
 
-    expect(find.byType(Container), findsAtLeast(3));
+    expect(find.byType(Container), findsNWidgets(5));
   });
 }

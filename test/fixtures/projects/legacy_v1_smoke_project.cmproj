@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "legacy-v1-smoke-project",
+  "name": "Legacy v1 Windows smoke project",
+  "createdAt": "2026-07-29T00:00:00.000Z",
+  "updatedAt": "2026-07-29T00:05:00.000Z",
+  "sourceMediaPaths": ["C:\\media\\legacy-smoke.mp4"],
+  "tracks": [
+    {
+      "id": "legacy-smoke-video-track",
+      "type": "video",
+      "label": "Legacy smoke video",
+      "clips": [
+        {
+          "id": "legacy-smoke-clip",
+          "trackId": "legacy-smoke-video-track",
+          "sourcePath": "C:\\media\\legacy-smoke.mp4",
+          "startMs": 120,
+          "endMs": 1320,
+          "positionMs": 480,
+          "label": "legacy-smoke.mp4"
+        }
+      ]
+    }
+  ]
+}

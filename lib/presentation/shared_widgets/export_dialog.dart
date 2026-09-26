@@ -54,7 +54,8 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   }
 
   String _estimateFileSize() {
-    final resolutionDims = ExportOptions.resolutionMap[_options.resolution] ?? (0, 0);
+    final resolutionDims =
+        ExportOptions.resolutionMap[_options.resolution] ?? (0, 0);
     final (width, height) = resolutionDims;
     final pixels = width * height;
     final bitrate = switch (_options.quality) {
@@ -96,10 +97,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       },
     );
 
-    final result = await useCase.execute(
-      widget.project,
-      options: _options,
-    );
+    final result = await useCase.execute(widget.project, options: _options);
 
     _progressSub?.cancel();
 
@@ -190,11 +188,16 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
       const SizedBox(height: 12),
       Row(
         children: [
-          const Icon(Icons.storage_outlined,
-              size: 14, color: ClipMindColors.textMuted),
+          const Icon(
+            Icons.storage_outlined,
+            size: 14,
+            color: ClipMindColors.textMuted,
+          ),
           const SizedBox(width: 6),
-          Text('Estimated size: ${_estimateFileSize()}',
-              style: theme.textTheme.bodySmall),
+          Text(
+            'Estimated size: ${_estimateFileSize()}',
+            style: theme.textTheme.bodySmall,
+          ),
         ],
       ),
       const SizedBox(height: 20),
@@ -273,8 +276,11 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
     return [
       Row(
         children: [
-          const Icon(Icons.check_circle,
-              color: ClipMindColors.statusReady, size: 20),
+          const Icon(
+            Icons.check_circle,
+            color: ClipMindColors.statusReady,
+            size: 20,
+          ),
           const SizedBox(width: 8),
           Text('Export Complete', style: theme.textTheme.titleMedium),
         ],
@@ -411,8 +417,11 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   Widget _buildOutputPath(ThemeData theme) {
     return Row(
       children: [
-        const Icon(Icons.folder_outlined,
-            size: 16, color: ClipMindColors.textSecondary),
+        const Icon(
+          Icons.folder_outlined,
+          size: 16,
+          color: ClipMindColors.textSecondary,
+        ),
         const SizedBox(width: 10),
         SizedBox(
           width: 80,
@@ -430,8 +439,7 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
               ),
               child: Text(
                 _options.outputPath.isNotEmpty
-                    ? _options.outputPath.split('\\').last
-                        .split('/').last
+                    ? _options.outputPath.split('\\').last.split('/').last
                     : 'Select path...',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: _options.outputPath.isNotEmpty

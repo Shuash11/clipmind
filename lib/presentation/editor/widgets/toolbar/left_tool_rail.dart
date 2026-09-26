@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
+import 'package:clipmind/features/tagging/presentation/widgets/media_panel.dart';
 import 'package:clipmind/presentation/shared_widgets/export_dialog.dart';
 import 'package:clipmind/state/project_providers.dart';
 
@@ -23,10 +26,15 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
   ];
 
   int _selectedIndex = 0;
+  bool _mediaSheetOpen = false;
 
   void _selectTool(int index) {
     setState(() => _selectedIndex = index);
     final tool = _tools[index];
+    if (tool.label == 'Media') {
+      unawaited(_openMediaSheet());
+      return;
+    }
     if (tool.label == 'Export') {
       final project = ref.read(projectProvider).valueOrNull;
       if (project == null) {
@@ -37,6 +45,26 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
         context: context,
         builder: (ctx) => ExportDialog(project: project),
       );
+    }
+  }
+
+  Future<void> _openMediaSheet() async {
+    if (_mediaSheetOpen || !mounted) return;
+    _mediaSheetOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: ClipMindColors.bgSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: ClipMindColors.borderColor),
+          ),
+          child: const SizedBox(width: 520, height: 560, child: MediaPanel()),
+        ),
+      );
+    } finally {
+      _mediaSheetOpen = false;
     }
   }
 

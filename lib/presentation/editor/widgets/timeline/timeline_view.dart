@@ -5,11 +5,44 @@ import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/track.dart';
+import 'package:clipmind/features/projects/domain/entities/project_document.dart';
+import 'package:clipmind/features/tagging/presentation/providers/tagging_providers.dart';
+import 'package:clipmind/features/tagging/presentation/widgets/marker_ruler.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'track_row.dart';
 
+final class TimelineClipRange {
+  const TimelineClipRange({
+    required this.clipId,
+    required this.startMs,
+    required this.endMs,
+  });
+
+  final String clipId;
+  final int startMs;
+  final int endMs;
+}
+
 class TimelineView extends ConsumerStatefulWidget {
-  const TimelineView({super.key});
+  const TimelineView({
+    this.selectedRange,
+    this.onRemoveRange,
+    this.project,
+    this.projectDocument,
+    this.onRendered,
+    super.key,
+  });
+
+  final TimelineClipRange? selectedRange;
+  final Future<void> Function({
+    required String clipId,
+    required int startMs,
+    required int endMs,
+  })?
+  onRemoveRange;
+  final Project? project;
+  final ProjectDocument? projectDocument;
+  final VoidCallback? onRendered;
 
   @override
   ConsumerState<TimelineView> createState() => _TimelineViewState();
@@ -20,6 +53,13 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   double _zoom = 1.0;
   String? _selectedClipId;
   bool _isEditing = false;
+  bool _rendered = false;
+
+  @override
+  void didUpdateWidget(covariant TimelineView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.project, widget.project)) _rendered = false;
+  }
 
   void _showTimelineMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -34,39 +74,32 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     setState(() => _zoom = (_zoom + delta).clamp(0.5, 2.0));
   }
 
-  Future<void> _cutSelectedClip() async {
-    final project = ref.read(projectProvider).valueOrNull;
-    final location = _selectedClipLocation(project);
-    if (project == null || location == null) {
-      _showTimelineMessage('Select a clip before cutting.');
+  Future<void> _removeSelectedRange() async {
+    if (_isEditing) return;
+    final range = widget.selectedRange;
+    final removeRange = widget.onRemoveRange;
+    if (range == null || removeRange == null) {
+      _showTimelineMessage('Select a range before removing.');
+      return;
+    }
+    if (range.startMs < 0 || range.endMs <= range.startMs) {
+      _showTimelineMessage('Select a valid range before removing.');
       return;
     }
 
-    final clip = location.clip;
-    final duration = clip.endMs - clip.startMs;
-    if (duration <= 1000) {
-      _showTimelineMessage('Clip duration is unknown or too short to split.');
-      return;
+    setState(() => _isEditing = true);
+    try {
+      await removeRange(
+        clipId: range.clipId,
+        startMs: range.startMs,
+        endMs: range.endMs,
+      );
+      if (mounted) _showTimelineMessage('Range removed.');
+    } catch (_) {
+      if (mounted) _showTimelineMessage('Range removal failed. Try again.');
+    } finally {
+      if (mounted) setState(() => _isEditing = false);
     }
-
-    final midpoint = clip.startMs + (duration / 2).round();
-    final first = clip.copyWith(endMs: midpoint);
-    final second = clip.copyWith(
-      id: _uuid.v4(),
-      startMs: midpoint,
-      positionMs: clip.positionMs + (duration / 2).round(),
-      label: '${clip.label ?? _fileNameFromPath(clip.sourcePath)} split',
-    );
-
-    final updatedClips = List<Clip>.from(location.track.clips)
-      ..removeAt(location.clipIndex)
-      ..insertAll(location.clipIndex, [first, second]);
-    await _replaceTrack(
-      project,
-      location.trackIndex,
-      location.track.copyWith(clips: updatedClips),
-      'Clip split.',
-    );
   }
 
   Future<void> _deleteSelectedClip() async {
@@ -163,8 +196,12 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
 
   @override
   Widget build(BuildContext context) {
-    final project = ref.watch(projectProvider).valueOrNull;
+    final project = widget.project ?? ref.watch(projectProvider).valueOrNull;
     final selectedClip = _selectedClipLocation(project)?.clip;
+    final taggingDocument =
+        widget.projectDocument ?? ref.watch(taggingProvidersProvider)?.document;
+    final rulerDuration = _rulerDuration(taggingDocument);
+    _scheduleRendered(project);
 
     return Container(
       decoration: const BoxDecoration(
@@ -196,8 +233,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.content_cut, size: 16),
-                  onPressed: _isEditing ? null : _cutSelectedClip,
-                  tooltip: 'Cut selected clip',
+                  onPressed: _isEditing ? null : _removeSelectedRange,
+                  tooltip: 'Remove selected range',
                   constraints: const BoxConstraints(
                     minWidth: 30,
                     minHeight: 30,
@@ -257,6 +294,34 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
             ),
           ),
           const Divider(height: 1, color: ClipMindColors.borderColor),
+          if (rulerDuration != null) ...[
+            SizedBox(
+              height: 44,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final rulerWidth = constraints.maxWidth > 93
+                      ? constraints.maxWidth - 93
+                      : 0.0;
+                  return Row(
+                    children: [
+                      const SizedBox(width: 92),
+                      const SizedBox(
+                        width: 1,
+                        height: double.infinity,
+                        child: ColoredBox(color: ClipMindColors.borderColor),
+                      ),
+                      MarkerRuler(
+                        durationMs: rulerDuration,
+                        width: rulerWidth,
+                        document: taggingDocument,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            const Divider(height: 1, color: ClipMindColors.borderColor),
+          ],
           Expanded(child: _buildTrack(TrackTypeDisplay.video, project)),
           const Divider(height: 1, color: ClipMindColors.borderColor),
           Expanded(child: _buildTrack(TrackTypeDisplay.audio, project)),
@@ -305,6 +370,47 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     final normalized = path.replaceAll('\\', '/');
     final name = normalized.split('/').last.trim();
     return name.isEmpty ? 'clip' : name;
+  }
+
+  void _scheduleRendered(Project? project) {
+    if (_rendered ||
+        project == null ||
+        !project.tracks.any((track) => track.clips.isNotEmpty)) {
+      return;
+    }
+    _rendered = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onRendered?.call();
+    });
+  }
+
+  int? _rulerDuration(ProjectDocument? document) {
+    if (document == null) return null;
+    final state = document.currentState;
+    final hasTimelineContent =
+        state.assets.isNotEmpty ||
+        state.tracks.any((track) => track.clips.isNotEmpty) ||
+        state.markers.isNotEmpty;
+    if (!hasTimelineContent) return null;
+    final values = <int>[
+      for (final asset in state.assets)
+        if (asset.durationMs > 0) asset.durationMs,
+      for (final track in state.tracks)
+        for (final clip in track.clips) ...[
+          if (clip.endMs > 0) clip.endMs,
+          if (clip.endMs > clip.startMs)
+            clip.positionMs + (clip.endMs - clip.startMs),
+        ],
+      for (final marker in state.markers) ...[
+        if (marker.atMs != null && marker.atMs! > 0) marker.atMs!,
+        if (marker.endMs != null && marker.endMs! > 0) marker.endMs!,
+      ],
+    ];
+    var duration = 1;
+    for (final value in values) {
+      if (value > duration) duration = value;
+    }
+    return duration;
   }
 }
 

@@ -1,11 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:clipmind/data/models/chat_message.dart' as chat_models;
+import 'package:clipmind/data/models/edit_operation.dart' as edit_models;
+import 'package:clipmind/data/models/project.dart' as models;
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import 'package:clipmind/data/models/project.dart' as models;
-import 'package:clipmind/data/models/chat_message.dart' as chat_models;
-import 'package:clipmind/data/models/edit_operation.dart' as edit_models;
 
 part 'app_database.g.dart';
 
@@ -19,6 +20,8 @@ class Projects extends Table {
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
   TextColumn get sourceMediaPaths => text()();
+  IntColumn get documentSchemaVersion => integer().nullable()();
+  IntColumn get documentRevision => integer().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -53,7 +56,18 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(projects, projects.documentSchemaVersion);
+        await m.addColumn(projects, projects.documentRevision);
+      }
+    },
+  );
 
   // Project DAOs
 

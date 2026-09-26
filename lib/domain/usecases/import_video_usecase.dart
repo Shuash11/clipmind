@@ -26,15 +26,10 @@ class ImportVideoUseCase {
   final ThumbnailService _thumbnailService;
   final Uuid _uuid;
 
-  ImportVideoUseCase(
-    this._ffprobeService,
-    this._thumbnailService,
-  ) : _uuid = const Uuid();
+  ImportVideoUseCase(this._ffprobeService, this._thumbnailService)
+    : _uuid = const Uuid();
 
-  Future<ImportVideoResult> execute(
-    String filePath, {
-    Project? project,
-  }) async {
+  Future<ImportVideoResult> execute(String filePath, {Project? project}) async {
     final metadata = await _ffprobeService.extractMetadata(filePath);
     if (metadata == null) {
       return ImportVideoResult(
@@ -71,10 +66,7 @@ class ImportVideoUseCase {
     );
   }
 
-  Project addClipToProject(
-    Project project,
-    Clip clip,
-  ) {
+  Project addClipToProject(Project project, Clip clip) {
     final videoTrackIndex = project.tracks.indexWhere(
       (t) => t.type == TrackType.video,
     );
@@ -87,12 +79,14 @@ class ImportVideoUseCase {
         clips: [...track.clips, clip],
       );
     } else {
-      updatedTracks.add(Track(
-        id: _uuid.v4(),
-        type: TrackType.video,
-        label: 'Video',
-        clips: [clip],
-      ));
+      updatedTracks.add(
+        Track(
+          id: _uuid.v4(),
+          type: TrackType.video,
+          label: 'Video',
+          clips: [clip],
+        ),
+      );
     }
 
     return project.copyWith(

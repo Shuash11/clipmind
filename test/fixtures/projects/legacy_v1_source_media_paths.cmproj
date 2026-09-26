@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "legacy-v1-project",
+  "name": "Legacy v1 project",
+  "createdAt": "2026-07-02T00:00:00.000Z",
+  "updatedAt": "2026-07-02T00:00:00.000Z",
+  "sourceMediaPaths": ["C:\\media\\legacy-v1.mp4"],
+  "tracks": [
+    {
+      "id": "video-track",
+      "type": "video",
+      "label": "Video",
+      "clips": [
+        {
+          "id": "legacy-clip-v1",
+          "trackId": "video-track",
+          "sourcePath": "C:\\media\\legacy-v1.mp4",
+          "startMs": 0,
+          "endMs": 1000,
+          "positionMs": 0,
+          "label": "legacy-v1.mp4"
+        }
+      ]
+    }
+  ]
+}

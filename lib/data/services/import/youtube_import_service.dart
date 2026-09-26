@@ -18,8 +18,10 @@ class YouTubeImportService {
       _process = await Process.start('yt-dlp', [
         '--newline',
         '--no-warnings',
-        '--print', 'after_move:filepath',
-        '-o', '$outputDir/%(title)s.%(ext)s',
+        '--print',
+        'after_move:filepath',
+        '-o',
+        '$outputDir/%(title)s.%(ext)s',
         '--no-playlist',
         url,
       ]);
@@ -32,25 +34,25 @@ class YouTubeImportService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-        final trimmed = line.trim();
-        if (trimmed.isNotEmpty && !trimmed.startsWith('[')) {
-          downloadedFile = trimmed;
-        }
-      });
+            final trimmed = line.trim();
+            if (trimmed.isNotEmpty && !trimmed.startsWith('[')) {
+              downloadedFile = trimmed;
+            }
+          });
 
       _process!.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-        if (line.contains('ERROR:')) {
-          _errorStream?.add(line);
-        }
-        final percentMatch = RegExp(r'(\d+\.?\d*)%').firstMatch(line);
-        if (percentMatch != null) {
-          final pct = double.tryParse(percentMatch.group(1)!);
-          if (pct != null) _progress?.add(pct / 100.0);
-        }
-      });
+            if (line.contains('ERROR:')) {
+              _errorStream?.add(line);
+            }
+            final percentMatch = RegExp(r'(\d+\.?\d*)%').firstMatch(line);
+            if (percentMatch != null) {
+              final pct = double.tryParse(percentMatch.group(1)!);
+              if (pct != null) _progress?.add(pct / 100.0);
+            }
+          });
 
       final exitCode = await _process!.exitCode;
       if (exitCode == 0 && downloadedFile != null) {

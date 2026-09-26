@@ -47,10 +47,7 @@ class FfmpegBinaryResolver {
         final path = (result.stdout as String)
             .trim()
             .split(Platform.lineTerminator)
-            .firstWhere(
-              (p) => p.isNotEmpty,
-              orElse: () => '',
-            );
+            .firstWhere((p) => p.isNotEmpty, orElse: () => '');
         return path.isNotEmpty ? path : null;
       }
     } catch (_) {}

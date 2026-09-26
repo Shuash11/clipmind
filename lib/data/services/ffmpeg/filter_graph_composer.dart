@@ -101,8 +101,10 @@ class FilterGraphComposer {
       args.addAll([
         '-filter_complex',
         '[0:v]$vChain[vout];[0:a]$aChain[aout]',
-        '-map', '[vout]',
-        '-map', '[aout]',
+        '-map',
+        '[vout]',
+        '-map',
+        '[aout]',
       ]);
     } else if (videoFilters.isNotEmpty) {
       args.addAll(['-vf', videoFilters.join(',')]);
@@ -132,11 +134,9 @@ class FilterGraphComposer {
       case EditOperationType.cut:
         final removeStart = _paramString(p, 'remove_start', '0');
         final removeEnd = _paramString(p, 'remove_end', '0');
-        videoFilters
-            .add("select='not(between(t,$removeStart,$removeEnd))'");
+        videoFilters.add("select='not(between(t,$removeStart,$removeEnd))'");
         videoFilters.add('setpts=N/FRAME_RATE/TB');
-        audioFilters
-            .add("aselect='not(between(t,$removeStart,$removeEnd))'");
+        audioFilters.add("aselect='not(between(t,$removeStart,$removeEnd))'");
         audioFilters.add('asetpts=N/SR/TB');
         break;
 
@@ -146,96 +146,105 @@ class FilterGraphComposer {
         audioFilters.add(_atempoChain(factor));
         break;
 
-      case EditOperationType.overlayText: {
-        final text = _paramString(p, 'text', '');
-        final escaped = text
-            .replaceAll('\\', '\\\\')
-            .replaceAll("'", "\\'")
-            .replaceAll(':', '\\:');
-        final position = _paramString(p, 'position', 'center');
-        final start = (_paramNum(p, 'start', 0)).toStringAsFixed(3);
-        final end = (_paramNum(p, 'end', 0)).toStringAsFixed(3);
-        final fontSize = p['font_size']?.toString() ?? '48';
-        final color = _paramString(p, 'color', '#FFFFFF');
+      case EditOperationType.overlayText:
+        {
+          final text = _paramString(p, 'text', '');
+          final escaped = text
+              .replaceAll('\\', '\\\\')
+              .replaceAll("'", "\\'")
+              .replaceAll(':', '\\:');
+          final position = _paramString(p, 'position', 'center');
+          final start = (_paramNum(p, 'start', 0)).toStringAsFixed(3);
+          final end = (_paramNum(p, 'end', 0)).toStringAsFixed(3);
+          final fontSize = p['font_size']?.toString() ?? '48';
+          final color = _paramString(p, 'color', '#FFFFFF');
 
-        String x, y;
-        switch (position) {
-          case 'center':
-            x = '(w-text_w)/2'; y = '(h-text_h)/2';
-            break;
-          case 'top-right':
-            x = 'W-w-10'; y = '10';
-            break;
-          case 'bottom-left':
-            x = '10'; y = 'H-h-10';
-            break;
-          case 'bottom-right':
-            x = 'W-w-10'; y = 'H-h-10';
-            break;
-          default:
-            x = '10'; y = '10';
+          String x, y;
+          switch (position) {
+            case 'center':
+              x = '(w-text_w)/2';
+              y = '(h-text_h)/2';
+              break;
+            case 'top-right':
+              x = 'W-w-10';
+              y = '10';
+              break;
+            case 'bottom-left':
+              x = '10';
+              y = 'H-h-10';
+              break;
+            case 'bottom-right':
+              x = 'W-w-10';
+              y = 'H-h-10';
+              break;
+            default:
+              x = '10';
+              y = '10';
+          }
+
+          final enable = (start != '0.000' || end != '0.000')
+              ? ":enable='between(t,$start,$end)'"
+              : '';
+          videoFilters.add(
+            "drawtext=text='$escaped':"
+            'fontsize=$fontSize:'
+            'fontcolor=$color:'
+            'x=$x:y=$y'
+            '$enable',
+          );
+          break;
         }
 
-        final enable = (start != '0.000' || end != '0.000')
-            ? ":enable='between(t,$start,$end)'"
-            : '';
-        videoFilters.add(
-          "drawtext=text='$escaped':"
-              'fontsize=$fontSize:'
-              'fontcolor=$color:'
-              'x=$x:y=$y'
-              '$enable',
-        );
-        break;
-      }
-
-      case EditOperationType.resize: {
-        final width = _paramInt(p, 'width', 1920);
-        final height = _paramInt(p, 'height', 1080);
-        final fit = _paramString(p, 'fit', 'fill');
-        switch (fit) {
-          case 'fill':
-            videoFilters.add(
-              'scale=$width:$height:force_original_aspect_ratio=1,'
-                  'crop=$width:$height',
-            );
-            break;
-          case 'fit':
-            videoFilters.add(
-              'scale=$width:$height:force_original_aspect_ratio=1,'
-                  'pad=$width:$height:(ow-iw)/2:(oh-ih)/2',
-            );
-            break;
-          case 'stretch':
-            videoFilters.add('scale=$width:$height');
-            break;
-          default:
-            videoFilters.add(
-              'scale=$width:$height:force_original_aspect_ratio=1',
-            );
+      case EditOperationType.resize:
+        {
+          final width = _paramInt(p, 'width', 1920);
+          final height = _paramInt(p, 'height', 1080);
+          final fit = _paramString(p, 'fit', 'fill');
+          switch (fit) {
+            case 'fill':
+              videoFilters.add(
+                'scale=$width:$height:force_original_aspect_ratio=1,'
+                'crop=$width:$height',
+              );
+              break;
+            case 'fit':
+              videoFilters.add(
+                'scale=$width:$height:force_original_aspect_ratio=1,'
+                'pad=$width:$height:(ow-iw)/2:(oh-ih)/2',
+              );
+              break;
+            case 'stretch':
+              videoFilters.add('scale=$width:$height');
+              break;
+            default:
+              videoFilters.add(
+                'scale=$width:$height:force_original_aspect_ratio=1',
+              );
+          }
+          break;
         }
-        break;
-      }
 
-      case EditOperationType.rotate: {
-        final degrees = _paramNum(p, 'degrees', 0);
-        if (degrees == 90) {
-          videoFilters.add('transpose=1');
-        } else if (degrees == 180) {
-          videoFilters.add('transpose=1,transpose=1');
-        } else if (degrees == 270) {
-          videoFilters.add('transpose=2');
-        } else {
-          videoFilters.add('rotate=$degrees*PI/180');
+      case EditOperationType.rotate:
+        {
+          final degrees = _paramNum(p, 'degrees', 0);
+          if (degrees == 90) {
+            videoFilters.add('transpose=1');
+          } else if (degrees == 180) {
+            videoFilters.add('transpose=1,transpose=1');
+          } else if (degrees == 270) {
+            videoFilters.add('transpose=2');
+          } else {
+            videoFilters.add('rotate=$degrees*PI/180');
+          }
+          break;
         }
-        break;
-      }
 
-      case EditOperationType.adjustBrightness: {
-        final value = _paramNum(p, 'value', 0).clamp(-1.0, 1.0);
-        videoFilters.add('eq=brightness=$value');
-        break;
-      }
+      case EditOperationType.adjustBrightness:
+        {
+          final value = _paramNum(p, 'value', 0).clamp(-1.0, 1.0);
+          videoFilters.add('eq=brightness=$value');
+          break;
+        }
 
       case EditOperationType.changeVolume:
         final factor = _paramNum(p, 'factor', 1.0);
@@ -301,12 +310,14 @@ class FilterGraphComposer {
           _paramString(p, 'remove_end', '0'),
         );
       case EditOperationType.merge:
-        final paths = (p['clip_ids'] as List<dynamic>?)?.cast<String>() ??
-            <String>[];
+        final paths =
+            (p['clip_ids'] as List<dynamic>?)?.cast<String>() ?? <String>[];
         return CommandBuilder.merge(paths);
       case EditOperationType.changeSpeed:
         return CommandBuilder.changeSpeed(
-          inputPath, _paramNum(p, 'factor', 1.0));
+          inputPath,
+          _paramNum(p, 'factor', 1.0),
+        );
       case EditOperationType.mute:
         return CommandBuilder.mute(inputPath);
       case EditOperationType.overlayText:
@@ -327,14 +338,17 @@ class FilterGraphComposer {
           _paramString(p, 'fit', 'fill'),
         );
       case EditOperationType.rotate:
-        return CommandBuilder.rotate(
-          inputPath, _paramNum(p, 'degrees', 0));
+        return CommandBuilder.rotate(inputPath, _paramNum(p, 'degrees', 0));
       case EditOperationType.extractAudio:
         return CommandBuilder.extractAudio(
-          inputPath, _paramString(p, 'output_format', 'mp3'));
+          inputPath,
+          _paramString(p, 'output_format', 'mp3'),
+        );
       case EditOperationType.generateThumbnail:
         return CommandBuilder.generateThumbnail(
-          inputPath, (_paramNum(p, 'timestamp', 0)).toString());
+          inputPath,
+          (_paramNum(p, 'timestamp', 0)).toString(),
+        );
       case EditOperationType.changeFormat:
         return CommandBuilder.changeFormat(
           inputPath,
@@ -343,10 +357,14 @@ class FilterGraphComposer {
         );
       case EditOperationType.adjustBrightness:
         return CommandBuilder.adjustBrightness(
-          inputPath, _paramNum(p, 'value', 0));
+          inputPath,
+          _paramNum(p, 'value', 0),
+        );
       case EditOperationType.changeVolume:
         return CommandBuilder.changeVolume(
-          inputPath, _paramNum(p, 'factor', 1.0));
+          inputPath,
+          _paramNum(p, 'factor', 1.0),
+        );
       case EditOperationType.overlayWatermark:
         return CommandBuilder.overlayWatermark(
           inputPath,
@@ -359,11 +377,17 @@ class FilterGraphComposer {
 
   String _outputExtension(EditOperation op) {
     return switch (op.type) {
-      EditOperationType.extractAudio =>
-        _paramString(op.params, 'output_format', 'mp3'),
+      EditOperationType.extractAudio => _paramString(
+        op.params,
+        'output_format',
+        'mp3',
+      ),
       EditOperationType.generateThumbnail => 'jpg',
-      EditOperationType.changeFormat =>
-        _paramString(op.params, 'target_ext', 'mp4'),
+      EditOperationType.changeFormat => _paramString(
+        op.params,
+        'target_ext',
+        'mp4',
+      ),
       _ => 'mp4',
     };
   }

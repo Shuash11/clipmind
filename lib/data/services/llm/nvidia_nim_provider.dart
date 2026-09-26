@@ -35,21 +35,21 @@ class NvidiaNimProvider implements LlmProvider {
   @override
   String get id => 'nvidia_nim:${config.model}';
 
-  NvidiaNimProvider({
-    NvidiaNimConfig? config,
-    SecureKeyStore? keyStore,
-  })  : config = config ?? const NvidiaNimConfig(),
-        _keyStore = keyStore ?? SecureKeyStore() {
-    _dio = Dio(BaseOptions(
-      baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(seconds: 30),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${config?.apiKey ?? ''}',
-      },
-    ));
+  NvidiaNimProvider({NvidiaNimConfig? config, SecureKeyStore? keyStore})
+    : config = config ?? const NvidiaNimConfig(),
+      _keyStore = keyStore ?? SecureKeyStore() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: _baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(seconds: 30),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${config?.apiKey ?? ''}',
+        },
+      ),
+    );
   }
 
   Future<String> _resolveApiKey() async {
@@ -87,10 +87,7 @@ class NvidiaNimProvider implements LlmProvider {
           'messages': messages,
           'response_format': {
             'type': 'json_schema',
-            'json_schema': {
-              'name': 'clipmind_ops',
-              'schema': schema,
-            },
+            'json_schema': {'name': 'clipmind_ops', 'schema': schema},
           },
           'temperature': 0.1,
         };
