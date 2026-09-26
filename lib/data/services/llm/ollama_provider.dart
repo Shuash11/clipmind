@@ -19,7 +19,7 @@ class OllamaConfig {
   String get baseUrl => 'http://$host:$port';
 }
 
-class OllamaProvider implements LlmProvider {
+class OllamaProvider extends LlmProvider {
   final OllamaConfig config;
   late final Dio _dio;
   final StreamController<ConnectionStatus> _connectionCtrl =

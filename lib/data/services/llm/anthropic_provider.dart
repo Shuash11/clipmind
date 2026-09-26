@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:clipmind/core/errors/failures.dart';
 import 'package:clipmind/data/local/secure_key_store.dart';
+import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'llm_provider.dart';
 
@@ -11,18 +12,18 @@ class AnthropicConfig {
   final String apiKey;
 
   const AnthropicConfig({
-    this.model = 'claude-sonnet-4-20250514',
+    this.model = 'claude-sonnet-5',
     this.apiKey = '',
   });
 }
 
-class AnthropicProvider implements LlmProvider {
+class AnthropicProvider extends LlmProvider {
   static const _baseUrl = 'https://api.anthropic.com';
   static const _apiVersion = '2023-06-01';
   static const _models = [
-    'claude-sonnet-4-20250514',
-    'claude-haiku-3-5-sonnet-20241022',
-    'claude-3-opus-latest',
+    'claude-sonnet-5',
+    'claude-opus-5',
+    'claude-haiku-4-5',
   ];
 
   final AnthropicConfig config;
@@ -36,22 +37,23 @@ class AnthropicProvider implements LlmProvider {
   @override
   String get id => 'anthropic:${config.model}';
 
-  AnthropicProvider({AnthropicConfig? config, SecureKeyStore? keyStore})
+  AnthropicProvider({AnthropicConfig? config, SecureKeyStore? keyStore, Dio? dio})
     : config = config ?? const AnthropicConfig(),
       _keyStore = keyStore ?? SecureKeyStore() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: _baseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 30),
-        sendTimeout: const Duration(seconds: 30),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': config?.apiKey ?? '',
-          'anthropic-version': _apiVersion,
-        },
-      ),
-    );
+    _dio = dio ??
+        Dio(
+          BaseOptions(
+            baseUrl: _baseUrl,
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 30),
+            sendTimeout: const Duration(seconds: 30),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': config?.apiKey ?? '',
+              'anthropic-version': _apiVersion,
+            },
+          ),
+        );
   }
 
   Future<String> _resolveApiKey() async {
@@ -156,6 +158,153 @@ class AnthropicProvider implements LlmProvider {
         throw ProviderFailure(id, 'Unexpected error: $e');
       }
     }
+  }
+
+  @override
+  bool get supportsToolCalling => true;
+
+  /// One Messages API round trip with tools (transport-only, D1).
+  ///
+  /// Sends `strict: true` tool definitions (top-level, per the strict
+  /// tool use docs) with `tool_choice: {auto, disable_parallel_tool_use}`.
+  /// Parses `tool_use` blocks (`input` is already-parsed JSON) and maps
+  /// history including `tool_result` / `is_error`.
+  @override
+  Future<AgentTurnResult> chatWithTools(AgentTurnRequest request) async {
+    try {
+      final apiKey = await _resolveApiKey();
+      final body = {
+        'model': config.model,
+        'max_tokens': 4096,
+        'system': request.systemPrompt,
+        'messages': _toWireMessages(request),
+        'tools': [
+          for (final tool in request.tools)
+            {
+              'name': tool.name,
+              'description': tool.description,
+              'input_schema': tool.inputSchema,
+              'strict': true,
+            },
+        ],
+        'tool_choice': {
+          'type': 'auto',
+          'disable_parallel_tool_use': true,
+        },
+      };
+
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/v1/messages',
+        data: body,
+        options: Options(
+          receiveTimeout: Duration(seconds: request.timeoutSeconds),
+          headers: {'x-api-key': apiKey},
+        ),
+      );
+
+      return _parseTurnResponse(response.data);
+    } on DioException catch (e) {
+      throw ProviderFailure(id, _formatDioError(e), e);
+    } on FormatException catch (e) {
+      throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
+    } on ProviderFailure {
+      rethrow;
+    } catch (e) {
+      throw ProviderFailure(id, 'Unexpected error: $e');
+    }
+  }
+
+  List<Map<String, dynamic>> _toWireMessages(AgentTurnRequest request) {
+    final messages = <Map<String, dynamic>>[];
+    for (final turn in request.history) {
+      messages.add(_turnToWire(turn));
+    }
+    messages.add({
+      'role': 'user',
+      'content': request.userContent,
+    });
+    return messages;
+  }
+
+  Map<String, dynamic> _turnToWire(AgentTurnMessage turn) {
+    switch (turn.role) {
+      case AgentTurnRole.user:
+        return {'role': 'user', 'content': turn.content ?? ''};
+      case AgentTurnRole.assistant:
+        if (turn.toolCalls.isEmpty) {
+          return {'role': 'assistant', 'content': turn.content ?? ''};
+        }
+        return {
+          'role': 'assistant',
+          'content': [
+            if (turn.content != null && turn.content!.isNotEmpty)
+              {'type': 'text', 'text': turn.content},
+            for (final call in turn.toolCalls)
+              {
+                'type': 'tool_use',
+                'id': call.id,
+                'name': call.name,
+                'input': call.args,
+              },
+          ],
+        };
+      case AgentTurnRole.toolResult:
+        return {
+          'role': 'user',
+          'content': [
+            {
+              'type': 'tool_result',
+              'tool_use_id': turn.toolCallId ?? '',
+              // String content keeps Windows paths intact on the wire.
+              'content': turn.content ?? '',
+              'is_error': turn.toolError,
+            },
+          ],
+        };
+    }
+  }
+
+  AgentTurnResult _parseTurnResponse(Map<String, dynamic>? data) {
+    final content = data?['content'] as List<dynamic>?;
+    if (content == null || content.isEmpty) {
+      throw ProviderFailure(id, 'Empty response from model');
+    }
+    final stopReason = data?['stop_reason'] as String?;
+
+    final text = StringBuffer();
+    final calls = <AgentToolCall>[];
+    for (final block in content) {
+      final entry = block as Map<String, dynamic>;
+      switch (entry['type']) {
+        case 'text':
+          text.writeln(entry['text'] as String? ?? '');
+          break;
+        case 'tool_use':
+          final input = entry['input'];
+          if (input is! Map) {
+            throw ProviderFailure(
+              id,
+              'Invalid tool input for "${entry['name']}".',
+            );
+          }
+          calls.add(AgentToolCall(
+            id: entry['id'] as String? ?? '',
+            name: entry['name'] as String? ?? '',
+            args: Map<String, dynamic>.from(input),
+          ));
+          break;
+        default:
+          break;
+      }
+    }
+
+    return AgentTurnResult(
+      text: text.toString().trim(),
+      toolCalls: calls,
+      stopReason: stopReason == 'tool_use' && calls.isNotEmpty
+          ? AgentTurnStopReason.toolCalls
+          : AgentTurnStopReason.stop,
+    );
   }
 
   Map<String, dynamic> _buildSchema(String schemaJson) {

@@ -1,4 +1,5 @@
 import 'operation_schema.dart';
+import 'tools/tool_prompts.dart';
 
 class PromptConstructor {
   static const String _operationList = '''
@@ -104,36 +105,23 @@ CRITICAL: Your response must be valid JSON and NOTHING else. No code fences, no 
     List<AgentRequest>? recentHistory,
   }) {
     final project = command.projectSnapshot;
-    final clipContext = StringBuffer();
+    final clipContext = ProjectContextWriter.write(project);
 
-    clipContext.writeln('PROJECT CONTEXT:');
-    clipContext.writeln('  Duration: ${project.durationMs}ms');
-    clipContext.writeln('  Resolution: ${project.width}x${project.height}');
-    clipContext.writeln('  FPS: ${project.fps}');
-    clipContext.writeln('  Codec: ${project.codec}');
-    clipContext.writeln('  Has Audio: ${project.hasAudio}');
-    clipContext.writeln('  Available clips: ${project.clips.length}');
-    for (final clip in project.clips) {
-      clipContext.writeln(
-        '    - ${clip.id}: "${clip.label}" '
-        '(track: ${clip.trackId}, '
-        '${clip.startMs}ms - ${clip.endMs}ms)',
-      );
-    }
-
+    final timecodeSection = StringBuffer();
     if (command.normalizedTimecodes.isNotEmpty) {
-      clipContext.writeln();
-      clipContext.writeln('NORMALIZED TIMECODES:');
+      timecodeSection.writeln();
+      timecodeSection.writeln('NORMALIZED TIMECODES:');
       for (final entry in command.normalizedTimecodes.entries) {
-        clipContext.writeln('  ${entry.key} = ${entry.value}ms');
+        timecodeSection.writeln('  ${entry.key} = ${entry.value}ms');
       }
     }
+    final contextBlock = '$clipContext$timecodeSection';
 
     final userCommand = StringBuffer();
     userCommand.writeln(command.text);
     userCommand.writeln();
     userCommand.writeln('---');
-    userCommand.writeln(clipContext.toString());
+    userCommand.writeln(contextBlock);
 
     if (recentHistory != null && recentHistory.isNotEmpty) {
       userCommand.writeln('---');
@@ -148,7 +136,7 @@ CRITICAL: Your response must be valid JSON and NOTHING else. No code fences, no 
     }
 
     return AgentRequest(
-      systemPrompt: '$_systemHeader\n$_systemFooter\n\n$clipContext',
+      systemPrompt: '$_systemHeader\n$_systemFooter\n\n$contextBlock',
       userCommand: userCommand.toString(),
       schemaJson: schemaJson,
       timeoutSeconds: 30,

@@ -15,6 +15,8 @@ import 'stage_4_output_validation.dart';
 import 'stage_5_command_mapping.dart';
 import 'stage_6_execution.dart';
 import 'operation_schema.dart';
+import 'tool_calling_agent.dart';
+import 'tools/tool_executors.dart';
 
 enum PipelineStage {
   idle, validating, thinking, applying, ready, error
@@ -45,14 +47,16 @@ class PipelineEvent {
 }
 
 class Nl2VecPipeline {
-  final FfmpegService _ffmpegService;
+  final FfmpegService ffmpegService;
+  final FfprobeService ffprobeService;
   final StreamController<PipelineEvent> _events = StreamController.broadcast();
 
   Stream<PipelineEvent> get events => _events.stream;
 
   Nl2VecPipeline({
-    required this._ffmpegService,
-  });
+    required this.ffmpegService,
+    FfprobeService? ffprobeService,
+  }) : ffprobeService = ffprobeService ?? FfprobeService();
 
   Future<SubmitResult> submitCommand(
     String text,
@@ -61,6 +65,7 @@ class Nl2VecPipeline {
     VideoMetadata? metadata,
     List<AgentRequest>? recentHistory,
     AgentEditApplier? applier,
+    Project Function()? liveProject,
   }) async {
     if (provider == null) {
       const result = SubmitResult(
@@ -83,6 +88,19 @@ class Nl2VecPipeline {
       if (stage1Error != null || validated == null) {
         throw PipelineException(
           'Validation failed: ${stage1Error?.message ?? "Unknown error"}',
+        );
+      }
+
+      // Capability gate (D2): tool-capable providers run the agentic
+      // loop; everyone else keeps the legacy one-shot stage path.
+      if (provider.supportsToolCalling) {
+        return _runToolPath(
+          project: project,
+          provider: provider,
+          validated: validated,
+          recentHistory: recentHistory,
+          applier: applier,
+          liveProject: liveProject,
         );
       }
 
@@ -181,7 +199,7 @@ class Nl2VecPipeline {
 
       _events.add(const PipelineEvent(PipelineStage.applying, 'Executing FFmpeg...'));
 
-      final engine = ExecutionEngine(_ffmpegService);
+      final engine = ExecutionEngine(ffmpegService);
       final result = await engine.execute(jobs, '');
       engine.dispose();
 
@@ -222,6 +240,62 @@ class Nl2VecPipeline {
         outputPath: outputPath,
       );
     });
+  }
+
+  /// Agentic path: the model drives edits through tools (D1/D6).
+  ///
+  /// Reads live project state per tool call via [liveProject] (falling back
+  /// to the static [project]) so the agent edits against live ground truth.
+  Future<SubmitResult> _runToolPath({
+    required Project project,
+    required LlmProvider provider,
+    required ValidatedCommand validated,
+    required List<AgentRequest>? recentHistory,
+    required AgentEditApplier? applier,
+    required Project Function()? liveProject,
+  }) async {
+    _events.add(const PipelineEvent(PipelineStage.thinking, 'Planning with tools...'));
+
+    final Project Function() readLive = liveProject ?? () => project;
+    final clipPathMap = _buildClipPathMap(project);
+    final defaultPath = _resolveDefaultPath(project, clipPathMap);
+    if (defaultPath == null) {
+      throw const PipelineException('No video file in project');
+    }
+    final outputDir = project.outputDir;
+    final ctx = ToolExecutionContext(
+      project: readLive,
+      outputDir: outputDir,
+      projectDir:
+          outputDir.trim().isNotEmpty ? outputDir : _dirOf(defaultPath),
+      applier: applier ?? AgentEditApplier(onApply: (_, _) async {}),
+      ffmpegService: ffmpegService,
+      ffprobeService: ffprobeService,
+    );
+    final agent = ToolCallingAgent(provider: provider, context: ctx);
+    try {
+      final run = await agent.run(
+        validated: validated,
+        recentHistory: recentHistory,
+      );
+      if (run.status == AgentRunStatus.error) {
+        return SubmitResult(
+          status: SubmitStatus.error,
+          message: run.message,
+        );
+      }
+      _events.add(
+        PipelineEvent(PipelineStage.ready, run.message, null, run.outputPath),
+      );
+      return SubmitResult(
+        status: SubmitStatus.success,
+        message: run.message,
+        appliedOperations: run.appliedOperations,
+        outputPath: run.outputPath,
+      );
+    } finally {
+      agent.dispose();
+    }
   }
 
   Future<SubmitResult> _executeWithEvents(
@@ -406,3 +480,5 @@ class PipelineException implements Exception {
   @override
   String toString() => message;
 }
+
+

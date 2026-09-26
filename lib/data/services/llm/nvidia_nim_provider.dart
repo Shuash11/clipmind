@@ -16,7 +16,7 @@ class NvidiaNimConfig {
   });
 }
 
-class NvidiaNimProvider implements LlmProvider {
+class NvidiaNimProvider extends LlmProvider {
   static const _baseUrl = 'https://build.nvidia.com';
   static const _models = [
     'meta/llama-3.1-405b-instruct',

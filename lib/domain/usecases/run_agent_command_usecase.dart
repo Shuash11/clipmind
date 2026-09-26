@@ -17,6 +17,7 @@ class RunAgentCommandUseCase {
     VideoMetadata? metadata,
     List<AgentRequest>? recentHistory,
     AgentEditApplier? applier,
+    Project Function()? liveProject,
   }) {
     return _pipeline.submitCommand(
       command,
@@ -25,6 +26,7 @@ class RunAgentCommandUseCase {
       metadata: metadata,
       recentHistory: recentHistory,
       applier: applier,
+      liveProject: liveProject,
     );
   }
 }

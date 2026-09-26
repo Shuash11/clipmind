@@ -1,0 +1,689 @@
+import 'package:clipmind/core/utils/timecode_utils.dart';
+import 'package:clipmind/data/models/edit_operation.dart';
+import 'package:clipmind/data/models/project.dart';
+import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
+import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
+import 'package:clipmind/data/services/ffmpeg/filter_escaping.dart';
+import 'package:clipmind/domain/agent/agent_edit_applier.dart';
+import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
+import 'package:clipmind/domain/agent/stage_6_execution.dart';
+import 'tool_definition.dart';
+import 'tool_registry.dart';
+
+/// Live dependencies for tool execution (D6).
+///
+/// The project is read through [project] on every call so the agent edits
+/// against live ground truth. Mirrors the [AgentEditApplier] pattern: the
+/// domain never imports the state layer.
+class ToolExecutionContext {
+  final Project Function() project;
+  final String outputDir;
+  final String projectDir;
+  final AgentEditApplier applier;
+  final FfmpegService ffmpegService;
+  final FfprobeService ffprobeService;
+  final int maxJobs;
+
+  int jobsUsed = 0;
+
+  /// Run journal: every successfully applied edit lands here so the agent
+  /// loop can report applied operations + outputs without new plumbing.
+  final List<EditOperation> appliedOperations = [];
+  final List<String> outputPaths = [];
+
+  ToolExecutionContext({
+    required this.project,
+    required this.outputDir,
+    required this.projectDir,
+    required this.applier,
+    required this.ffmpegService,
+    required this.ffprobeService,
+    this.maxJobs = ToolRegistry.maxEditJobsPerRun,
+  });
+
+  void resetRun() {
+    jobsUsed = 0;
+    appliedOperations.clear();
+    outputPaths.clear();
+  }
+}
+
+/// Read tools: answer from project ground truth, never touch FFmpeg output.
+class ReadToolExecutor implements ToolExecutor {
+  final ToolExecutionContext _ctx;
+
+  const ReadToolExecutor(this._ctx);
+
+  @override
+  Future<ToolResult> execute(ToolCall call) async {
+    try {
+      switch (call.name) {
+        case 'list_project_clips':
+          return _listClips();
+        case 'probe_video':
+          return _probeVideo(call.args);
+        case 'get_edit_history':
+          return _editHistory();
+        default:
+          return ToolResult.fail(
+            'Unknown read tool "${call.name}". '
+            'Available: list_project_clips, probe_video, get_edit_history.',
+          );
+      }
+    } catch (e) {
+      return ToolResult.fail('Read tool "${call.name}" failed: $e');
+    }
+  }
+
+  ToolResult _listClips() {
+    final clips = <Map<String, dynamic>>[];
+    for (final track in _ctx.project().tracks) {
+      for (final clip in track.clips) {
+        clips.add({
+          'id': clip.id,
+          'track_id': clip.trackId,
+          'label': clip.label ?? clip.id,
+          'start_ms': clip.startMs,
+          'end_ms': clip.endMs,
+          'position_ms': clip.positionMs,
+        });
+      }
+    }
+    return ToolResult.ok(
+      data: {'clips': clips, 'count': clips.length},
+      summary: '${clips.length} clip(s) in project.',
+    );
+  }
+
+  Future<ToolResult> _probeVideo(Map<String, dynamic> args) async {
+    final clipId = _stringArg(args, 'clip_id');
+    if (clipId == null || clipId.isEmpty) {
+      return ToolResult.fail(
+        'probe_video needs a "clip_id" string. '
+        'Call list_project_clips first to learn clip IDs.',
+      );
+    }
+    final path = _clipPath(_ctx, clipId);
+    if (path == null) {
+      return ToolResult.fail(_unknownClip(clipId));
+    }
+    final meta = await _ctx.ffprobeService.extractMetadata(path);
+    if (meta == null) {
+      return ToolResult.fail(
+        'Could not read metadata for clip "$clipId". '
+        'The source file may be missing; try list_project_clips to verify.',
+      );
+    }
+    return ToolResult.ok(
+      data: {
+        'clip_id': clipId,
+        'duration_ms': meta.durationMs,
+        'width': meta.width,
+        'height': meta.height,
+        'fps': meta.fps,
+        'codec': meta.codec,
+        'has_audio': meta.hasAudio,
+      },
+      summary: 'Metadata for clip "$clipId".',
+    );
+  }
+
+  ToolResult _editHistory() {
+    final ops = _ctx.project().editHistory.map((op) {
+      return {
+        'id': op.id,
+        'type': op.type.name,
+        'target_clip_ids': op.targetClipIds,
+        'status': op.status.name,
+      };
+    }).toList();
+    return ToolResult.ok(
+      data: {'operations': ops, 'count': ops.length},
+      summary: '${ops.length} applied operation(s).',
+    );
+  }
+}
+
+/// Edit tools: one tool call = one [EditOperationRequest] through the exact
+/// Phase-1 path (CommandMapper → ExecutionEngine → AgentEditApplier).
+class EditToolExecutor implements ToolExecutor {
+  final ToolExecutionContext _ctx;
+
+  const EditToolExecutor(this._ctx);
+
+  @override
+  Future<ToolResult> execute(ToolCall call) async {
+    try {
+      switch (call.name) {
+        case 'trim_clip':
+          return await _trim(call);
+        case 'cut_segment':
+          return await _cut(call);
+        case 'merge_clips':
+          return await _merge(call);
+        case 'change_speed':
+          return await _changeSpeed(call);
+        case 'mute_clip':
+          return await _mute(call);
+        case 'overlay_text':
+          return await _overlayText(call);
+        case 'resize_clip':
+          return await _resize(call);
+        case 'rotate_clip':
+          return await _rotate(call);
+        case 'adjust_brightness':
+          return await _brightness(call);
+        case 'change_volume':
+          return await _volume(call);
+        case 'extract_audio':
+          return await _extractAudio(call);
+        default:
+          return ToolResult.fail(
+            'Unknown edit tool "${call.name}".',
+          );
+      }
+    } on CommandMappingException catch (e) {
+      return ToolResult.fail(e.message);
+    } on FilterValidationException catch (e) {
+      return ToolResult.fail(e.message);
+    } catch (e) {
+      return ToolResult.fail('Tool "${call.name}" failed: $e');
+    }
+  }
+
+  // --- Individual tools ---------------------------------------------------
+
+  Future<ToolResult> _trim(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final start = _stringArg(call.args, 'start');
+    final end = _stringArg(call.args, 'end');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    final tcError =
+        _requireTimecode(start, 'start') ?? _requireTimecode(end, 'end');
+    if (tcError != null) return ToolResult.fail(tcError);
+    final orderError = _requireOrder(start!, end!, 'start', 'end');
+    if (orderError != null) return ToolResult.fail(orderError);
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'trim',
+      clipId: clipId!,
+      params: {'start': start, 'end': end},
+      summary: 'Trimmed clip "$clipId" to $start–$end.',
+    );
+  }
+
+  Future<ToolResult> _cut(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final start = _stringArg(call.args, 'remove_start');
+    final end = _stringArg(call.args, 'remove_end');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    final tcError = _requireTimecode(start, 'remove_start') ??
+        _requireTimecode(end, 'remove_end');
+    if (tcError != null) return ToolResult.fail(tcError);
+    final orderError =
+        _requireOrder(start!, end!, 'remove_start', 'remove_end');
+    if (orderError != null) return ToolResult.fail(orderError);
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'cut',
+      clipId: clipId!,
+      params: {'remove_start': start, 'remove_end': end},
+      summary: 'Cut $start–$end from clip "$clipId".',
+    );
+  }
+
+  Future<ToolResult> _merge(ToolCall call) async {
+    final raw = call.args['clip_ids'];
+    if (raw is! List || raw.length < 2) {
+      return ToolResult.fail(
+        'merge_clips needs "clip_ids" with at least 2 clip IDs, '
+        'e.g. {"clip_ids": ["clip_1", "clip_2"]}. '
+        'Call list_project_clips first.',
+      );
+    }
+    final ids = raw.map((e) => e.toString()).toList();
+    for (final id in ids) {
+      final clipError = _requireClip(id);
+      if (clipError != null) return ToolResult.fail(clipError);
+    }
+    // merge resolves every ID through the live path map.
+    final map = _clipPathMap(_ctx);
+    final first = map[ids.first] ?? _defaultPath(_ctx);
+    if (first == null) {
+      return ToolResult.fail('No video file in project.');
+    }
+    if (_ctx.jobsUsed + 1 > _ctx.maxJobs) {
+      return ToolResult.fail(_budgetMessage);
+    }
+    final set = EditOperationSet(
+      operations: [
+        EditOperationRequest(
+          id: call.id,
+          type: 'merge',
+          targetClipId: ids.first,
+          params: {'clip_ids': ids},
+        ),
+      ],
+      summary: 'Merged ${ids.length} clips.',
+    );
+    return _executeSet(
+      set: set,
+      callId: call.id,
+      clipIds: [ids.first],
+      summary: 'Merged ${ids.length} clips starting with "${ids.first}".',
+    );
+  }
+
+  Future<ToolResult> _changeSpeed(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final factor = _numArg(call.args, 'factor');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    if (factor == null || factor <= 0) {
+      return ToolResult.fail(
+        'change_speed needs a positive "factor" number, '
+        'e.g. {"clip_id": "$clipId", "factor": 2.0}. Got "$factor".',
+      );
+    }
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'change_speed',
+      clipId: clipId!,
+      params: {'factor': factor},
+      summary: 'Changed speed of "$clipId" to ${factor}x.',
+    );
+  }
+
+  Future<ToolResult> _mute(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'mute',
+      clipId: clipId!,
+      params: {},
+      summary: 'Muted clip "$clipId".',
+    );
+  }
+
+  Future<ToolResult> _overlayText(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final text = _stringArg(call.args, 'text');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    if (text == null || text.trim().isEmpty) {
+      return ToolResult.fail(
+        'overlay_text needs a non-empty "text" string.',
+      );
+    }
+    if (_hasFilterBreakout(text)) {
+      return ToolResult.fail(
+        'overlay_text "text" contains characters that would break the '
+        'video filter (quotes followed by filter syntax or newlines). '
+        'Use plain text without \');\', \';\' sequences or line breaks.',
+      );
+    }
+    final color = _stringArg(call.args, 'color') ?? '#FFFFFF';
+    try {
+      FilterEscaping.validateColor(color);
+    } on FilterValidationException catch (e) {
+      return ToolResult.fail('${e.message} Retry with e.g. "#FFFFFF".');
+    }
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'overlay_text',
+      clipId: clipId!,
+      params: {
+        'text': text,
+        'position': _stringArg(call.args, 'position') ?? 'center',
+        'font_size': _numArg(call.args, 'font_size') ?? 48,
+        'color': color,
+        'start': _stringArg(call.args, 'start') ?? '0',
+        'end': _stringArg(call.args, 'end') ?? '0',
+      },
+      summary: 'Added text overlay on "$clipId".',
+    );
+  }
+
+  Future<ToolResult> _resize(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final width = _numArg(call.args, 'width')?.toInt();
+    final height = _numArg(call.args, 'height')?.toInt();
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    if (width == null || width <= 0 || height == null || height <= 0) {
+      return ToolResult.fail(
+        'resize_clip needs positive "width"/"height" numbers, '
+        'e.g. {"clip_id": "$clipId", "width": 1920, "height": 1080}.',
+      );
+    }
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'resize',
+      clipId: clipId!,
+      params: {
+        'width': width,
+        'height': height,
+        'fit': _stringArg(call.args, 'fit') ?? 'fill',
+      },
+      summary: 'Resized "$clipId" to ${width}x$height.',
+    );
+  }
+
+  Future<ToolResult> _rotate(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final degrees = _numArg(call.args, 'degrees');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    if (degrees != 90 && degrees != 180 && degrees != 270) {
+      return ToolResult.fail(
+        'rotate_clip "degrees" must be 90, 180 or 270. Got "$degrees".',
+      );
+    }
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'rotate',
+      clipId: clipId!,
+      params: {'degrees': degrees},
+      summary: 'Rotated "$clipId" by $degrees°.',
+    );
+  }
+
+  Future<ToolResult> _brightness(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final value = _numArg(call.args, 'value');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    if (value == null || value < -1.0 || value > 1.0) {
+      return ToolResult.fail(
+        'adjust_brightness "value" must be between -1.0 and 1.0. '
+        'Got "$value".',
+      );
+    }
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'adjust_brightness',
+      clipId: clipId!,
+      params: {'value': value},
+      summary: 'Adjusted brightness of "$clipId".',
+    );
+  }
+
+  Future<ToolResult> _volume(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final factor = _numArg(call.args, 'factor');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    if (factor == null || factor <= 0) {
+      return ToolResult.fail(
+        'change_volume needs a positive "factor" number, '
+        'e.g. {"clip_id": "$clipId", "factor": 0.5}. Got "$factor".',
+      );
+    }
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'change_volume',
+      clipId: clipId!,
+      params: {'factor': factor},
+      summary: 'Changed volume of "$clipId".',
+    );
+  }
+
+  Future<ToolResult> _extractAudio(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    final format = _stringArg(call.args, 'output_format') ?? 'mp3';
+    if (format != 'mp3' && format != 'aac' && format != 'wav') {
+      return ToolResult.fail(
+        'extract_audio "output_format" must be mp3, aac or wav. '
+        'Got "$format".',
+      );
+    }
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'extract_audio',
+      clipId: clipId!,
+      params: {'output_format': format},
+      summary: 'Extracted audio from "$clipId" as $format.',
+    );
+  }
+
+  // --- Shared Phase-1 execution -------------------------------------------
+
+  Future<ToolResult> _runSingleOp({
+    required String callId,
+    required String opType,
+    required String clipId,
+    required Map<String, dynamic> params,
+    required String summary,
+  }) {
+    return _executeSet(
+      set: EditOperationSet(
+        operations: [
+          EditOperationRequest(
+            id: callId,
+            type: opType,
+            targetClipId: clipId,
+            params: params,
+          ),
+        ],
+        summary: summary,
+      ),
+      callId: callId,
+      clipIds: [clipId],
+      summary: summary,
+    );
+  }
+
+  Future<ToolResult> _executeSet({
+    required EditOperationSet set,
+    required String callId,
+    required List<String> clipIds,
+    required String summary,
+  }) async {
+    if (_ctx.jobsUsed + 1 > _ctx.maxJobs) {
+      return ToolResult.fail(_budgetMessage);
+    }
+    final map = _clipPathMap(_ctx);
+    final defaultPath = _defaultPath(_ctx);
+    if (defaultPath == null && map.isEmpty) {
+      return ToolResult.fail('No video file in project.');
+    }
+    final jobs = CommandMapper.mapOperations(
+      set,
+      map,
+      _ctx.outputDir,
+      defaultPath: defaultPath,
+      projectDir: _ctx.projectDir,
+    );
+    if (_ctx.jobsUsed + jobs.length > _ctx.maxJobs) {
+      return ToolResult.fail(_budgetMessage);
+    }
+    _ctx.jobsUsed += jobs.length;
+
+    final engine = ExecutionEngine(_ctx.ffmpegService);
+    try {
+      final result = await engine.execute(jobs, '');
+      if (!result.success) {
+        return ToolResult.fail(
+          'FFmpeg failed: ${result.errorMessage ?? result.summary} '
+          'Check the timecodes and clip IDs, then retry.',
+        );
+      }
+      final outputPath = result.outputPaths.isNotEmpty
+          ? result.outputPaths.first
+          : jobs.first.outputPath;
+      final op = EditOperation(
+        id: callId,
+        type: _operationType(set.operations.first.type),
+        targetClipIds: clipIds,
+        params: Map<String, dynamic>.from(set.operations.first.params),
+        createdAt: DateTime.now(),
+        status: OperationStatus.applied,
+        ffmpegCommand: jobs.first.args.join(' '),
+      );
+      await _ctx.applier.apply(op, outputPath);
+      _ctx.appliedOperations.add(op);
+      _ctx.outputPaths.add(outputPath);
+      return ToolResult.ok(
+        data: {'output_path': outputPath, 'operation_id': op.id},
+        summary: summary,
+      );
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  // --- Validation helpers (actionable messages, never throws) --------------
+
+  static final RegExp _strictTimecode = RegExp(r'^\d+:\d{2}:\d{2}\.\d{3}$');
+
+  static String? _requireTimecode(String? value, String field) {
+    if (value == null ||
+        value.trim().isEmpty ||
+        !_strictTimecode.hasMatch(value.trim())) {
+      return 'Invalid "$field" timecode. Expected HH:MM:SS.mmm '
+          '(e.g. "00:00:05.000"), got "$value". Retry with that format.';
+    }
+    return null;
+  }
+
+  static String? _requireOrder(
+    String start,
+    String end,
+    String startField,
+    String endField,
+  ) {
+    final startMs = TimecodeUtils.parseToMilliseconds(start);
+    final endMs = TimecodeUtils.parseToMilliseconds(end);
+    if (startMs != null && endMs != null && endMs <= startMs) {
+      return '"$endField" ($end) must be after "$startField" ($start).';
+    }
+    return null;
+  }
+
+  static bool _hasFilterBreakout(String text) {
+    if (text.contains('\n') || text.contains('\r')) return true;
+    return RegExp(r'''['"]\s*[);]''').hasMatch(text);
+  }
+
+  String? _requireClip(String? clipId) {
+    if (clipId == null || clipId.trim().isEmpty) {
+      return 'Missing "clip_id". Call list_project_clips first to learn '
+          'clip IDs, then retry with a valid ID.';
+    }
+    if (_clipPath(_ctx, clipId) == null) {
+      return _unknownClip(clipId);
+    }
+    return null;
+  }
+
+  static String get _budgetMessage =>
+      'Edit budget exceeded (max ${ToolRegistry.maxEditJobsPerRun} FFmpeg '
+      'jobs per run). Summarise what was done so far instead.';
+
+  static EditOperationType _operationType(String type) {
+    switch (type) {
+      case 'trim':
+        return EditOperationType.trim;
+      case 'cut':
+        return EditOperationType.cut;
+      case 'merge':
+        return EditOperationType.merge;
+      case 'change_speed':
+        return EditOperationType.changeSpeed;
+      case 'mute':
+        return EditOperationType.mute;
+      case 'overlay_text':
+        return EditOperationType.overlayText;
+      case 'resize':
+        return EditOperationType.resize;
+      case 'rotate':
+        return EditOperationType.rotate;
+      case 'extract_audio':
+        return EditOperationType.extractAudio;
+      case 'adjust_brightness':
+        return EditOperationType.adjustBrightness;
+      case 'change_volume':
+        return EditOperationType.changeVolume;
+      default:
+        return EditOperationType.changeFormat;
+    }
+  }
+}
+
+/// Default registry wiring every tool name to the read/edit executors
+/// bound to [ctx]. Used by [ToolCallingAgent] and the state providers.
+ToolRegistry createToolRegistry(ToolExecutionContext ctx) {
+  final read = ReadToolExecutor(ctx);
+  final edit = EditToolExecutor(ctx);
+  return ToolRegistry(executors: {
+    'list_project_clips': read,
+    'probe_video': read,
+    'get_edit_history': read,
+    'trim_clip': edit,
+    'cut_segment': edit,
+    'merge_clips': edit,
+    'change_speed': edit,
+    'mute_clip': edit,
+    'overlay_text': edit,
+    'resize_clip': edit,
+    'rotate_clip': edit,
+    'adjust_brightness': edit,
+    'change_volume': edit,
+    'extract_audio': edit,
+  });
+}
+
+// --- Shared arg + project helpers -------------------------------------------
+
+String? _stringArg(Map<String, dynamic> args, String key) {
+  final value = args[key];
+  if (value == null) return null;
+  if (value is String) return value;
+  return value.toString();
+}
+
+double? _numArg(Map<String, dynamic> args, String key) {
+  final value = args[key];
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
+String _unknownClip(String clipId) {
+  return 'Unknown clip ID "$clipId". Call list_project_clips to see '
+      'available IDs, then retry with a valid one.';
+}
+
+// --- Live project helpers --------------------------------------------------
+
+Map<String, String> _clipPathMap(ToolExecutionContext ctx) {
+  final map = <String, String>{};
+  for (final track in ctx.project().tracks) {
+    for (final clip in track.clips) {
+      if (clip.sourcePath.trim().isNotEmpty) {
+        map[clip.id] = clip.sourcePath;
+      }
+    }
+  }
+  return map;
+}
+
+String? _clipPath(ToolExecutionContext ctx, String clipId) {
+  return _clipPathMap(ctx)[clipId];
+}
+
+String? _defaultPath(ToolExecutionContext ctx) {
+  final project = ctx.project();
+  if (project.sourceMediaPaths.isNotEmpty) {
+    return project.sourceMediaPaths.first;
+  }
+  final map = _clipPathMap(ctx);
+  return map.values.isEmpty ? null : map.values.first;
+}

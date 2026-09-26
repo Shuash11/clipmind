@@ -13,7 +13,7 @@ class GeminiConfig {
   const GeminiConfig({this.model = 'gemini-2.0-flash', this.apiKey = ''});
 }
 
-class GeminiProvider implements LlmProvider {
+class GeminiProvider extends LlmProvider {
   static const _baseUrl = 'https://generativelanguage.googleapis.com';
   static const _models = [
     'gemini-2.0-flash',

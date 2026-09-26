@@ -7,11 +7,12 @@ import 'package:clipmind/data/models/track.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
+import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
 
-class _StubProvider implements LlmProvider {
+class _StubProvider extends LlmProvider {
   final EditOperationSet response;
   _StubProvider(this.response);
 
@@ -23,6 +24,35 @@ class _StubProvider implements LlmProvider {
 
   @override
   Future<EditOperationSet> parseCommand(AgentRequest request) async => response;
+
+  @override
+  Stream<ConnectionStatus> watchConnection() =>
+      Stream.value(ConnectionStatus.connected);
+}
+
+/// Scripted tool-capable provider: one canned turn per round.
+class _ScriptToolProvider extends LlmProvider {
+  final List<AgentTurnResult> script;
+  int calls = 0;
+
+  _ScriptToolProvider(this.script);
+
+  @override
+  String get id => 'script-tools';
+
+  @override
+  bool get supportsToolCalling => true;
+
+  @override
+  Future<AgentTurnResult> chatWithTools(AgentTurnRequest request) async =>
+      script[calls++];
+
+  @override
+  Future<List<String>> availableModels() async => ['script'];
+
+  @override
+  Future<EditOperationSet> parseCommand(AgentRequest request) =>
+      throw UnimplementedError();
 
   @override
   Stream<ConnectionStatus> watchConnection() =>
@@ -307,6 +337,71 @@ void main() {
           result.appliedOperations.first.ffmpegCommand,
           isNot(contains('clip_1')),
         );
+        pipeline.dispose();
+      } finally {
+        await tmp.delete(recursive: true);
+      }
+    });
+
+    test('tool-capable provider routes through the agent loop', () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('clipmind_tool_gate_');
+      try {
+        final input = File('${tmp.path}/input.mp4');
+        await input.writeAsString('source');
+        final outDir = Directory('${tmp.path}/out');
+        await outDir.create();
+
+        final project = _projectWithClip(
+          clipId: 'clip_1',
+          sourcePath: input.path,
+          outputDir: outDir.path,
+        );
+        final script = _ScriptToolProvider([
+          const AgentTurnResult(
+            toolCalls: [
+              AgentToolCall(
+                id: 'call_1',
+                name: 'trim_clip',
+                args: {
+                  'clip_id': 'clip_1',
+                  'start': '00:00:05.000',
+                  'end': '00:00:15.000',
+                },
+              ),
+            ],
+            stopReason: AgentTurnStopReason.toolCalls,
+          ),
+          const AgentTurnResult(
+            text: 'Trimmed and muted.',
+            stopReason: AgentTurnStopReason.stop,
+          ),
+        ]);
+
+        final applied = <EditOperation>[];
+        final applier = AgentEditApplier(
+          onApply: (op, path) async {
+            applied.add(op);
+          },
+        );
+
+        final pipeline = Nl2VecPipeline(ffmpegService: _FakeFfmpegService());
+        final result = await pipeline.submitCommand(
+          'Trim the first 5 seconds',
+          project,
+          provider: script,
+          applier: applier,
+          liveProject: () => project,
+        );
+
+        expect(script.calls, equals(2));
+        expect(result.status, equals(SubmitStatus.success));
+        expect(result.message, equals('Trimmed and muted.'));
+        expect(result.appliedOperations, hasLength(1));
+        expect(result.outputPath, isNotNull);
+        expect(result.outputPath!.startsWith(outDir.path), isTrue);
+        expect(applied, hasLength(1));
+        expect(applied.single.targetClipIds, equals(['clip_1']));
         pipeline.dispose();
       } finally {
         await tmp.delete(recursive: true);
