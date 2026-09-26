@@ -4,6 +4,7 @@ import 'package:clipmind/presentation/settings/widgets/update_dialog.dart';
 import 'package:clipmind/core/router/app_router.dart';
 import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart';
 
+import 'package:clipmind/state/agent_run_providers.dart';
 import 'package:clipmind/state/update_providers.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
@@ -47,17 +48,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Text('AI', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
-            child: ListTile(
-              key: const ValueKey('settings-ai-providers'),
-              leading: const Icon(Icons.hub_outlined),
-              title: const Text('AI Providers'),
-              subtitle: Text(
-                providerState.failureMessage != null
-                    ? 'Provider platform unavailable'
-                    : '${providerState.profiles.length} profile${providerState.profiles.length == 1 ? '' : 's'} configured',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.go(aiProvidersPath),
+            child: Column(
+              children: [
+                ListTile(
+                  key: const ValueKey('settings-ai-providers'),
+                  leading: const Icon(Icons.hub_outlined),
+                  title: const Text('AI Providers'),
+                  subtitle: Text(
+                    providerState.failureMessage != null
+                        ? 'Provider platform unavailable'
+                        : '${providerState.profiles.length} profile${providerState.profiles.length == 1 ? '' : 's'} configured',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go(aiProvidersPath),
+                ),
+                SwitchListTile(
+                  key: const ValueKey('settings-confirm-edits'),
+                  secondary: const Icon(Icons.fact_check_outlined),
+                  title: const Text('Confirm each edit'),
+                  subtitle: const Text(
+                    'Every AI edit asks for your approval before it runs',
+                  ),
+                  value: ref.watch(agentConfirmEditsProvider),
+                  onChanged: (v) =>
+                      ref.read(agentConfirmEditsProvider.notifier).state = v,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),

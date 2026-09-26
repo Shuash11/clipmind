@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/models/chat_message.dart';
+import 'package:clipmind/data/models/chat_step.dart';
 
-class ChatBubble extends StatelessWidget {
+import 'agent_steps_view.dart';
+
+/// One chat bubble. Agent bubbles with tool-call steps gain a collapsed
+/// header ("N tool calls · M edits · Xs") that expands to per-step rows.
+class ChatBubble extends StatefulWidget {
   final ChatMessage message;
   const ChatBubble({super.key, required this.message});
 
   @override
+  State<ChatBubble> createState() => _ChatBubbleState();
+}
+
+class _ChatBubbleState extends State<ChatBubble> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final message = widget.message;
     final isUser = message.role == ChatRole.user;
     final bgColor = isUser
         ? ClipMindColors.accentPrimary.withValues(alpha: 0.15)
@@ -67,6 +80,15 @@ class ChatBubble extends StatelessWidget {
                       ],
                     ),
                   ],
+                  if (message.steps.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _stepsHeader(theme, message.steps),
+                    if (_expanded) ...[
+                      const SizedBox(height: 4),
+                      for (final step in message.steps)
+                        AgentStepRow(step: AgentStepData.fromChatStep(step)),
+                    ],
+                  ],
                 ],
               ),
             ),
@@ -75,6 +97,45 @@ class ChatBubble extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Collapsed header: "N tool calls · M edits · Xs" + chevron.
+  Widget _stepsHeader(ThemeData theme, List<ChatStep> steps) {
+    final count = steps.length;
+    final editCount = steps.where((s) => s.kind == ChatStepKind.edit).length;
+    final totalMs = steps.fold<int>(0, (sum, s) => sum + s.durationMs);
+    return GestureDetector(
+      key: const ValueKey('agent-steps-header'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Row(
+        children: [
+          Icon(
+            _expanded ? Icons.expand_less : Icons.expand_more,
+            size: 14,
+            color: ClipMindColors.textMuted,
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              '$count tool call${count == 1 ? '' : 's'}'
+              ' · $editCount edit${editCount == 1 ? '' : 's'}'
+              ' · ${_formatMs(totalMs)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: ClipMindColors.textMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatMs(int ms) {
+    if (ms < 1000) return '${ms}ms';
+    return '${(ms / 1000).toStringAsFixed(1)}s';
   }
 
   Widget _statusIcon(MessageStatus status) {

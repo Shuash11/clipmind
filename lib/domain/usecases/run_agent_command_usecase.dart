@@ -2,6 +2,7 @@ import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
+import 'package:clipmind/domain/agent/agent_confirmation.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
@@ -24,6 +25,7 @@ class RunAgentCommandUseCase {
     AgentEditApplier? applier,
     Project Function()? liveProject,
     CancellationToken? cancellation,
+    ConfirmationGate? gate,
   }) {
     return _pipeline.submitCommand(
       command,
@@ -34,6 +36,7 @@ class RunAgentCommandUseCase {
       applier: applier,
       liveProject: liveProject,
       cancellation: cancellation,
+      gate: gate,
     );
   }
 }

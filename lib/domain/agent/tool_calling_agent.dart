@@ -4,6 +4,7 @@ import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'agent_activity.dart';
+import 'agent_confirmation.dart';
 import 'agent_turn.dart';
 import 'operation_schema.dart';
 import 'tools/tool_definition.dart';
@@ -63,6 +64,7 @@ class ToolCallingAgent {
     int timeoutSeconds = 60,
     double temperature = 0.1,
     CancellationToken? cancellation,
+    ConfirmationGate? gate,
   }) async {
     context.resetRun();
     final history = <AgentTurnMessage>[];
@@ -141,7 +143,40 @@ class ToolCallingAgent {
         break;
       }
 
+      final bulkDenied = await _maybeBulkConfirm(
+        round,
+        turn.toolCalls,
+        gate,
+        cancellation,
+      );
+      if (bulkDenied == null) {
+        return _cancelled(records, round: round);
+      }
       for (final call in turn.toolCalls) {
+        if (cancellation?.isCancelled == true && !bulkDenied) {
+          return _cancelled(records, round: round);
+        }
+        if (bulkDenied && _isEditTool(call.name)) {
+          _recordSkipped(round, call, history, records);
+          continue;
+        }
+        if (gate != null &&
+            gate.requiresPerEditApproval &&
+            _isEditTool(call.name)) {
+          if (cancellation?.isCancelled == true) {
+            return _cancelled(records, round: round);
+          }
+          final approved = await _confirmOne(
+            round,
+            call,
+            gate,
+            cancellation,
+          );
+          if (!approved) {
+            _recordSkipped(round, call, history, records);
+            continue;
+          }
+        }
         if (cancellation?.isCancelled == true) {
           return _cancelled(records, round: round);
         }
@@ -178,6 +213,143 @@ class ToolCallingAgent {
       appliedOperations: applied,
       outputPath: outputPath,
       records: List.unmodifiable(records),
+    );
+  }
+
+  /// Bulk gate: null = cancelled before asking (caller cancels the run),
+  /// true = gated batch denied (record skips), false = proceed normally.
+  Future<bool?> _maybeBulkConfirm(
+    int round,
+    List<AgentToolCall> calls,
+    ConfirmationGate? gate,
+    CancellationToken? cancellation,
+  ) async {
+    if (gate == null || gate.requiresPerEditApproval) return false;
+    final edits = calls.where((c) => _isEditTool(c.name)).toList();
+    if (edits.length < 3) return false;
+    if (cancellation?.isCancelled == true) return null;
+    final summary = _bulkSummary(edits);
+    _emit(
+      AgentActivityKind.confirmationRequested,
+      round: round,
+      summary: summary,
+    );
+    final approved = await _askGate(
+      gate,
+      ConfirmationRequest(
+        round: round,
+        toolCalls: List.unmodifiable(edits),
+        kind: ConfirmationKind.bulk,
+      ),
+      cancellation,
+    );
+    _emit(
+      AgentActivityKind.confirmationResolved,
+      round: round,
+      summary: summary,
+      success: approved,
+    );
+    return !approved;
+  }
+
+  Future<bool> _confirmOne(
+    int round,
+    AgentToolCall call,
+    ConfirmationGate gate,
+    CancellationToken? cancellation,
+  ) async {
+    final summary = '${call.name} (${call.id})';
+    _emit(
+      AgentActivityKind.confirmationRequested,
+      round: round,
+      toolCallId: call.id,
+      toolName: call.name,
+      summary: summary,
+    );
+    final approved = await _askGate(
+      gate,
+      ConfirmationRequest(
+        round: round,
+        toolCalls: [call],
+        kind: ConfirmationKind.perEdit,
+      ),
+      cancellation,
+    );
+    _emit(
+      AgentActivityKind.confirmationResolved,
+      round: round,
+      toolCallId: call.id,
+      toolName: call.name,
+      summary: summary,
+      success: approved,
+    );
+    return approved;
+  }
+
+  Future<bool> _askGate(
+    ConfirmationGate gate,
+    ConfirmationRequest request,
+    CancellationToken? cancellation,
+  ) async {
+    if (cancellation == null) return gate.ask(request);
+    if (cancellation.isCancelled) return false;
+    return Future.any<bool>([
+      gate.ask(request),
+      cancellation.whenCancelled.then((_) => false),
+    ]);
+  }
+
+  bool _isEditTool(String name) {
+    return registry.definitionFor(name)?.category == ToolCategory.edit;
+  }
+
+  String _bulkSummary(List<AgentToolCall> edits) {
+    return '${edits.length} edit(s): ${edits.map((e) => e.name).join(', ')}';
+  }
+
+  /// Transparent skip: failed record + tool error history so the model can
+  /// summarize and finish. Read tools in the same round still execute.
+  void _recordSkipped(
+    int round,
+    AgentToolCall call,
+    List<AgentTurnMessage> history,
+    List<AgentToolCallRecord> records,
+  ) {
+    const message = 'Skipped by user';
+    _emit(
+      AgentActivityKind.toolCallStarted,
+      round: round,
+      toolCallId: call.id,
+      toolName: call.name,
+      args: call.args,
+    );
+    records.add(AgentToolCallRecord(
+      id: call.id,
+      name: call.name,
+      args: call.args,
+      success: false,
+      summary: message,
+      durationMs: 0,
+    ));
+    history.add(AgentTurnMessage(
+      role: AgentTurnRole.toolResult,
+      content: jsonEncode({
+        'success': false,
+        'summary': message,
+        'data': <String, dynamic>{},
+        'error': message,
+      }),
+      toolCallId: call.id,
+      toolError: true,
+    ));
+    _emit(
+      AgentActivityKind.toolCallFailed,
+      round: round,
+      toolCallId: call.id,
+      toolName: call.name,
+      summary: message,
+      success: false,
+      durationMs: 0,
     );
   }
 

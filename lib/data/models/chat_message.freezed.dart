@@ -27,6 +27,7 @@ mixin _$ChatMessage {
   DateTime get timestamp => throw _privateConstructorUsedError;
   List<String> get resultingOperationIds => throw _privateConstructorUsedError;
   MessageStatus get status => throw _privateConstructorUsedError;
+  List<ChatStep> get steps => throw _privateConstructorUsedError;
 
   /// Serializes this ChatMessage to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -52,6 +53,7 @@ abstract class $ChatMessageCopyWith<$Res> {
     DateTime timestamp,
     List<String> resultingOperationIds,
     MessageStatus status,
+    List<ChatStep> steps,
   });
 }
 
@@ -76,6 +78,7 @@ class _$ChatMessageCopyWithImpl<$Res, $Val extends ChatMessage>
     Object? timestamp = null,
     Object? resultingOperationIds = null,
     Object? status = null,
+    Object? steps = null,
   }) {
     return _then(
       _value.copyWith(
@@ -103,6 +106,10 @@ class _$ChatMessageCopyWithImpl<$Res, $Val extends ChatMessage>
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
                       as MessageStatus,
+            steps: null == steps
+                ? _value.steps
+                : steps // ignore: cast_nullable_to_non_nullable
+                      as List<ChatStep>,
           )
           as $Val,
     );
@@ -125,6 +132,7 @@ abstract class _$$ChatMessageImplCopyWith<$Res>
     DateTime timestamp,
     List<String> resultingOperationIds,
     MessageStatus status,
+    List<ChatStep> steps,
   });
 }
 
@@ -148,6 +156,7 @@ class __$$ChatMessageImplCopyWithImpl<$Res>
     Object? timestamp = null,
     Object? resultingOperationIds = null,
     Object? status = null,
+    Object? steps = null,
   }) {
     return _then(
       _$ChatMessageImpl(
@@ -175,13 +184,18 @@ class __$$ChatMessageImplCopyWithImpl<$Res>
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
                   as MessageStatus,
+        steps: null == steps
+            ? _value._steps
+            : steps // ignore: cast_nullable_to_non_nullable
+                  as List<ChatStep>,
       ),
     );
   }
 }
 
 /// @nodoc
-@JsonSerializable()
+
+@JsonSerializable(explicitToJson: true)
 class _$ChatMessageImpl implements _ChatMessage {
   const _$ChatMessageImpl({
     required this.id,
@@ -190,7 +204,9 @@ class _$ChatMessageImpl implements _ChatMessage {
     required this.timestamp,
     final List<String> resultingOperationIds = const [],
     this.status = MessageStatus.applied,
-  }) : _resultingOperationIds = resultingOperationIds;
+    final List<ChatStep> steps = const [],
+  }) : _resultingOperationIds = resultingOperationIds,
+       _steps = steps;
 
   factory _$ChatMessageImpl.fromJson(Map<String, dynamic> json) =>
       _$$ChatMessageImplFromJson(json);
@@ -216,10 +232,18 @@ class _$ChatMessageImpl implements _ChatMessage {
   @override
   @JsonKey()
   final MessageStatus status;
+  final List<ChatStep> _steps;
+  @override
+  @JsonKey()
+  List<ChatStep> get steps {
+    if (_steps is EqualUnmodifiableListView) return _steps;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_steps);
+  }
 
   @override
   String toString() {
-    return 'ChatMessage(id: $id, role: $role, content: $content, timestamp: $timestamp, resultingOperationIds: $resultingOperationIds, status: $status)';
+    return 'ChatMessage(id: $id, role: $role, content: $content, timestamp: $timestamp, resultingOperationIds: $resultingOperationIds, status: $status, steps: $steps)';
   }
 
   @override
@@ -236,7 +260,8 @@ class _$ChatMessageImpl implements _ChatMessage {
               other._resultingOperationIds,
               _resultingOperationIds,
             ) &&
-            (identical(other.status, status) || other.status == status));
+            (identical(other.status, status) || other.status == status) &&
+            const DeepCollectionEquality().equals(other._steps, _steps));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -249,6 +274,7 @@ class _$ChatMessageImpl implements _ChatMessage {
     timestamp,
     const DeepCollectionEquality().hash(_resultingOperationIds),
     status,
+    const DeepCollectionEquality().hash(_steps),
   );
 
   /// Create a copy of ChatMessage
@@ -273,6 +299,7 @@ abstract class _ChatMessage implements ChatMessage {
     required final DateTime timestamp,
     final List<String> resultingOperationIds,
     final MessageStatus status,
+    final List<ChatStep> steps,
   }) = _$ChatMessageImpl;
 
   factory _ChatMessage.fromJson(Map<String, dynamic> json) =
@@ -290,6 +317,8 @@ abstract class _ChatMessage implements ChatMessage {
   List<String> get resultingOperationIds;
   @override
   MessageStatus get status;
+  @override
+  List<ChatStep> get steps;
 
   /// Create a copy of ChatMessage
   /// with the given fields replaced by the non-null parameter values.

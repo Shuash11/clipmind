@@ -20,6 +20,11 @@ _$ChatMessageImpl _$$ChatMessageImplFromJson(Map<String, dynamic> json) =>
       status:
           $enumDecodeNullable(_$MessageStatusEnumMap, json['status']) ??
           MessageStatus.applied,
+      steps:
+          (json['steps'] as List<dynamic>?)
+              ?.map((e) => ChatStep.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
 
 Map<String, dynamic> _$$ChatMessageImplToJson(_$ChatMessageImpl instance) =>
@@ -30,6 +35,7 @@ Map<String, dynamic> _$$ChatMessageImplToJson(_$ChatMessageImpl instance) =>
       'timestamp': instance.timestamp.toIso8601String(),
       'resultingOperationIds': instance.resultingOperationIds,
       'status': _$MessageStatusEnumMap[instance.status]!,
+      'steps': instance.steps.map((e) => e.toJson()).toList(),
     };
 
 const _$ChatRoleEnumMap = {ChatRole.user: 'user', ChatRole.agent: 'agent'};

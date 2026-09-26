@@ -1,16 +1,19 @@
 import 'package:clipmind/core/theme/clipmind_theme.dart';
-import 'package:clipmind/domain/agent/agent_activity.dart';
+import 'package:clipmind/domain/agent/agent_confirmation.dart';
 import 'package:clipmind/state/agent_providers.dart';
 import 'package:clipmind/state/agent_run_providers.dart';
+import 'package:clipmind/state/project_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'agent_steps_view.dart';
 import 'chat_bubble.dart';
 import 'model_selector_dropdown.dart';
 import 'suggested_prompt_chip.dart';
 
 /// Dumb view over [AgentRunController]: submits commands, shows busy/cancel
-/// state and a compact inline activity feed. All run logic lives in state.
+/// state, the live tool-call pipeline and the confirmation bar. All run
+/// logic lives in state.
 class AgentChatPanel extends ConsumerStatefulWidget {
   const AgentChatPanel({super.key});
 
@@ -28,6 +31,16 @@ class AgentChatPanel extends ConsumerStatefulWidget {
 
 class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
   final _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Restore persisted chat history (with steps) for the open project.
+    final projectId = ref.read(projectProvider).valueOrNull?.id;
+    if (projectId != null) {
+      ref.read(agentRunControllerProvider.notifier).loadHistory(projectId);
+    }
+  }
 
   @override
   void dispose() {
@@ -48,7 +61,7 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
     final messages = ref.watch(chatMessagesProvider);
     final runState = ref.watch(agentRunControllerProvider);
     final isBusy = runState == AgentRunState.running;
-    final feed = ref.watch(agentActivityFeedProvider);
+    final pending = ref.watch(pendingConfirmationProvider);
 
     return Container(
       decoration: const BoxDecoration(
@@ -74,7 +87,14 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
                 const SizedBox(width: 8),
                 Text('AI Assistant', style: theme.textTheme.titleMedium),
                 const Spacer(),
-                const ModelSelectorDropdown(),
+                // Scale-down fit: the selector shrinks instead of
+                // overflowing the ~340px panel when the label is long.
+                const Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: ModelSelectorDropdown(),
+                  ),
+                ),
               ],
             ),
           ),
@@ -99,11 +119,20 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
               padding: const EdgeInsets.all(12),
               children: [
                 ...messages.map((message) => ChatBubble(message: message)),
-                if (isBusy && feed.isNotEmpty)
-                  _ActivityFeed(feed: feed),
+                if (isBusy) const AgentLivePipelineView(),
               ],
             ),
           ),
+          if (pending != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: _ConfirmBar(
+                request: pending,
+                onAnswer: (approved) => ref
+                    .read(agentRunControllerProvider.notifier)
+                    .approvePendingConfirmation(approved),
+              ),
+            ),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: const BoxDecoration(
@@ -197,67 +226,93 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
   }
 }
 
-/// Compact inline feed: tool name + status + duration while running.
-class _ActivityFeed extends StatelessWidget {
-  const _ActivityFeed({required this.feed});
+/// In-panel confirmation bar for a paused round: question + answer buttons.
+/// True = approve (bulk: Approve, per-edit: Allow); false = skip/deny.
+class _ConfirmBar extends StatelessWidget {
+  const _ConfirmBar({required this.request, required this.onAnswer});
 
-  final List<AgentActivityEvent> feed;
+  final ConfirmationRequest request;
+  final ValueChanged<bool> onAnswer;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final visible = feed.length > 3 ? feed.sublist(feed.length - 3) : feed;
+    final isBulk = request.kind == ConfirmationKind.bulk;
+    final count = request.toolCalls.length;
+    final toolName = request.toolCalls.isEmpty
+        ? 'tool'
+        : request.toolCalls.first.name;
+    final question = isBulk
+        ? 'The AI plans to apply $count edit${count == 1 ? '' : 's'} — Continue?'
+        : 'The AI wants to run $toolName — Allow?';
+
     return Container(
-      key: const ValueKey('agent-activity-feed'),
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      key: const ValueKey('agent-confirm-bar'),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
+        color: ClipMindColors.statusWarning.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: ClipMindColors.borderColor),
+        border: Border.all(
+          color: ClipMindColors.statusWarning.withValues(alpha: 0.4),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          for (final event in visible)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Text(
-                _label(event),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: event.kind == AgentActivityKind.toolCallFailed
-                      ? ClipMindColors.statusWarning
-                      : ClipMindColors.textSecondary,
+          Row(
+            children: [
+              const Icon(
+                Icons.pause_circle_outline,
+                size: 14,
+                color: ClipMindColors.statusWarning,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  question,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: ClipMindColors.textPrimary,
+                  ),
                 ),
               ),
-            ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: ClipMindColors.accentPrimary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: TextButton(
+                    key: ValueKey(
+                      isBulk ? 'agent-confirm-approve' : 'agent-confirm-allow',
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: ClipMindColors.bgBase,
+                    ),
+                    onPressed: () => onAnswer(true),
+                    child: Text(isBulk ? 'Approve' : 'Allow'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  key: ValueKey(
+                    isBulk ? 'agent-confirm-skip' : 'agent-confirm-deny',
+                  ),
+                  onPressed: () => onAnswer(false),
+                  child: Text(isBulk ? 'Skip' : 'Deny'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
-  }
-
-  String _label(AgentActivityEvent event) {
-    switch (event.kind) {
-      case AgentActivityKind.runStarted:
-        return 'Run started';
-      case AgentActivityKind.llmRoundStarted:
-        return 'Thinking (round ${event.round})…';
-      case AgentActivityKind.llmRoundCompleted:
-        return 'Round ${event.round} planned';
-      case AgentActivityKind.toolCallStarted:
-        return 'Running ${event.toolName ?? 'tool'}…';
-      case AgentActivityKind.toolCallCompleted:
-        final duration = event.durationMs != null
-            ? ' · ${event.durationMs}ms'
-            : '';
-        return '${event.toolName ?? 'Tool'} done$duration';
-      case AgentActivityKind.toolCallFailed:
-        return '${event.toolName ?? 'Tool'} failed';
-      case AgentActivityKind.runCompleted:
-        return event.summary ?? 'Done';
-      case AgentActivityKind.runFailed:
-        return event.summary ?? 'Failed';
-      case AgentActivityKind.runCancelled:
-        return event.summary ?? 'Cancelled';
-    }
   }
 }

@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'chat_step.dart';
+
 part 'chat_message.freezed.dart';
 part 'chat_message.g.dart';
 
@@ -7,6 +9,7 @@ enum ChatRole { user, agent }
 
 @freezed
 class ChatMessage with _$ChatMessage {
+  @JsonSerializable(explicitToJson: true)
   const factory ChatMessage({
     required String id,
     required ChatRole role,
@@ -14,6 +17,7 @@ class ChatMessage with _$ChatMessage {
     required DateTime timestamp,
     @Default([]) List<String> resultingOperationIds,
     @Default(MessageStatus.applied) MessageStatus status,
+    @Default([]) List<ChatStep> steps,
   }) = _ChatMessage;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) =>

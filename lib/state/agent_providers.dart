@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:clipmind/data/models/chat_step.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/llm/provider_registry.dart';
@@ -84,12 +85,18 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
     state = [...state, message];
   }
 
+  /// Replace in-memory history (used by `loadHistory` on project open).
+  void replaceAll(List<ChatMessage> messages) {
+    state = [...messages];
+  }
+
   /// Convenience for agent replies carrying the applied operation IDs.
   void addAgentResult({
     required String id,
     required String content,
     required MessageStatus status,
     List<String> resultingOperationIds = const [],
+    List<ChatStep> steps = const [],
   }) {
     add(ChatMessage(
       id: id,
@@ -98,6 +105,7 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
       timestamp: DateTime.now(),
       status: status,
       resultingOperationIds: resultingOperationIds,
+      steps: steps,
     ));
   }
 

@@ -9,6 +9,8 @@ enum AgentActivityKind {
   toolCallStarted,
   toolCallCompleted,
   toolCallFailed,
+  confirmationRequested,
+  confirmationResolved,
   runCompleted,
   runFailed,
   runCancelled,

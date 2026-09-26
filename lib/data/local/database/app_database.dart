@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:clipmind/data/models/chat_message.dart' as chat_models;
+import 'package:clipmind/data/models/chat_step.dart' as step_models;
 import 'package:clipmind/data/models/edit_operation.dart' as edit_models;
 import 'package:clipmind/data/models/project.dart' as models;
 import 'package:drift/drift.dart';
@@ -35,6 +36,8 @@ class ChatMessages extends Table {
   TextColumn get content => text()();
   IntColumn get timestamp => integer()();
   TextColumn get status => text()();
+  TextColumn get stepsJson => text().nullable()();
+  TextColumn get resultingOperationIds => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -56,7 +59,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -65,6 +68,13 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await m.addColumn(projects, projects.documentSchemaVersion);
         await m.addColumn(projects, projects.documentRevision);
+      }
+      if (from < 3) {
+        await m.addColumn(chatMessages, chatMessages.stepsJson);
+        await m.addColumn(
+          chatMessages,
+          chatMessages.resultingOperationIds,
+        );
       }
     },
   );
@@ -128,6 +138,9 @@ class AppDatabase extends _$AppDatabase {
     String projectId,
     chat_models.ChatMessage msg,
   ) async {
+    final steps = msg.steps.length > 20
+        ? msg.steps.sublist(msg.steps.length - 20)
+        : msg.steps;
     await into(chatMessages).insertOnConflictUpdate(
       ChatMessageRow(
         id: msg.id,
@@ -136,6 +149,8 @@ class AppDatabase extends _$AppDatabase {
         content: msg.content,
         timestamp: msg.timestamp.millisecondsSinceEpoch,
         status: msg.status.name,
+        stepsJson: jsonEncode([for (final s in steps) s.toJson()]),
+        resultingOperationIds: msg.resultingOperationIds.join(','),
       ),
     );
   }
@@ -226,7 +241,35 @@ class AppDatabase extends _$AppDatabase {
       status: chat_models.MessageStatus.values.firstWhere(
         (s) => s.name == row.status,
       ),
+      resultingOperationIds: _decodeOperationIds(row.resultingOperationIds),
+      steps: _decodeSteps(row.stepsJson),
     );
+  }
+
+  List<String> _decodeOperationIds(String? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    return raw
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  List<step_models.ChatStep> _decodeSteps(String? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return [
+        for (final e in decoded)
+          if (e is Map<String, dynamic>)
+            step_models.ChatStep.fromJson(e)
+          else if (e is Map)
+            step_models.ChatStep.fromJson(Map<String, dynamic>.from(e)),
+      ];
+    } catch (_) {
+      return const [];
+    }
   }
 
   edit_models.EditOperation _editHistoryRowToModel(EditHistoryData row) {

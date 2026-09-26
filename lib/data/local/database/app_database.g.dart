@@ -716,6 +716,28 @@ class $ChatMessagesTable extends ChatMessages
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _stepsJsonMeta = const VerificationMeta(
+    'stepsJson',
+  );
+  @override
+  late final GeneratedColumn<String> stepsJson = GeneratedColumn<String>(
+    'steps_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _resultingOperationIdsMeta =
+      const VerificationMeta('resultingOperationIds');
+  @override
+  late final GeneratedColumn<String> resultingOperationIds =
+      GeneratedColumn<String>(
+        'resulting_operation_ids',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -724,6 +746,8 @@ class $ChatMessagesTable extends ChatMessages
     content,
     timestamp,
     status,
+    stepsJson,
+    resultingOperationIds,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -782,6 +806,21 @@ class $ChatMessagesTable extends ChatMessages
     } else if (isInserting) {
       context.missing(_statusMeta);
     }
+    if (data.containsKey('steps_json')) {
+      context.handle(
+        _stepsJsonMeta,
+        stepsJson.isAcceptableOrUnknown(data['steps_json']!, _stepsJsonMeta),
+      );
+    }
+    if (data.containsKey('resulting_operation_ids')) {
+      context.handle(
+        _resultingOperationIdsMeta,
+        resultingOperationIds.isAcceptableOrUnknown(
+          data['resulting_operation_ids']!,
+          _resultingOperationIdsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -815,6 +854,14 @@ class $ChatMessagesTable extends ChatMessages
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      stepsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}steps_json'],
+      ),
+      resultingOperationIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}resulting_operation_ids'],
+      ),
     );
   }
 
@@ -831,6 +878,8 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
   final String content;
   final int timestamp;
   final String status;
+  final String? stepsJson;
+  final String? resultingOperationIds;
   const ChatMessageRow({
     required this.id,
     required this.projectId,
@@ -838,6 +887,8 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
     required this.content,
     required this.timestamp,
     required this.status,
+    this.stepsJson,
+    this.resultingOperationIds,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -848,6 +899,12 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
     map['content'] = Variable<String>(content);
     map['timestamp'] = Variable<int>(timestamp);
     map['status'] = Variable<String>(status);
+    if (!nullToAbsent || stepsJson != null) {
+      map['steps_json'] = Variable<String>(stepsJson);
+    }
+    if (!nullToAbsent || resultingOperationIds != null) {
+      map['resulting_operation_ids'] = Variable<String>(resultingOperationIds);
+    }
     return map;
   }
 
@@ -859,6 +916,12 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
       content: Value(content),
       timestamp: Value(timestamp),
       status: Value(status),
+      stepsJson: stepsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stepsJson),
+      resultingOperationIds: resultingOperationIds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resultingOperationIds),
     );
   }
 
@@ -874,6 +937,10 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
       content: serializer.fromJson<String>(json['content']),
       timestamp: serializer.fromJson<int>(json['timestamp']),
       status: serializer.fromJson<String>(json['status']),
+      stepsJson: serializer.fromJson<String?>(json['stepsJson']),
+      resultingOperationIds: serializer.fromJson<String?>(
+        json['resultingOperationIds'],
+      ),
     );
   }
   @override
@@ -886,6 +953,10 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
       'content': serializer.toJson<String>(content),
       'timestamp': serializer.toJson<int>(timestamp),
       'status': serializer.toJson<String>(status),
+      'stepsJson': serializer.toJson<String?>(stepsJson),
+      'resultingOperationIds': serializer.toJson<String?>(
+        resultingOperationIds,
+      ),
     };
   }
 
@@ -896,6 +967,8 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
     String? content,
     int? timestamp,
     String? status,
+    Value<String?> stepsJson = const Value.absent(),
+    Value<String?> resultingOperationIds = const Value.absent(),
   }) => ChatMessageRow(
     id: id ?? this.id,
     projectId: projectId ?? this.projectId,
@@ -903,6 +976,10 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
     content: content ?? this.content,
     timestamp: timestamp ?? this.timestamp,
     status: status ?? this.status,
+    stepsJson: stepsJson.present ? stepsJson.value : this.stepsJson,
+    resultingOperationIds: resultingOperationIds.present
+        ? resultingOperationIds.value
+        : this.resultingOperationIds,
   );
   ChatMessageRow copyWithCompanion(ChatMessagesCompanion data) {
     return ChatMessageRow(
@@ -912,6 +989,10 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
       content: data.content.present ? data.content.value : this.content,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       status: data.status.present ? data.status.value : this.status,
+      stepsJson: data.stepsJson.present ? data.stepsJson.value : this.stepsJson,
+      resultingOperationIds: data.resultingOperationIds.present
+          ? data.resultingOperationIds.value
+          : this.resultingOperationIds,
     );
   }
 
@@ -923,14 +1004,24 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
           ..write('role: $role, ')
           ..write('content: $content, ')
           ..write('timestamp: $timestamp, ')
-          ..write('status: $status')
+          ..write('status: $status, ')
+          ..write('stepsJson: $stepsJson, ')
+          ..write('resultingOperationIds: $resultingOperationIds')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, projectId, role, content, timestamp, status);
+  int get hashCode => Object.hash(
+    id,
+    projectId,
+    role,
+    content,
+    timestamp,
+    status,
+    stepsJson,
+    resultingOperationIds,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -940,7 +1031,9 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
           other.role == this.role &&
           other.content == this.content &&
           other.timestamp == this.timestamp &&
-          other.status == this.status);
+          other.status == this.status &&
+          other.stepsJson == this.stepsJson &&
+          other.resultingOperationIds == this.resultingOperationIds);
 }
 
 class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
@@ -950,6 +1043,8 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
   final Value<String> content;
   final Value<int> timestamp;
   final Value<String> status;
+  final Value<String?> stepsJson;
+  final Value<String?> resultingOperationIds;
   final Value<int> rowid;
   const ChatMessagesCompanion({
     this.id = const Value.absent(),
@@ -958,6 +1053,8 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     this.content = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.status = const Value.absent(),
+    this.stepsJson = const Value.absent(),
+    this.resultingOperationIds = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ChatMessagesCompanion.insert({
@@ -967,6 +1064,8 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     required String content,
     required int timestamp,
     required String status,
+    this.stepsJson = const Value.absent(),
+    this.resultingOperationIds = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        projectId = Value(projectId),
@@ -981,6 +1080,8 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     Expression<String>? content,
     Expression<int>? timestamp,
     Expression<String>? status,
+    Expression<String>? stepsJson,
+    Expression<String>? resultingOperationIds,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -990,6 +1091,9 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
       if (content != null) 'content': content,
       if (timestamp != null) 'timestamp': timestamp,
       if (status != null) 'status': status,
+      if (stepsJson != null) 'steps_json': stepsJson,
+      if (resultingOperationIds != null)
+        'resulting_operation_ids': resultingOperationIds,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1001,6 +1105,8 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     Value<String>? content,
     Value<int>? timestamp,
     Value<String>? status,
+    Value<String?>? stepsJson,
+    Value<String?>? resultingOperationIds,
     Value<int>? rowid,
   }) {
     return ChatMessagesCompanion(
@@ -1010,6 +1116,9 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
       content: content ?? this.content,
       timestamp: timestamp ?? this.timestamp,
       status: status ?? this.status,
+      stepsJson: stepsJson ?? this.stepsJson,
+      resultingOperationIds:
+          resultingOperationIds ?? this.resultingOperationIds,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1035,6 +1144,14 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
+    if (stepsJson.present) {
+      map['steps_json'] = Variable<String>(stepsJson.value);
+    }
+    if (resultingOperationIds.present) {
+      map['resulting_operation_ids'] = Variable<String>(
+        resultingOperationIds.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1050,6 +1167,8 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
           ..write('content: $content, ')
           ..write('timestamp: $timestamp, ')
           ..write('status: $status, ')
+          ..write('stepsJson: $stepsJson, ')
+          ..write('resultingOperationIds: $resultingOperationIds, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1751,6 +1870,8 @@ typedef $$ChatMessagesTableCreateCompanionBuilder =
       required String content,
       required int timestamp,
       required String status,
+      Value<String?> stepsJson,
+      Value<String?> resultingOperationIds,
       Value<int> rowid,
     });
 typedef $$ChatMessagesTableUpdateCompanionBuilder =
@@ -1761,6 +1882,8 @@ typedef $$ChatMessagesTableUpdateCompanionBuilder =
       Value<String> content,
       Value<int> timestamp,
       Value<String> status,
+      Value<String?> stepsJson,
+      Value<String?> resultingOperationIds,
       Value<int> rowid,
     });
 
@@ -1800,6 +1923,16 @@ class $$ChatMessagesTableFilterComposer
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stepsJson => $composableBuilder(
+    column: $table.stepsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get resultingOperationIds => $composableBuilder(
+    column: $table.resultingOperationIds,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1842,6 +1975,16 @@ class $$ChatMessagesTableOrderingComposer
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get stepsJson => $composableBuilder(
+    column: $table.stepsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get resultingOperationIds => $composableBuilder(
+    column: $table.resultingOperationIds,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ChatMessagesTableAnnotationComposer
@@ -1870,6 +2013,14 @@ class $$ChatMessagesTableAnnotationComposer
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get stepsJson =>
+      $composableBuilder(column: $table.stepsJson, builder: (column) => column);
+
+  GeneratedColumn<String> get resultingOperationIds => $composableBuilder(
+    column: $table.resultingOperationIds,
+    builder: (column) => column,
+  );
 }
 
 class $$ChatMessagesTableTableManager
@@ -1909,6 +2060,8 @@ class $$ChatMessagesTableTableManager
                 Value<String> content = const Value.absent(),
                 Value<int> timestamp = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<String?> stepsJson = const Value.absent(),
+                Value<String?> resultingOperationIds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChatMessagesCompanion(
                 id: id,
@@ -1917,6 +2070,8 @@ class $$ChatMessagesTableTableManager
                 content: content,
                 timestamp: timestamp,
                 status: status,
+                stepsJson: stepsJson,
+                resultingOperationIds: resultingOperationIds,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1927,6 +2082,8 @@ class $$ChatMessagesTableTableManager
                 required String content,
                 required int timestamp,
                 required String status,
+                Value<String?> stepsJson = const Value.absent(),
+                Value<String?> resultingOperationIds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChatMessagesCompanion.insert(
                 id: id,
@@ -1935,6 +2092,8 @@ class $$ChatMessagesTableTableManager
                 content: content,
                 timestamp: timestamp,
                 status: status,
+                stepsJson: stepsJson,
+                resultingOperationIds: resultingOperationIds,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

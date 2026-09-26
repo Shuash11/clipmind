@@ -9,7 +9,9 @@ import 'package:clipmind/data/services/ffmpeg/filter_escaping.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'agent_activity.dart';
+import 'agent_confirmation.dart';
 import 'agent_edit_applier.dart';
+import 'agent_turn.dart';
 import 'stage_1_input_validation.dart';
 import 'stage_2_prompt_construction.dart';
 import 'stage_3_intent_parsing.dart';
@@ -32,11 +34,15 @@ class SubmitResult {
   final List<EditOperation> appliedOperations;
   final String? outputPath;
 
+  /// Full tool-call trace (read + edit + skipped calls) for step rendering.
+  final List<AgentToolCallRecord> records;
+
   const SubmitResult({
     required this.status,
     required this.message,
     this.appliedOperations = const [],
     this.outputPath,
+    this.records = const [],
   });
 }
 
@@ -76,6 +82,7 @@ class Nl2VecPipeline {
     AgentEditApplier? applier,
     Project Function()? liveProject,
     CancellationToken? cancellation,
+    ConfirmationGate? gate,
   }) async {
     if (provider == null) {
       const result = SubmitResult(
@@ -112,6 +119,7 @@ class Nl2VecPipeline {
           applier: applier,
           liveProject: liveProject,
           cancellation: cancellation,
+          gate: gate,
         );
       }
 
@@ -265,6 +273,7 @@ class Nl2VecPipeline {
     required AgentEditApplier? applier,
     required Project Function()? liveProject,
     required CancellationToken? cancellation,
+    required ConfirmationGate? gate,
   }) async {
     _events.add(const PipelineEvent(PipelineStage.thinking, 'Planning with tools...'));
 
@@ -292,11 +301,13 @@ class Nl2VecPipeline {
         validated: validated,
         recentHistory: recentHistory,
         cancellation: cancellation,
+        gate: gate,
       );
       if (run.status == AgentRunStatus.error) {
         return SubmitResult(
           status: SubmitStatus.error,
           message: run.message,
+          records: run.records,
         );
       }
       if (run.status == AgentRunStatus.cancelled) {
@@ -306,6 +317,7 @@ class Nl2VecPipeline {
           message: run.message,
           appliedOperations: run.appliedOperations,
           outputPath: run.outputPath,
+          records: run.records,
         );
       }
       _events.add(
@@ -316,6 +328,7 @@ class Nl2VecPipeline {
         message: run.message,
         appliedOperations: run.appliedOperations,
         outputPath: run.outputPath,
+        records: run.records,
       );
     } finally {
       await forward.cancel();
