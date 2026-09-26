@@ -2,14 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
-import 'package:clipmind/state/agent_providers.dart';
-import 'package:clipmind/state/project_providers.dart';
+import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
+import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/state/agent_providers.dart';
+import 'package:clipmind/state/player_providers.dart';
+import 'package:clipmind/state/project_providers.dart';
+import 'package:clipmind/state/settings_providers.dart';
 import 'package:clipmind/data/models/chat_message.dart';
-import 'package:clipmind/data/models/project.dart' as project_model;
 import 'chat_bubble.dart';
 import 'suggested_prompt_chip.dart';
 import 'model_selector_dropdown.dart';
+
+/// Map a typed pipeline result to a chat message status.
+///
+/// No string-matching on message text; the domain returns [SubmitStatus].
+MessageStatus messageStatusForSubmit(SubmitStatus status) {
+  switch (status) {
+    case SubmitStatus.success:
+      return MessageStatus.applied;
+    case SubmitStatus.clarificationNeeded:
+      return MessageStatus.needsClarification;
+    case SubmitStatus.error:
+      return MessageStatus.error;
+  }
+}
 
 class AgentChatPanel extends ConsumerStatefulWidget {
   const AgentChatPanel({super.key});
@@ -41,119 +58,118 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
     final trimmed = text.trim();
     if (trimmed.isEmpty || _isLoading) return;
 
-    ref
-        .read(chatMessagesProvider.notifier)
-        .add(
-          ChatMessage(
-            id: _uuid.v4(),
-            role: ChatRole.user,
-            content: trimmed,
-            timestamp: DateTime.now(),
-          ),
-        );
+    final userMessage = ChatMessage(
+      id: _uuid.v4(),
+      role: ChatRole.user,
+      content: trimmed,
+      timestamp: DateTime.now(),
+    );
+    ref.read(chatMessagesProvider.notifier).add(userMessage);
+
+    final project = ref.read(projectProvider).valueOrNull;
+    if (project != null) {
+      try {
+        await ref.read(appDatabaseProvider).saveChatMessage(
+              project.id,
+              userMessage,
+            );
+      } catch (_) {
+        // Chat persistence is best-effort for Phase 1.
+      }
+    }
 
     _controller.clear();
     setState(() => _isLoading = true);
 
     try {
-      final project = ref.read(projectProvider).valueOrNull;
-      final snapshot = project != null
-          ? _projectToSnapshot(project)
-          : _emptySnapshot();
+      final currentProject = ref.read(projectProvider).valueOrNull;
+      if (currentProject == null) {
+        ref.read(chatMessagesProvider.notifier).addAgentResult(
+              id: _uuid.v4(),
+              content: 'Open a project with a video file first.',
+              status: MessageStatus.error,
+            );
+        return;
+      }
+
+      // Real ffprobe metadata (cached); null means unverified defaults.
+      VideoMetadata? metadata;
+      try {
+        metadata = await ref.read(projectMetadataProvider.future);
+      } catch (_) {
+        metadata = null;
+      }
 
       final registry = ref.read(providerRegistryProvider);
       final provider = await registry.getActiveProvider();
 
       if (provider == null) {
-        ref
-            .read(chatMessagesProvider.notifier)
-            .add(
-              ChatMessage(
-                id: _uuid.v4(),
-                role: ChatRole.agent,
-                content:
-                    'No LLM provider configured. Add an API key in Settings.',
-                timestamp: DateTime.now(),
-                status: MessageStatus.error,
-              ),
+        ref.read(chatMessagesProvider.notifier).addAgentResult(
+              id: _uuid.v4(),
+              content: 'No LLM provider configured. Add an API key in Settings.',
+              status: MessageStatus.error,
             );
         return;
       }
 
+      // Last 3 messages give the LLM conversational context.
+      final history = ref.read(chatMessagesProvider);
+      final recentHistory = history.reversed.take(3).map((m) {
+        return AgentRequest(
+          systemPrompt: m.content,
+          userCommand: m.content,
+          schemaJson: '',
+          timeoutSeconds: 30,
+        );
+      }).toList();
+
       final pipeline = ref.read(nl2vecPipelineProvider);
+      final applier = ref.read(agentEditApplierProvider);
       final result = await pipeline.submitCommand(
         trimmed,
-        snapshot,
+        currentProject,
         provider: provider,
+        metadata: metadata,
+        recentHistory: recentHistory,
+        applier: applier,
       );
 
-      final isError = result.startsWith('Error:');
-      ref
-          .read(chatMessagesProvider.notifier)
-          .add(
-            ChatMessage(
-              id: _uuid.v4(),
-              role: ChatRole.agent,
-              content: isError ? result.replaceFirst('Error: ', '') : result,
-              timestamp: DateTime.now(),
-              status: isError ? MessageStatus.error : MessageStatus.applied,
-            ),
-          );
-    } catch (e) {
-      ref
-          .read(chatMessagesProvider.notifier)
-          .add(
-            ChatMessage(
-              id: _uuid.v4(),
-              role: ChatRole.agent,
-              content:
-                  'Something went wrong while processing that command. Check provider settings and try again.',
-              timestamp: DateTime.now(),
-              status: MessageStatus.error,
-            ),
+      final status = messageStatusForSubmit(result.status);
+      final operationIds =
+          result.appliedOperations.map((op) => op.id).toList();
+
+      final agentMessage = ChatMessage(
+        id: _uuid.v4(),
+        role: ChatRole.agent,
+        content: result.message,
+        timestamp: DateTime.now(),
+        status: status,
+        resultingOperationIds: operationIds,
+      );
+      ref.read(chatMessagesProvider.notifier).add(agentMessage);
+      try {
+        await ref.read(appDatabaseProvider).saveChatMessage(
+              currentProject.id,
+              agentMessage,
+            );
+      } catch (_) {}
+
+      // Timeline already re-rendered via ProjectNotifier.applyEdit;
+      // point the preview at the new output file immediately.
+      if (result.status == SubmitStatus.success &&
+          result.outputPath != null) {
+        ref.read(currentVideoPathProvider.notifier).state = result.outputPath;
+      }
+    } catch (_) {
+      ref.read(chatMessagesProvider.notifier).addAgentResult(
+            id: _uuid.v4(),
+            content:
+                'Something went wrong while processing that command. Check provider settings and try again.',
+            status: MessageStatus.error,
           );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  ProjectSnapshot _projectToSnapshot(project_model.Project project) {
-    final clipSnapshots = <ClipSnapshot>[];
-    for (final track in project.tracks) {
-      for (final clip in track.clips) {
-        clipSnapshots.add(
-          ClipSnapshot(
-            id: clip.id,
-            trackId: clip.trackId,
-            label: clip.label ?? clip.id,
-            startMs: clip.startMs,
-            endMs: clip.endMs,
-            positionMs: clip.positionMs,
-          ),
-        );
-      }
-    }
-    return ProjectSnapshot(
-      durationMs: project.durationMs,
-      width: 1920,
-      height: 1080,
-      fps: 30.0,
-      codec: 'h264',
-      hasAudio: true,
-      clips: clipSnapshots,
-    );
-  }
-
-  ProjectSnapshot _emptySnapshot() {
-    return const ProjectSnapshot(
-      durationMs: 0,
-      width: 1920,
-      height: 1080,
-      fps: 30.0,
-      codec: 'h264',
-      hasAudio: true,
-      clips: [],
-    );
   }
 
   @override

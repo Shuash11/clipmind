@@ -41,6 +41,7 @@ class InputValidator {
       codec: metadata?.codec ?? 'unknown',
       hasAudio: metadata?.hasAudio ?? false,
       clips: projectClips,
+      metadataVerified: metadata != null,
     );
 
     return (

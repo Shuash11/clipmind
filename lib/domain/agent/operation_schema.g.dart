@@ -13,7 +13,7 @@ _$EditOperationSetImpl _$$EditOperationSetImplFromJson(
       .map((e) => EditOperationRequest.fromJson(e as Map<String, dynamic>))
       .toList(),
   summary: json['summary'] as String,
-  clarificationNeeded: json['clarificationNeeded'] as String?,
+  clarificationNeeded: json['clarification_needed'] as String?,
 );
 
 Map<String, dynamic> _$$EditOperationSetImplToJson(
@@ -21,7 +21,7 @@ Map<String, dynamic> _$$EditOperationSetImplToJson(
 ) => <String, dynamic>{
   'operations': instance.operations,
   'summary': instance.summary,
-  'clarificationNeeded': instance.clarificationNeeded,
+  'clarification_needed': instance.clarificationNeeded,
 };
 
 _$EditOperationRequestImpl _$$EditOperationRequestImplFromJson(
@@ -29,7 +29,7 @@ _$EditOperationRequestImpl _$$EditOperationRequestImplFromJson(
 ) => _$EditOperationRequestImpl(
   id: json['id'] as String,
   type: json['type'] as String,
-  targetClipId: json['targetClipId'],
+  targetClipId: json['target_clip_id'],
   params: json['params'] as Map<String, dynamic>,
 );
 
@@ -38,6 +38,6 @@ Map<String, dynamic> _$$EditOperationRequestImplToJson(
 ) => <String, dynamic>{
   'id': instance.id,
   'type': instance.type,
-  'targetClipId': instance.targetClipId,
+  'target_clip_id': instance.targetClipId,
   'params': instance.params,
 };

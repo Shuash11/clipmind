@@ -1,6 +1,18 @@
+import 'dart:io';
 import 'package:clipmind/data/services/ffmpeg/command_builder.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
+import 'package:clipmind/data/services/ffmpeg/filter_escaping.dart';
 import 'operation_schema.dart';
+
+/// Thrown when a clip ID cannot be resolved to a real file path or when
+/// an LLM-provided filter value is rejected.
+class CommandMappingException implements Exception {
+  final String message;
+  const CommandMappingException(this.message);
+
+  @override
+  String toString() => message;
+}
 
 class CommandMapper {
   static const _composableTypes = {
@@ -13,11 +25,37 @@ class CommandMapper {
     'extract_audio', 'generate_thumbnail', 'change_format', 'merge',
   };
 
+  /// Map an LLM operation set to FFmpeg jobs using real file paths.
+  ///
+  /// [clipPathMap] maps clip ID -> absolute source file path.
+  /// [outputDir] is the project output directory; when empty the input
+  /// file's parent directory is used. [defaultPath] is the fallback input
+  /// for `_default` targets. [projectDir] scopes watermark validation.
   static List<FfmpegJob> mapOperations(
     EditOperationSet operationSet,
-    String inputPath,
-  ) {
+    Map<String, String> clipPathMap,
+    String outputDir, {
+    String? defaultPath,
+    String? projectDir,
+  }) {
     final jobs = <FfmpegJob>[];
+    final effectiveDefault = defaultPath ??
+        clipPathMap['_default'] ??
+        (clipPathMap.values.isNotEmpty ? clipPathMap.values.first : null);
+    if (effectiveDefault == null) {
+      throw const CommandMappingException('No video file in project');
+    }
+
+    String resolve(String? clipId) {
+      if (clipId == null || clipId == '_default') return effectiveDefault;
+      final path = clipPathMap[clipId];
+      if (path == null || path.isEmpty) {
+        throw CommandMappingException(
+          'Unknown clip "$clipId": no source file in project.',
+        );
+      }
+      return path;
+    }
 
     final byClip = <String, List<EditOperationRequest>>{};
     final standaloneOps = <EditOperationRequest>[];
@@ -34,45 +72,67 @@ class CommandMapper {
     for (final entry in byClip.entries) {
       final ops = entry.value;
       if (ops.isEmpty) continue;
+      final inputPath = resolve(entry.key);
 
-      final composable = ops
-          .where((o) => _composableTypes.contains(o.type))
-          .toList();
+      final composable =
+          ops.where((o) => _composableTypes.contains(o.type)).toList();
       if (composable.length >= 2) {
-        jobs.addAll(_composeMultiOp(composable, inputPath));
+        jobs.addAll(
+          _composeMultiOp(composable, inputPath, outputDir,
+              projectDir: projectDir),
+        );
       } else {
         for (final op in ops) {
-          jobs.add(_buildSingleJob(op, inputPath));
+          jobs.add(_buildSingleJob(op, resolve(_clipIdOf(op)), outputDir,
+              projectDir: projectDir));
         }
       }
     }
 
     for (final op in standaloneOps) {
-      jobs.add(_buildSingleJob(op, inputPath));
+      if (op.type == 'merge') {
+        jobs.add(_buildMergeJob(op, clipPathMap, outputDir));
+      } else {
+        jobs.add(_buildSingleJob(op, resolve(_clipIdOf(op)), outputDir,
+            projectDir: projectDir));
+      }
     }
 
     return jobs;
   }
 
+  static String? _clipIdOf(EditOperationRequest op) {
+    return op.targetClipId?.toString();
+  }
+
   static List<FfmpegJob> _composeMultiOp(
     List<EditOperationRequest> ops,
     String inputPath,
-  ) {
+    String outputDir, {
+    String? projectDir,
+  }) {
     final hasOverlayWatermark = ops.any((o) => o.type == 'overlay_watermark');
     final hasMute = ops.any((o) => o.type == 'mute');
     final hasOverlayText = ops.any((o) => o.type == 'overlay_text');
 
     if (hasOverlayWatermark && (hasOverlayText || hasMute)) {
-      return ops.map((o) => _buildSingleJob(o, inputPath)).toList();
+      return ops
+          .map((o) => _buildSingleJob(o, inputPath, outputDir,
+              projectDir: projectDir))
+          .toList();
     }
 
-    return [_composeFilterGraph(ops, inputPath)];
+    return [
+      _composeFilterGraph(ops, inputPath, outputDir, projectDir: projectDir)
+    ];
   }
 
   static FfmpegJob _composeFilterGraph(
     List<EditOperationRequest> ops,
     String inputPath,
-  ) {
+    String outputDir, {
+    String? projectDir,
+  }) {
     final filters = <String>[];
     final audioFilters = <String>[];
     bool hasAudio = true;
@@ -87,9 +147,11 @@ class CommandMapper {
 
       switch (op.type) {
         case 'trim':
-          final start = params['start'] as String? ?? '0';
-          final end = params['end'] as String?;
-          if (end != null) {
+          final start = _str(params, 'start', '0');
+          final end = params.containsKey('end') && params['end'] != null
+              ? _str(params, 'end', '')
+              : null;
+          if (end != null && end.isNotEmpty) {
             filters.add('[$prev]trim=$start:$end,setpts=PTS-STARTPTS[$next]');
             audioFilters.add('[0:a]atrim=$start:$end,asetpts=PTS-STARTPTS[a$i]');
           } else {
@@ -99,7 +161,7 @@ class CommandMapper {
           break;
 
         case 'change_speed':
-          final factor = (params['factor'] as num?)?.toDouble() ?? 1.0;
+          final factor = _num(params, 'factor', 1.0);
           filters.add('[$prev]setpts=PTS/$factor[$next]');
           var af = factor;
           final atempoParts = <String>[];
@@ -116,15 +178,15 @@ class CommandMapper {
           break;
 
         case 'resize':
-          final w = (params['width'] as num?)?.toInt() ?? 1920;
-          final h = (params['height'] as num?)?.toInt() ?? 1080;
+          final w = _int(params, 'width', 1920);
+          final h = _int(params, 'height', 1080);
           filters.add(
             '[$prev]scale=$w:$h:force_original_aspect_ratio=1,crop=$w:$h[$next]',
           );
           break;
 
         case 'rotate':
-          final degrees = (params['degrees'] as num?)?.toDouble() ?? 0;
+          final degrees = _num(params, 'degrees', 0);
           if (degrees == 90) {
             filters.add('[$prev]transpose=1[$next]');
           } else if (degrees == 180) {
@@ -137,31 +199,32 @@ class CommandMapper {
           break;
 
         case 'adjust_brightness':
-          final value = (params['value'] as num?)?.toDouble() ?? 0.0;
+          final value = _num(params, 'value', 0.0).clamp(-1.0, 1.0);
           filters.add(
-            '[$prev]eq=brightness=${value.clamp(-1.0, 1.0)}[$next]',
+            '[$prev]eq=brightness=$value[$next]',
           );
           break;
 
         case 'overlay_text':
-          final text = params['text'] as String? ?? '';
-          final pos = params['position'] as String? ?? 'center';
-          final fs = (params['font_size'] as num?)?.toInt() ?? 48;
-          final color = params['color'] as String? ?? '#FFFFFF';
-          final start = params['start'] as String? ?? '0';
-          final end = params['end'] as String? ?? '0';
+          final rawText = _str(params, 'text', '');
+          final text = FilterEscaping.escapeDrawtext(rawText);
+          final pos = _str(params, 'position', 'center');
+          final fs = _int(params, 'font_size', 48);
+          final color = _validatedColor(_str(params, 'color', '#FFFFFF'));
+          final start = _str(params, 'start', '0');
+          final end = _str(params, 'end', '0');
           final x = pos == 'center' ? '(w-text_w)/2' : '10';
           final y = pos == 'center' ? '(h-text_h)/2' : '10';
           final enable = (start == '0' && end == '0')
               ? ''
-              : ':enable=\'between(t,$start,$end)\'';
+              : ":enable='between(t,$start,$end)'";
           filters.add(
             '[$prev]drawtext=text=\'$text\':fontsize=$fs:fontcolor=$color:x=$x:y=$y$enable[$next]',
           );
           break;
 
         case 'change_volume':
-          final factor = (params['factor'] as num?)?.toDouble() ?? 1.0;
+          final factor = _num(params, 'factor', 1.0);
           audioFilters.add('[0:a]volume=$factor[a$i]');
           break;
 
@@ -170,8 +233,8 @@ class CommandMapper {
           break;
 
         case 'cut':
-          final removeStart = params['remove_start'] as String? ?? '0';
-          final removeEnd = params['remove_end'] as String? ?? '0';
+          final removeStart = _str(params, 'remove_start', '0');
+          final removeEnd = _str(params, 'remove_end', '0');
           filters.add(
             '[$prev]select=\'not(between(t,$removeStart,$removeEnd))\',setpts=N/FRAME_RATE/TB[$next]',
           );
@@ -210,14 +273,54 @@ class CommandMapper {
       args: args,
       expectedDurationMs: 0,
       inputPath: inputPath,
-      outputPath: '${inputPath}_composed.mp4',
+      outputPath: _outputPathFor(outputDir, inputPath, '${ops.first.id}_composed', '.mp4'),
+    );
+  }
+
+  /// Merge resolves clip IDs to real file paths (never passes IDs to FFmpeg).
+  static FfmpegJob _buildMergeJob(
+    EditOperationRequest op,
+    Map<String, String> clipPathMap,
+    String outputDir,
+  ) {
+    final raw = op.params['clip_ids'];
+    if (raw is! List) {
+      throw CommandMappingException(
+        'Operation "${op.id}": merge requires clip_ids array.',
+      );
+    }
+    final paths = <String>[];
+    for (final item in raw) {
+      final id = item.toString();
+      final path = clipPathMap[id];
+      if (path == null || path.isEmpty) {
+        throw CommandMappingException(
+          'Operation "${op.id}": unknown clip "$id" in merge list.',
+        );
+      }
+      paths.add(path);
+    }
+    if (paths.length < 2) {
+      throw CommandMappingException(
+        'Operation "${op.id}": merge requires at least 2 clips.',
+      );
+    }
+    final args = CommandBuilder.merge(paths);
+    return FfmpegJob(
+      id: op.id,
+      args: args,
+      expectedDurationMs: 0,
+      inputPath: paths.first,
+      outputPath: _outputPathFor(outputDir, paths.first, '${op.id}_merged', '.mp4'),
     );
   }
 
   static FfmpegJob _buildSingleJob(
     EditOperationRequest op,
     String inputPath,
-  ) {
+    String outputDir, {
+    String? projectDir,
+  }) {
     final params = op.params;
     final List<String> args;
 
@@ -225,25 +328,21 @@ class CommandMapper {
       case 'trim':
         args = CommandBuilder.trim(
           inputPath,
-          params['start'] as String,
-          params['end'] as String,
+          _str(params, 'start', '0'),
+          _str(params, 'end', _str(params, 'start', '0')),
         );
         break;
       case 'cut':
         args = CommandBuilder.cut(
           inputPath,
-          params['remove_start'] as String,
-          params['remove_end'] as String,
+          _str(params, 'remove_start', '0'),
+          _str(params, 'remove_end', '0'),
         );
-        break;
-      case 'merge':
-        final clipIds = (params['clip_ids'] as List<dynamic>).cast<String>();
-        args = CommandBuilder.merge(clipIds);
         break;
       case 'change_speed':
         args = CommandBuilder.changeSpeed(
           inputPath,
-          (params['factor'] as num).toDouble(),
+          _num(params, 'factor', 1.0),
         );
         break;
       case 'mute':
@@ -252,65 +351,69 @@ class CommandMapper {
       case 'overlay_text':
         args = CommandBuilder.overlayText(
           inputPath,
-          text: params['text'] as String,
-          position: params['position'] as String? ?? 'center',
-          start: (params['start'] as num?)?.toString() ?? '0',
-          end: (params['end'] as num?)?.toString() ?? '0',
-          fontSize: (params['font_size'] as num?)?.toInt() ?? 48,
-          color: params['color'] as String? ?? '#FFFFFF',
+          text: _str(params, 'text', ''),
+          position: _str(params, 'position', 'center'),
+          start: _str(params, 'start', '0'),
+          end: _str(params, 'end', '0'),
+          fontSize: _int(params, 'font_size', 48),
+          color: _validatedColor(_str(params, 'color', '#FFFFFF')),
         );
         break;
       case 'resize':
         args = CommandBuilder.resize(
           inputPath,
-          (params['width'] as num).toInt(),
-          (params['height'] as num).toInt(),
-          params['fit'] as String? ?? 'fill',
+          _int(params, 'width', 1920),
+          _int(params, 'height', 1080),
+          _str(params, 'fit', 'fill'),
         );
         break;
       case 'rotate':
         args = CommandBuilder.rotate(
           inputPath,
-          (params['degrees'] as num).toDouble(),
+          _num(params, 'degrees', 0),
         );
         break;
       case 'extract_audio':
         args = CommandBuilder.extractAudio(
           inputPath,
-          params['output_format'] as String? ?? 'mp3',
+          _str(params, 'output_format', 'mp3'),
         );
         break;
       case 'generate_thumbnail':
         args = CommandBuilder.generateThumbnail(
           inputPath,
-          (params['timestamp'] as num?)?.toString() ?? '0',
+          _str(params, 'timestamp', '0'),
         );
         break;
       case 'change_format':
         args = CommandBuilder.changeFormat(
           inputPath,
-          params['target_ext'] as String,
-          params['codec_preset'] as String?,
+          _str(params, 'target_ext', 'mp4'),
+          params['codec_preset']?.toString(),
         );
         break;
       case 'adjust_brightness':
         args = CommandBuilder.adjustBrightness(
           inputPath,
-          (params['value'] as num).toDouble(),
+          _num(params, 'value', 0.0),
         );
         break;
       case 'change_volume':
         args = CommandBuilder.changeVolume(
           inputPath,
-          (params['factor'] as num?)?.toDouble() ?? 1.0,
+          _num(params, 'factor', 1.0),
         );
         break;
       case 'overlay_watermark':
+        final imagePath = FilterEscaping.validateImagePath(
+          _str(params, 'image_path', ''),
+          projectDir: projectDir ?? _dirOf(outputDir),
+        );
         args = CommandBuilder.overlayWatermark(
           inputPath,
-          params['image_path'] as String,
-          params['position'] as String? ?? 'bottom-right',
-          (params['opacity'] as num?)?.toDouble() ?? 0.7,
+          imagePath,
+          _str(params, 'position', 'bottom-right'),
+          _num(params, 'opacity', 0.7),
         );
         break;
       default:
@@ -318,7 +421,7 @@ class CommandMapper {
     }
 
     final ext = op.type == 'extract_audio'
-        ? '.${params['output_format'] as String? ?? 'mp3'}'
+        ? '.${_str(params, 'output_format', 'mp3')}'
         : op.type == 'generate_thumbnail'
             ? '.jpg'
             : '.mp4';
@@ -328,7 +431,60 @@ class CommandMapper {
       args: args,
       expectedDurationMs: 0,
       inputPath: inputPath,
-      outputPath: '${inputPath}_${op.id}$ext',
+      outputPath: _outputPathFor(outputDir, inputPath, op.id, ext),
     );
+  }
+
+  // --- Safe param readers (LLM may return numbers for string fields) ---
+
+  static String _str(Map<String, dynamic> params, String key, String fallback) {
+    final value = params[key];
+    if (value == null) return fallback;
+    if (value is String) return value;
+    return value.toString();
+  }
+
+  static double _num(Map<String, dynamic> params, String key, double fallback) {
+    final value = params[key];
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
+  static int _int(Map<String, dynamic> params, String key, int fallback) {
+    final value = params[key];
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
+  static String _validatedColor(String color) {
+    try {
+      return FilterEscaping.validateColor(color);
+    } on FilterValidationException catch (e) {
+      throw CommandMappingException(e.message);
+    }
+  }
+
+  static String _outputPathFor(
+    String outputDir,
+    String inputPath,
+    String opId,
+    String ext,
+  ) {
+    final dir = outputDir.trim().isNotEmpty ? outputDir.trim() : _dirOf(inputPath);
+    final sep = dir.endsWith('/') || dir.endsWith(r'\') ? '' : '/';
+    return '$dir$sep$opId$ext';
+  }
+
+  static String _dirOf(String path) {
+    try {
+      final parent = File(path).parent.path;
+      if (parent.isNotEmpty && parent != '.' && parent != '') return parent;
+    } catch (_) {}
+    final normalized = path.replaceAll(r'\', '/');
+    final idx = normalized.lastIndexOf('/');
+    if (idx > 0) return path.substring(0, idx);
+    return '.';
   }
 }

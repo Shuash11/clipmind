@@ -24,6 +24,7 @@ mixin _$EditOperationSet {
   List<EditOperationRequest> get operations =>
       throw _privateConstructorUsedError;
   String get summary => throw _privateConstructorUsedError;
+  @JsonKey(name: 'clarification_needed')
   String? get clarificationNeeded => throw _privateConstructorUsedError;
 
   /// Serializes this EditOperationSet to a JSON map.
@@ -46,7 +47,7 @@ abstract class $EditOperationSetCopyWith<$Res> {
   $Res call({
     List<EditOperationRequest> operations,
     String summary,
-    String? clarificationNeeded,
+    @JsonKey(name: 'clarification_needed') String? clarificationNeeded,
   });
 }
 
@@ -101,7 +102,7 @@ abstract class _$$EditOperationSetImplCopyWith<$Res>
   $Res call({
     List<EditOperationRequest> operations,
     String summary,
-    String? clarificationNeeded,
+    @JsonKey(name: 'clarification_needed') String? clarificationNeeded,
   });
 }
 
@@ -148,7 +149,7 @@ class _$EditOperationSetImpl implements _EditOperationSet {
   const _$EditOperationSetImpl({
     required final List<EditOperationRequest> operations,
     required this.summary,
-    this.clarificationNeeded,
+    @JsonKey(name: 'clarification_needed') this.clarificationNeeded,
   }) : _operations = operations;
 
   factory _$EditOperationSetImpl.fromJson(Map<String, dynamic> json) =>
@@ -165,6 +166,7 @@ class _$EditOperationSetImpl implements _EditOperationSet {
   @override
   final String summary;
   @override
+  @JsonKey(name: 'clarification_needed')
   final String? clarificationNeeded;
 
   @override
@@ -216,7 +218,7 @@ abstract class _EditOperationSet implements EditOperationSet {
   const factory _EditOperationSet({
     required final List<EditOperationRequest> operations,
     required final String summary,
-    final String? clarificationNeeded,
+    @JsonKey(name: 'clarification_needed') final String? clarificationNeeded,
   }) = _$EditOperationSetImpl;
 
   factory _EditOperationSet.fromJson(Map<String, dynamic> json) =
@@ -227,6 +229,7 @@ abstract class _EditOperationSet implements EditOperationSet {
   @override
   String get summary;
   @override
+  @JsonKey(name: 'clarification_needed')
   String? get clarificationNeeded;
 
   /// Create a copy of EditOperationSet
@@ -245,6 +248,7 @@ EditOperationRequest _$EditOperationRequestFromJson(Map<String, dynamic> json) {
 mixin _$EditOperationRequest {
   String get id => throw _privateConstructorUsedError;
   String get type => throw _privateConstructorUsedError;
+  @JsonKey(name: 'target_clip_id')
   dynamic get targetClipId => throw _privateConstructorUsedError;
   Map<String, dynamic> get params => throw _privateConstructorUsedError;
 
@@ -268,7 +272,7 @@ abstract class $EditOperationRequestCopyWith<$Res> {
   $Res call({
     String id,
     String type,
-    dynamic targetClipId,
+    @JsonKey(name: 'target_clip_id') dynamic targetClipId,
     Map<String, dynamic> params,
   });
 }
@@ -332,7 +336,7 @@ abstract class _$$EditOperationRequestImplCopyWith<$Res>
   $Res call({
     String id,
     String type,
-    dynamic targetClipId,
+    @JsonKey(name: 'target_clip_id') dynamic targetClipId,
     Map<String, dynamic> params,
   });
 }
@@ -385,7 +389,7 @@ class _$EditOperationRequestImpl implements _EditOperationRequest {
   const _$EditOperationRequestImpl({
     required this.id,
     required this.type,
-    required this.targetClipId,
+    @JsonKey(name: 'target_clip_id') required this.targetClipId,
     required final Map<String, dynamic> params,
   }) : _params = params;
 
@@ -397,6 +401,7 @@ class _$EditOperationRequestImpl implements _EditOperationRequest {
   @override
   final String type;
   @override
+  @JsonKey(name: 'target_clip_id')
   final dynamic targetClipId;
   final Map<String, dynamic> _params;
   @override
@@ -457,7 +462,7 @@ abstract class _EditOperationRequest implements EditOperationRequest {
   const factory _EditOperationRequest({
     required final String id,
     required final String type,
-    required final dynamic targetClipId,
+    @JsonKey(name: 'target_clip_id') required final dynamic targetClipId,
     required final Map<String, dynamic> params,
   }) = _$EditOperationRequestImpl;
 
@@ -469,6 +474,7 @@ abstract class _EditOperationRequest implements EditOperationRequest {
   @override
   String get type;
   @override
+  @JsonKey(name: 'target_clip_id')
   dynamic get targetClipId;
   @override
   Map<String, dynamic> get params;
@@ -709,6 +715,7 @@ mixin _$ProjectSnapshot {
   String get codec => throw _privateConstructorUsedError;
   bool get hasAudio => throw _privateConstructorUsedError;
   List<ClipSnapshot> get clips => throw _privateConstructorUsedError;
+  bool get metadataVerified => throw _privateConstructorUsedError;
 
   /// Create a copy of ProjectSnapshot
   /// with the given fields replaced by the non-null parameter values.
@@ -732,6 +739,7 @@ abstract class $ProjectSnapshotCopyWith<$Res> {
     String codec,
     bool hasAudio,
     List<ClipSnapshot> clips,
+    bool metadataVerified,
   });
 }
 
@@ -757,6 +765,7 @@ class _$ProjectSnapshotCopyWithImpl<$Res, $Val extends ProjectSnapshot>
     Object? codec = null,
     Object? hasAudio = null,
     Object? clips = null,
+    Object? metadataVerified = null,
   }) {
     return _then(
       _value.copyWith(
@@ -788,6 +797,10 @@ class _$ProjectSnapshotCopyWithImpl<$Res, $Val extends ProjectSnapshot>
                 ? _value.clips
                 : clips // ignore: cast_nullable_to_non_nullable
                       as List<ClipSnapshot>,
+            metadataVerified: null == metadataVerified
+                ? _value.metadataVerified
+                : metadataVerified // ignore: cast_nullable_to_non_nullable
+                      as bool,
           )
           as $Val,
     );
@@ -811,6 +824,7 @@ abstract class _$$ProjectSnapshotImplCopyWith<$Res>
     String codec,
     bool hasAudio,
     List<ClipSnapshot> clips,
+    bool metadataVerified,
   });
 }
 
@@ -835,6 +849,7 @@ class __$$ProjectSnapshotImplCopyWithImpl<$Res>
     Object? codec = null,
     Object? hasAudio = null,
     Object? clips = null,
+    Object? metadataVerified = null,
   }) {
     return _then(
       _$ProjectSnapshotImpl(
@@ -866,6 +881,10 @@ class __$$ProjectSnapshotImplCopyWithImpl<$Res>
             ? _value._clips
             : clips // ignore: cast_nullable_to_non_nullable
                   as List<ClipSnapshot>,
+        metadataVerified: null == metadataVerified
+            ? _value.metadataVerified
+            : metadataVerified // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }
@@ -882,6 +901,7 @@ class _$ProjectSnapshotImpl implements _ProjectSnapshot {
     required this.codec,
     required this.hasAudio,
     required final List<ClipSnapshot> clips,
+    this.metadataVerified = false,
   }) : _clips = clips;
 
   @override
@@ -905,8 +925,12 @@ class _$ProjectSnapshotImpl implements _ProjectSnapshot {
   }
 
   @override
+  @JsonKey()
+  final bool metadataVerified;
+
+  @override
   String toString() {
-    return 'ProjectSnapshot(durationMs: $durationMs, width: $width, height: $height, fps: $fps, codec: $codec, hasAudio: $hasAudio, clips: $clips)';
+    return 'ProjectSnapshot(durationMs: $durationMs, width: $width, height: $height, fps: $fps, codec: $codec, hasAudio: $hasAudio, clips: $clips, metadataVerified: $metadataVerified)';
   }
 
   @override
@@ -922,7 +946,9 @@ class _$ProjectSnapshotImpl implements _ProjectSnapshot {
             (identical(other.codec, codec) || other.codec == codec) &&
             (identical(other.hasAudio, hasAudio) ||
                 other.hasAudio == hasAudio) &&
-            const DeepCollectionEquality().equals(other._clips, _clips));
+            const DeepCollectionEquality().equals(other._clips, _clips) &&
+            (identical(other.metadataVerified, metadataVerified) ||
+                other.metadataVerified == metadataVerified));
   }
 
   @override
@@ -935,6 +961,7 @@ class _$ProjectSnapshotImpl implements _ProjectSnapshot {
     codec,
     hasAudio,
     const DeepCollectionEquality().hash(_clips),
+    metadataVerified,
   );
 
   /// Create a copy of ProjectSnapshot
@@ -958,6 +985,7 @@ abstract class _ProjectSnapshot implements ProjectSnapshot {
     required final String codec,
     required final bool hasAudio,
     required final List<ClipSnapshot> clips,
+    final bool metadataVerified,
   }) = _$ProjectSnapshotImpl;
 
   @override
@@ -974,6 +1002,8 @@ abstract class _ProjectSnapshot implements ProjectSnapshot {
   bool get hasAudio;
   @override
   List<ClipSnapshot> get clips;
+  @override
+  bool get metadataVerified;
 
   /// Create a copy of ProjectSnapshot
   /// with the given fields replaced by the non-null parameter values.

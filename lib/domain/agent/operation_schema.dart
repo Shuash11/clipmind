@@ -8,7 +8,7 @@ class EditOperationSet with _$EditOperationSet {
   const factory EditOperationSet({
     required List<EditOperationRequest> operations,
     required String summary,
-    String? clarificationNeeded,
+    @JsonKey(name: 'clarification_needed') String? clarificationNeeded,
   }) = _EditOperationSet;
 
   factory EditOperationSet.fromJson(Map<String, dynamic> json) =>
@@ -20,7 +20,7 @@ class EditOperationRequest with _$EditOperationRequest {
   const factory EditOperationRequest({
     required String id,
     required String type,
-    required dynamic targetClipId,
+    @JsonKey(name: 'target_clip_id') required dynamic targetClipId,
     required Map<String, dynamic> params,
   }) = _EditOperationRequest;
 
@@ -47,6 +47,7 @@ class ProjectSnapshot with _$ProjectSnapshot {
     required String codec,
     required bool hasAudio,
     required List<ClipSnapshot> clips,
+    @Default(false) bool metadataVerified,
   }) = _ProjectSnapshot;
 }
 

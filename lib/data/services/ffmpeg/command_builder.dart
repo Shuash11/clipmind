@@ -71,7 +71,8 @@ class CommandBuilder {
     final escaped = text
         .replaceAll('\\', '\\\\')
         .replaceAll("'", "\\'")
-        .replaceAll(':', '\\:');
+        .replaceAll(':', '\\:')
+        .replaceAll('%', '\\%');
 
     String x, y;
     switch (position) {
