@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
+import 'package:clipmind/presentation/shared_widgets/dashed_border.dart';
 
 class UploadDropzone extends StatefulWidget {
   final VoidCallback? onBrowse;
@@ -42,96 +43,95 @@ class _UploadDropzoneState extends State<UploadDropzone> {
       onDragExited: widget.onDragExited,
       onDragDone: widget.onDragDone,
       child: MouseRegion(
-        cursor: SystemMouseCursors.basic,
+        cursor: widget.isBusy
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovering = true),
         onExit: (_) => setState(() => _isHovering = false),
-        child: AnimatedScale(
-          scale: widget.isDragActive ? 1.01 : 1,
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOutCubic,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.isBusy ? null : widget.onBrowse,
+          child: AnimatedScale(
+            scale: widget.isDragActive ? 1.01 : 1,
+            duration: const Duration(milliseconds: 140),
             curve: Curves.easeOutCubic,
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? ClipMindColors.surfaceHover
-                  : ClipMindColors.surfaceCard,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: borderColor,
-                width: widget.isDragActive ? 2 : 1,
-              ),
-              boxShadow: [
-                if (widget.isDragActive)
-                  BoxShadow(
-                    color: ClipMindColors.accentPrimary.withValues(alpha: 0.18),
-                    blurRadius: 24,
-                    offset: const Offset(0, 12),
-                  ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Stack(
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: ClipMindColors.accentPrimary.withValues(
-                      alpha: isActive ? 0.18 : 0.10,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: ClipMindColors.accentPrimary.withValues(
-                        alpha: 0.18,
-                      ),
-                    ),
+                  curve: Curves.easeOutCubic,
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 40,
                   ),
-                  child: widget.isBusy
-                      ? const SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
-                        )
-                      : const Icon(
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? ClipMindColors.surfaceHover
+                        : ClipMindColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      if (widget.isDragActive)
+                        BoxShadow(
+                          color: ClipMindColors.accentPrimary.withValues(
+                            alpha: 0.18,
+                          ),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (widget.isBusy) ...[
+                        const _BusyPill(),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          height: 2,
+                          child: LinearProgressIndicator(
+                            minHeight: 2,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ] else ...[
+                        const Icon(
                           Icons.cloud_upload_outlined,
                           size: 38,
                           color: ClipMindColors.accentPrimary,
                         ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Drag and drop your video here',
+                          style: theme.textTheme.titleLarge,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'or click to browse your files',
+                          style: theme.textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'MP4 · MOV · AVI · WEBM · MKV',
+                          style: theme.textTheme.labelSmall,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  widget.isBusy ? 'Preparing media' : 'Drop video here',
-                  style: theme.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.isBusy
-                      ? 'Reading metadata and creating a project.'
-                      : 'Use a local file or browse from your desktop.',
-                  style: theme.textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: widget.isBusy ? null : widget.onBrowse,
-                  icon: const Icon(Icons.folder_open_outlined, size: 18),
-                  label: const Text('Browse files'),
-                ),
-                const SizedBox(height: 16),
-                const Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _FormatChip(label: 'MP4'),
-                    _FormatChip(label: 'MOV'),
-                    _FormatChip(label: 'WEBM'),
-                    _FormatChip(label: 'MKV'),
-                  ],
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: DashedRRectPainter(
+                        color: borderColor,
+                        strokeWidth: widget.isDragActive ? 2 : 1.5,
+                        radius: 16,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -142,21 +142,37 @@ class _UploadDropzoneState extends State<UploadDropzone> {
   }
 }
 
-class _FormatChip extends StatelessWidget {
-  final String label;
-
-  const _FormatChip({required this.label});
+/// Busy pill: small spinner + status copy shown while media is prepared.
+class _BusyPill extends StatelessWidget {
+  const _BusyPill();
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: ClipMindColors.bgElevated,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(color: ClipMindColors.borderColor),
       ),
-      child: Text(label, style: Theme.of(context).textTheme.labelSmall),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 1.5),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Checking your storage…',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: ClipMindColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

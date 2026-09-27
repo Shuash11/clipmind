@@ -3,16 +3,23 @@ import 'package:flutter/material.dart';
 class ClipMindColors {
   ClipMindColors._();
 
-  static const Color bgBase = Color(0xFF0B0F14);
-  static const Color bgSurface = Color(0xFF111820);
-  static const Color bgElevated = Color(0xFF17212B);
-  static const Color accentPrimary = Color(0xFF38D9C3);
-  static const Color accentHover = Color(0xFF5AE6D4);
-  static const Color accentSoft = Color(0x2638D9C3);
-  static const Color textPrimary = Color(0xFFF4F7FA);
-  static const Color textSecondary = Color(0xFF9CAAB8);
-  static const Color textMuted = Color(0xFF697786);
-  static const Color borderColor = Color(0xFF253342);
+  // Warm-neutral near-black palette, extracted from the user's reference
+  // screenshot (extraction dominant #171716 — bgBase is set slightly darker
+  // so cards read elevated against it).
+  static const Color bgBase = Color(0xFF141413);
+  static const Color bgSurface = Color(0xFF1B1B1A);
+  static const Color bgElevated = Color(0xFF232322);
+  // Violet accent, approximated from the reference screenshot's icon.
+  static const Color accentPrimary = Color(0xFF7C6CF6);
+  static const Color accentHover = Color(0xFF9189F8);
+  static const Color accentSoft = Color(0x267C6CF6);
+  static const Color textPrimary = Color(0xFFF2F2F3);
+  static const Color textSecondary = Color(0xFFA8AAB1);
+  static const Color textMuted = Color(0xFF7E7E7E);
+  static const Color borderColor = Color(0xFF343432);
+  static const Color surfaceCard = Color(0xFF202020);
+  static const Color surfaceHover = Color(0xFF292928);
+  // Semantic track/status colors — unchanged by the palette redesign.
   static const Color trackVideo = Color(0xFF4F8CFF);
   static const Color trackAudio = Color(0xFF35C779);
   static const Color trackText = Color(0xFFE7B84E);
@@ -20,14 +27,16 @@ class ClipMindColors {
   static const Color statusReady = Color(0xFF35C779);
   static const Color statusError = Color(0xFFFF5C6C);
   static const Color statusWarning = Color(0xFFE7B84E);
-  static const Color surfaceCard = Color(0xFF151E27);
-  static const Color surfaceHover = Color(0xFF1B2733);
 }
 
 class ClipMindTheme {
   ClipMindTheme._();
 
-  static const _radius = 8.0;
+  // One corner-radius scale: inputs 10, small/medium surfaces 14, large
+  // surfaces (dialogs) 16; pill-shaped buttons use StadiumBorder.
+  static const _radiusSmall = 10.0;
+  static const _radius = 14.0;
+  static const _radiusLarge = 16.0;
 
   static ThemeData get dark {
     return ThemeData(
@@ -117,15 +126,15 @@ class ClipMindTheme {
         filled: true,
         fillColor: ClipMindColors.bgElevated,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(_radiusSmall),
           borderSide: const BorderSide(color: ClipMindColors.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(_radiusSmall),
           borderSide: const BorderSide(color: ClipMindColors.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(_radius),
+          borderRadius: BorderRadius.circular(_radiusSmall),
           borderSide: const BorderSide(
             color: ClipMindColors.accentPrimary,
             width: 1.5,
@@ -141,6 +150,12 @@ class ClipMindTheme {
         color: ClipMindColors.textSecondary,
         size: 20,
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: ClipMindColors.surfaceCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_radiusLarge),
+        ),
+      ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: ClipMindColors.bgElevated,
@@ -155,18 +170,14 @@ class ClipMindTheme {
           foregroundColor: ClipMindColors.bgBase,
           disabledBackgroundColor: ClipMindColors.bgElevated,
           disabledForegroundColor: ClipMindColors.textMuted,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_radius),
-          ),
+          shape: const StadiumBorder(),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: ClipMindColors.textPrimary,
           side: const BorderSide(color: ClipMindColors.borderColor),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_radius),
-          ),
+          shape: const StadiumBorder(),
         ),
       ),
       textButtonTheme: TextButtonThemeData(

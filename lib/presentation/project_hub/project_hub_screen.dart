@@ -20,6 +20,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'widgets/upload_dropzone.dart';
 import 'widgets/import_source_card.dart';
 import 'widgets/recent_project_card.dart';
+import 'widgets/hub_top_bar.dart';
+import 'widgets/blank_project_card.dart';
 
 class ProjectHubScreen extends ConsumerStatefulWidget {
   const ProjectHubScreen({super.key});
@@ -211,6 +213,25 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// Blank-project entry point: create with empty media, open the editor.
+  Future<void> _createBlankProject() async {
+    if (_isImporting) return;
+    setState(() => _isImporting = true);
+    try {
+      final repository = ref.read(projectRepositoryProvider);
+      final project = await repository.createNew('Blank project');
+      if (!mounted) return;
+      ref.read(projectProvider.notifier).setProject(project);
+      context.go(editorPath.replaceAll(':projectId', project.id));
+    } catch (_) {
+      if (mounted) {
+        _showImportError('Could not create the project.');
+      }
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
+    }
+  }
+
   Future<void> _showImportUrlDialog(String sourceType) async {
     final dialogController = TextEditingController();
     final url = await showDialog<String>(
@@ -396,7 +417,10 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _HubTopBar(onSettings: () => context.go(settingsPath)),
+            HubTopBar(
+              onSettings: () => context.go(settingsPath),
+              onNewProject: _handleBrowse,
+            ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
@@ -484,17 +508,17 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
             icon: Icons.play_circle_fill_rounded,
             label: 'YouTube',
             source: 'youtube',
-            subtitle: 'Paste a video link',
+            subtitle: 'Paste a YouTube link to import the video',
             onTap: () => _showImportUrlDialog('YouTube'),
           ),
         ),
         SizedBox(
           width: cardWidth,
           child: ImportSourceCard(
-            icon: Icons.cloud_rounded,
+            icon: Icons.add_to_drive_rounded,
             label: 'Google Drive',
             source: 'gdrive',
-            subtitle: 'Import a Drive video',
+            subtitle: 'Browse and import from your Drive files',
             onTap: () => _showImportUrlDialog('Google Drive'),
           ),
         ),
@@ -502,9 +526,9 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
           width: cardWidth,
           child: ImportSourceCard(
             icon: Icons.link_rounded,
-            label: 'Direct URL',
+            label: 'Paste a URI',
             source: 'url',
-            subtitle: 'Download from a link',
+            subtitle: 'Any direct video link from the web',
             onTap: () {
               _urlController.selection = TextSelection(
                 baseOffset: 0,
@@ -523,10 +547,17 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
       height: 214,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: projects.length,
+        itemCount: projects.length + 1,
         separatorBuilder: (context, index) => const SizedBox(width: 12),
-        itemBuilder: (context, index) =>
-            RecentProjectCard(project: projects[index]),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return BlankProjectCard(
+              key: const ValueKey('blank-project-card'),
+              onTap: _createBlankProject,
+            );
+          }
+          return RecentProjectCard(project: projects[index - 1]);
+        },
       ),
     );
   }
@@ -553,56 +584,7 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
   }
 }
 
-class _HubTopBar extends StatelessWidget {
-  final VoidCallback onSettings;
-
-  const _HubTopBar({required this.onSettings});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      decoration: const BoxDecoration(
-        color: ClipMindColors.bgBase,
-        border: Border(bottom: BorderSide(color: ClipMindColors.borderColor)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: ClipMindColors.accentPrimary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: ClipMindColors.accentPrimary.withValues(alpha: 0.24),
-              ),
-            ),
-            child: const Icon(
-              Icons.movie_filter_rounded,
-              color: ClipMindColors.accentPrimary,
-              size: 19,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text('ClipMind', style: theme.textTheme.displaySmall),
-          const Spacer(),
-          Tooltip(
-            message: 'Settings',
-            child: IconButton(
-              key: const ValueKey('project-hub-settings'),
-              icon: const Icon(Icons.settings_rounded),
-              onPressed: onSettings,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+/// Centered hero: violet tile, headline and two-line supporting copy.
 class _HubIntro extends StatelessWidget {
   final ThemeData theme;
 
@@ -610,52 +592,44 @@ class _HubIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Create a video project',
-                style: theme.textTheme.displayMedium,
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: ClipMindColors.accentPrimary.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: ClipMindColors.accentPrimary.withValues(alpha: 0.24),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Import local media, a YouTube link, Google Drive media, or a direct video URL.',
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
+            ),
+            child: const Icon(
+              Icons.grid_view_rounded,
+              color: ClipMindColors.accentPrimary,
+              size: 22,
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: ClipMindColors.bgElevated,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: ClipMindColors.borderColor),
+          const SizedBox(height: 16),
+          Text(
+            'What are we editing today?',
+            style: theme.textTheme.displayMedium,
+            textAlign: TextAlign.center,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.offline_bolt_outlined,
-                size: 14,
-                color: ClipMindColors.accentPrimary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Desktop editor',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: ClipMindColors.textSecondary,
-                ),
-              ),
-            ],
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 540),
+            child: Text(
+              'Upload a video, paste a link, or pick a recent project — your AI assistant is ready to help.',
+              style: theme.textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -669,12 +643,27 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Row(
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          title.toUpperCase(),
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.4,
+            color: ClipMindColors.textMuted,
+          ),
+        ),
         const Spacer(),
         if (actionLabel != null && onAction != null)
-          TextButton(onPressed: onAction, child: Text(actionLabel!)),
+          TextButton(
+            onPressed: onAction,
+            style: TextButton.styleFrom(
+              foregroundColor: ClipMindColors.accentPrimary,
+            ),
+            child: Text(actionLabel!, style: const TextStyle(fontSize: 13)),
+          ),
       ],
     );
   }
@@ -699,6 +688,17 @@ class _UrlImportBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pillBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(999),
+      borderSide: const BorderSide(color: ClipMindColors.borderColor),
+    );
+    final pillFocusBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(999),
+      borderSide: const BorderSide(
+        color: ClipMindColors.accentPrimary,
+        width: 1.5,
+      ),
+    );
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
       decoration: const BoxDecoration(
@@ -716,7 +716,13 @@ class _UrlImportBar extends StatelessWidget {
                   focusNode: focusNode,
                   enabled: !isImporting,
                   decoration: InputDecoration(
-                    hintText: 'Paste a video URL',
+                    hintText:
+                        'Paste a video URL — YouTube, Google Drive, or direct link...',
+                    filled: true,
+                    fillColor: ClipMindColors.bgElevated,
+                    border: pillBorder,
+                    enabledBorder: pillBorder,
+                    focusedBorder: pillFocusBorder,
                     prefixIcon: const Icon(Icons.link_rounded),
                     suffixIcon: hasUrl
                         ? IconButton(
@@ -734,13 +740,17 @@ class _UrlImportBar extends StatelessWidget {
                 height: 48,
                 child: FilledButton.icon(
                   onPressed: isImporting ? null : onImport,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ClipMindColors.bgElevated,
+                    foregroundColor: ClipMindColors.textPrimary,
+                  ),
                   icon: isImporting
                       ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.download_rounded, size: 18),
+                      : const Icon(Icons.arrow_forward_rounded, size: 18),
                   label: Text(isImporting ? 'Importing' : 'Import'),
                 ),
               ),

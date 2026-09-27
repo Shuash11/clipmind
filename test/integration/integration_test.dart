@@ -33,24 +33,27 @@ void main() {
       await tester.pumpWidget(_testApp());
       await tester.pump();
 
-      expect(find.text('Import from'), findsOneWidget);
+      expect(find.text('IMPORT FROM'), findsOneWidget);
       expect(find.text('YouTube'), findsOneWidget);
       expect(find.text('Google Drive'), findsOneWidget);
-      expect(find.text('Direct URL'), findsOneWidget);
+      expect(find.text('Paste a URI'), findsOneWidget);
     });
 
     testWidgets('Recent Projects section loads', (WidgetTester tester) async {
       await tester.pumpWidget(_testApp());
       await tester.pump();
 
-      expect(find.text('Recent projects'), findsOneWidget);
+      expect(find.text('RECENT PROJECTS'), findsOneWidget);
     });
 
     testWidgets('Bottom URL input field renders', (WidgetTester tester) async {
       await tester.pumpWidget(_testApp());
       await tester.pump();
 
-      expect(find.text('Paste a video URL'), findsOneWidget);
+      expect(
+        find.text('Paste a video URL — YouTube, Google Drive, or direct link...'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('App bar has ClipMind title', (WidgetTester tester) async {

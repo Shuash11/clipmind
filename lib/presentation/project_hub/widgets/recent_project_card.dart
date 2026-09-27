@@ -22,10 +22,13 @@ class _RecentProjectCardState extends State<RecentProjectCard> {
     final now = DateTime.now();
     final diff = now.difference(date);
 
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    if (diff.inDays < 1) {
+      // Same calendar day: "Today, 9PM".
+      final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+      final suffix = date.hour < 12 ? 'AM' : 'PM';
+      return 'Today, $hour$suffix';
+    }
+    if (diff.inDays < 2 && now.day != date.day) return 'Yesterday';
 
     final months = [
       'Jan',
@@ -41,18 +44,20 @@ class _RecentProjectCardState extends State<RecentProjectCard> {
       'Nov',
       'Dec',
     ];
+    if (date.year == now.year) return '${months[date.month - 1]} ${date.day}';
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
+  /// Badge duration: "2:34"; hours render as "1:02:34".
   String _formatDuration(int durationMs) {
-    if (durationMs <= 0) return 'Duration pending';
     final duration = Duration(milliseconds: durationMs);
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
     final seconds = duration.inSeconds.remainder(60);
-    if (hours > 0) return '${hours}h ${minutes}m';
-    if (minutes > 0) return '${minutes}m ${seconds}s';
-    return '${seconds}s';
+    final mm = minutes.toString().padLeft(2, '0');
+    final ss = seconds.toString().padLeft(2, '0');
+    if (hours > 0) return '$hours:$mm:$ss';
+    return '$minutes:$ss';
   }
 
   bool _isImagePath(String path) {
@@ -81,7 +86,7 @@ class _RecentProjectCardState extends State<RecentProjectCard> {
           child: InkWell(
             onTap: () =>
                 context.go(editorPath.replaceAll(':projectId', project.id)),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
               width: 224,
@@ -89,7 +94,7 @@ class _RecentProjectCardState extends State<RecentProjectCard> {
                 color: _isHovering
                     ? ClipMindColors.surfaceHover
                     : ClipMindColors.surfaceCard,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: _isHovering
                       ? ClipMindColors.accentPrimary.withValues(alpha: 0.6)
@@ -102,7 +107,7 @@ class _RecentProjectCardState extends State<RecentProjectCard> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(8),
+                        top: Radius.circular(14),
                       ),
                       child: Stack(
                         fit: StackFit.expand,
@@ -130,7 +135,31 @@ class _RecentProjectCardState extends State<RecentProjectCard> {
                               ),
                             ),
                           ),
-                        ],
+                          if (project.durationMs > 0)
+                            Positioned(
+                              bottom: 10,
+                              left: 10,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: ClipMindColors.bgBase.withValues(
+                                    alpha: 0.72,
+                                  ),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  _formatDuration(project.durationMs),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: ClipMindColors.textPrimary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                       ),
                     ),
                   ),
@@ -157,24 +186,6 @@ class _RecentProjectCardState extends State<RecentProjectCard> {
                             Expanded(
                               child: Text(
                                 _formatDate(project.updatedAt),
-                                style: theme.textTheme.bodySmall,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.timelapse_rounded,
-                              size: 13,
-                              color: ClipMindColors.textMuted,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                _formatDuration(project.durationMs),
                                 style: theme.textTheme.bodySmall,
                                 overflow: TextOverflow.ellipsis,
                               ),

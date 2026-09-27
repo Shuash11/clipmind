@@ -52,17 +52,17 @@ class _ImportSourceCardState extends State<ImportSourceCard> {
           color: Colors.transparent,
           child: InkWell(
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
               curve: Curves.easeOutCubic,
-              height: 126,
+              height: 140,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: _isHovering
                     ? ClipMindColors.surfaceHover
                     : ClipMindColors.surfaceCard,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: _isHovering
                       ? _accent.withValues(alpha: 0.65)
@@ -77,7 +77,7 @@ class _ImportSourceCardState extends State<ImportSourceCard> {
                     height: 38,
                     decoration: BoxDecoration(
                       color: _accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(widget.icon, size: 22, color: _accent),
                   ),
@@ -92,7 +92,7 @@ class _ImportSourceCardState extends State<ImportSourceCard> {
                   Text(
                     widget.subtitle,
                     style: theme.textTheme.bodySmall,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
