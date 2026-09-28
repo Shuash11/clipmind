@@ -50,6 +50,15 @@ class _ScriptProvider extends LlmProvider {
       Stream.value(ConnectionStatus.connected);
 }
 
+/// NIM-flavored scripted provider: same loop contract, NIM identity.
+/// Proves the agentic loop is provider-agnostic end-to-end for NIM.
+class _NimScriptProvider extends _ScriptProvider {
+  _NimScriptProvider(super.script);
+
+  @override
+  String get id => 'nvidia_nim:meta/llama-3.3-70b-instruct';
+}
+
 class _OkExecutor implements ToolExecutor {
   @override
   Future<ToolResult> execute(ToolCall call) async => ToolResult.ok(
@@ -188,6 +197,48 @@ void main() {
       expect(result.message, equals('Trimmed the first 5 seconds.'));
       expect(provider.calls, equals(2));
       // Second round history carries the assistant call + tool result.
+      final round2 = provider.seen[1];
+      expect(
+        round2.history.any((m) =>
+            m.role == AgentTurnRole.toolResult &&
+            m.toolCallId == 'call_1'),
+        isTrue,
+      );
+      expect(result.records, hasLength(1));
+      expect(result.records.single.success, isTrue);
+      agent.dispose();
+    });
+
+    test('NIM-flavored provider runs the loop end-to-end', () async {
+      final provider = _NimScriptProvider([
+        const AgentTurnResult(
+          text: 'Trimming now.',
+          toolCalls: [
+            AgentToolCall(
+              id: 'call_1',
+              name: 'trim_clip',
+              args: {'clip_id': 'clip_1'},
+            ),
+          ],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          text: 'Trimmed the first 5 seconds.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      expect(provider.supportsToolCalling, isTrue);
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(),
+        registry: _registryWith({}),
+      );
+
+      final result = await agent.run(validated: _validated());
+
+      expect(result.status, equals(AgentRunStatus.success));
+      expect(result.message, equals('Trimmed the first 5 seconds.'));
+      expect(provider.calls, equals(2));
       final round2 = provider.seen[1];
       expect(
         round2.history.any((m) =>

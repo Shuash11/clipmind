@@ -3,25 +3,40 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:clipmind/core/errors/failures.dart';
 import 'package:clipmind/data/local/secure_key_store.dart';
+import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'llm_provider.dart';
+import 'openai_compatible_provider.dart';
 
 class NvidiaNimConfig {
   final String model;
   final String apiKey;
 
   const NvidiaNimConfig({
-    this.model = 'meta/llama-3.1-405b-instruct',
+    this.model = 'meta/llama-3.3-70b-instruct',
     this.apiKey = '',
   });
 }
 
-class NvidiaNimProvider extends LlmProvider {
-  static const _baseUrl = 'https://build.nvidia.com';
+/// NVIDIA NIM behind the shared OpenAI-compatible tool-calling transport.
+///
+/// Live-verification gate: the endpoint
+/// (`https://integrate.api.nvidia.com` + `/v1/chat/completions`) is
+/// doc-verified against the NIM LLM APIs reference; `strict: true` inside
+/// function definitions, `max_tokens: 4096`, and the `GET /v1/models`
+/// health check are mock-verified only (like Ollama in Phase 1) until a
+/// manual live test runs. Conservative extras only — `parallel_tool_calls`
+/// and `max_completion_tokens` are excluded as unverified, and NIM-specific
+/// `nvext` params are not used this phase.
+class NvidiaNimProvider extends OpenAiCompatibleLlmProvider {
+  static const _baseUrl = 'https://integrate.api.nvidia.com';
   static const _models = [
-    'meta/llama-3.1-405b-instruct',
-    'mistralai/mistral-large',
-    'nvidia/llama-3.1-nv-70b-instruct',
+    'meta/llama-3.3-70b-instruct',
+    'nvidia/llama-3.3-nemotron-super-49b-v1.5',
+    'qwen/qwen3-next-80b-a3b-instruct',
+    'openai/gpt-oss-120b',
+    'moonshotai/kimi-k2-instruct',
+    'meta/llama-3.1-8b-instruct',
   ];
 
   final NvidiaNimConfig config;
@@ -35,24 +50,49 @@ class NvidiaNimProvider extends LlmProvider {
   @override
   String get id => 'nvidia_nim:${config.model}';
 
-  NvidiaNimProvider({NvidiaNimConfig? config, SecureKeyStore? keyStore})
-    : config = config ?? const NvidiaNimConfig(),
-      _keyStore = keyStore ?? SecureKeyStore() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: _baseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 30),
-        sendTimeout: const Duration(seconds: 30),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${config?.apiKey ?? ''}',
-        },
-      ),
-    );
+  @override
+  String get baseUrl => _baseUrl;
+
+  @override
+  String get modelName => config.model;
+
+  @override
+  Dio get dio => _dio;
+
+  /// `max_completion_tokens` support on NIM is unverified, so the shared
+  /// transport sends legacy `max_tokens: 4096` instead (see
+  /// [OpenAiCompatibleLlmProvider.toolRequestExtras]).
+  @override
+  bool get usesMaxCompletionTokens => false;
+
+  /// Conservative subset only: `max_tokens` with no `parallel_tool_calls` /
+  /// `max_completion_tokens` until verified against live NIM.
+  @override
+  Map<String, dynamic> toolRequestExtras() => const {'max_tokens': 4096};
+
+  NvidiaNimProvider({
+    NvidiaNimConfig? config,
+    SecureKeyStore? keyStore,
+    Dio? dio,
+  })  : config = config ?? const NvidiaNimConfig(),
+        _keyStore = keyStore ?? SecureKeyStore() {
+    _dio = dio ??
+        Dio(
+          BaseOptions(
+            baseUrl: _baseUrl,
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 30),
+            sendTimeout: const Duration(seconds: 30),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${config?.apiKey ?? ''}',
+            },
+          ),
+        );
   }
 
-  Future<String> _resolveApiKey() async {
+  @override
+  Future<String?> resolveApiKey() async {
     if (config.apiKey.isNotEmpty) return config.apiKey;
     final stored = await _keyStore.readApiKey('nvidia_nim');
     if (stored == null || stored.isEmpty) {
@@ -60,6 +100,17 @@ class NvidiaNimProvider extends LlmProvider {
     }
     return stored;
   }
+
+  /// Tool-calling transport is shared with OpenAI via
+  /// [OpenAiCompatibleLlmProvider] against `integrate.api.nvidia.com/v1`.
+  @override
+  bool get supportsToolCalling => true;
+
+  @override
+  String connectionErrorText() => 'Cannot connect to NVIDIA NIM API';
+
+  // [mapToolsModelError] intentionally left at the base default: NIM has
+  // no documented tools-model error shape.
 
   @override
   Future<List<String>> availableModels() async {
@@ -73,7 +124,7 @@ class NvidiaNimProvider extends LlmProvider {
 
     while (true) {
       try {
-        final apiKey = await _resolveApiKey();
+        final apiKey = await resolveApiKey();
 
         final schema = _buildStructuredOutputSchema(request.schemaJson);
 
@@ -97,7 +148,7 @@ class NvidiaNimProvider extends LlmProvider {
           data: body,
           options: Options(
             receiveTimeout: Duration(seconds: request.timeoutSeconds),
-            headers: {'Authorization': 'Bearer $apiKey'},
+            headers: authHeaders(apiKey),
           ),
         );
 
@@ -124,7 +175,7 @@ class NvidiaNimProvider extends LlmProvider {
           await Future<void>.delayed(Duration(seconds: attempt * 2));
           continue;
         }
-        throw ProviderFailure(id, _formatDioError(e), e);
+        throw ProviderFailure(id, formatDioError(e), e);
       } on FormatException catch (e) {
         throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
       } on ProviderFailure {
@@ -134,6 +185,15 @@ class NvidiaNimProvider extends LlmProvider {
       }
     }
   }
+
+  /// Tool-calling transport lives in [OpenAiCompatibleLlmProvider]:
+  /// strict tools, `tool_choice: auto`, `max_tokens: 4096`, JSON-string
+  /// `arguments` decode with validation, `role: tool` history mapping,
+  /// empty-`userContent` omission, retry/backoff. This override only
+  /// documents the contract.
+  @override
+  Future<AgentTurnResult> chatWithTools(AgentTurnRequest request) =>
+      super.chatWithTools(request);
 
   Map<String, dynamic> _buildStructuredOutputSchema(String schemaJson) {
     try {
@@ -202,24 +262,6 @@ class NvidiaNimProvider extends LlmProvider {
     }
   }
 
-  String _formatDioError(DioException e) {
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return 'Connection timed out';
-      case DioExceptionType.badResponse:
-        final status = e.response?.statusCode ?? 0;
-        if (status == 401) return 'Invalid API key';
-        if (status == 429) return 'Rate limited. Please try again.';
-        return 'Server error: $status';
-      case DioExceptionType.connectionError:
-        return 'Cannot connect to NVIDIA NIM API';
-      default:
-        return 'Network error: ${e.message}';
-    }
-  }
-
   @override
   Stream<ConnectionStatus> watchConnection() {
     _checkHealth();
@@ -234,12 +276,12 @@ class NvidiaNimProvider extends LlmProvider {
   Future<void> _checkHealth() async {
     _connectionCtrl.add(ConnectionStatus.connecting);
     try {
-      final apiKey = await _resolveApiKey();
+      final apiKey = await resolveApiKey();
       await _dio.get<Map<String, dynamic>>(
         '/v1/models',
         options: Options(
           receiveTimeout: const Duration(seconds: 5),
-          headers: {'Authorization': 'Bearer $apiKey'},
+          headers: authHeaders(apiKey),
         ),
       );
       if (_status != ConnectionStatus.connected) {
@@ -259,4 +301,3 @@ class NvidiaNimProvider extends LlmProvider {
     _connectionCtrl.close();
   }
 }
-
