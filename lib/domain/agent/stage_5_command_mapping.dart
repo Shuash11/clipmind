@@ -379,6 +379,18 @@ class CommandMapper {
           _str(params, 'output_format', 'mp3'),
         );
         break;
+      case 'burn_captions':
+        // The SRT path is generated app-side by the executor from the
+        // cached transcript and passed as a param — never model-provided.
+        final alignRaw = params['alignment'];
+        args = CommandBuilder.burnCaptions(
+          inputPath,
+          _str(params, 'srt_path', ''),
+          fontSize: _int(params, 'font_size', 24),
+          assColor: params['ass_color']?.toString(),
+          alignment: alignRaw is num ? alignRaw.toInt() : null,
+        );
+        break;
       case 'generate_thumbnail':
         args = CommandBuilder.generateThumbnail(
           inputPath,

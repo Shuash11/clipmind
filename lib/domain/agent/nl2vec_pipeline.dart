@@ -582,6 +582,8 @@ class Nl2VecPipeline {
         return EditOperationType.rotate;
       case 'extract_audio':
         return EditOperationType.extractAudio;
+      case 'burn_captions':
+        return EditOperationType.burnCaptions;
       case 'generate_thumbnail':
         return EditOperationType.generateThumbnail;
       case 'change_format':
@@ -612,6 +614,7 @@ class Nl2VecPipeline {
                 'overlay_text', 'resize', 'rotate',
                 'extract_audio', 'generate_thumbnail', 'change_format',
                 'adjust_brightness', 'change_volume', 'overlay_watermark',
+                'burn_captions',
               ],
             },
             'target_clip_id': {'type': 'string'},

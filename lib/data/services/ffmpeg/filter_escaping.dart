@@ -29,6 +29,34 @@ class FilterEscaping {
     return color;
   }
 
+  /// Convert `#RRGGBB` to ASS color `&H00BBGGRR` (Blue Green Red order,
+  /// opposite of HTML; leading `00` alpha = opaque). Used for the
+  /// `subtitles` filter `force_style` `PrimaryColour`.
+  ///
+  /// Validates first; throws [FilterValidationException] on mismatch.
+  static String assColorFromHex(String color) {
+    validateColor(color);
+    final hex = color.substring(1);
+    final red = hex.substring(0, 2).toUpperCase();
+    final green = hex.substring(2, 4).toUpperCase();
+    final blue = hex.substring(4, 6).toUpperCase();
+    return '&H00$blue$green$red';
+  }
+
+  /// Escape a subtitle file path for `subtitles=filename='...'`.
+  ///
+  /// Standard FFmpeg-on-Windows practice: normalize `\` to `/` first
+  /// (FFmpeg accepts forward slashes on Windows), then escape `'` and
+  /// `:` (the filter value separator) with `\`. The caller wraps the
+  /// result in single quotes, which protects `[]=;,` inside the value.
+  /// Verify visually on a live run.
+  static String escapeSubtitlePath(String path) {
+    return path
+        .replaceAll(r'\', '/')
+        .replaceAll("'", r"\'")
+        .replaceAll(':', r'\:');
+  }
+
   /// Validate a watermark image path.
   ///
   /// Rejects path traversal (`..`) and, when [projectDir] is provided,

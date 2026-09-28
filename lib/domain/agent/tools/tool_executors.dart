@@ -7,6 +7,7 @@ import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/ffmpeg/filter_escaping.dart';
+import 'package:clipmind/data/services/ffmpeg/srt_builder.dart';
 import 'package:clipmind/data/services/ffmpeg/scene_detection_service.dart';
 import 'package:clipmind/data/services/transcription/whisper_service.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
@@ -450,23 +451,10 @@ class ReadToolExecutor implements ToolExecutor {
 
   /// Backward-compatible cache read: payloads written before segments
   /// existed carry no `segments` field → empty list. Stamp invalidation
-  /// (`source_path`) is unchanged.
-  List<TranscriptSegment> _segmentsFromCache(Object? raw) {
-    if (raw is! List) return const [];
-    final segments = <TranscriptSegment>[];
-    for (final entry in raw) {
-      if (entry is! Map) continue;
-      try {
-        final segment = TranscriptSegment.fromJson(
-          Map<String, dynamic>.from(entry),
-        );
-        if (segment != null) segments.add(segment);
-      } catch (_) {
-        // Malformed cache entries are skipped silently (degradation).
-      }
-    }
-    return segments;
-  }
+  /// (`source_path`) is unchanged. Shared with [EditToolExecutor] (SRT
+  /// generation reads the full cached set, not the capped tool view).
+  List<TranscriptSegment> _segmentsFromCache(Object? raw) =>
+      transcriptSegmentsFromCache(raw);
 
   ToolResult _transcriptResult({
     required String clipId,
@@ -534,6 +522,8 @@ class EditToolExecutor implements ToolExecutor {
           return await _volume(call);
         case 'extract_audio':
           return await _extractAudio(call);
+        case 'burn_captions':
+          return await _burnCaptions(call);
         default:
           return ToolResult.fail(
             'Unknown edit tool "${call.name}".',
@@ -809,6 +799,105 @@ class EditToolExecutor implements ToolExecutor {
     );
   }
 
+  /// Burn the cached transcript as timed captions (SRT via libass).
+  ///
+  /// The SRT is generated app-side from the FULL cached segment set and
+  /// written to a temp file (cleaned up in `finally`); the model never
+  /// passes paths. Consumes one edit-job budget unit via [_executeSet].
+  Future<ToolResult> _burnCaptions(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    final path = _clipPath(_ctx, clipId!)!;
+
+    final rawColor = _stringArg(call.args, 'font_color');
+    String? assColor;
+    if (rawColor != null && rawColor.trim().isNotEmpty) {
+      try {
+        assColor = FilterEscaping.assColorFromHex(rawColor.trim());
+      } on FilterValidationException catch (e) {
+        return ToolResult.fail('${e.message} Retry with e.g. "#FFFFFF".');
+      }
+    }
+    // Style hint, not a safety value: unknown positions fall back to
+    // bottom without error. bottom → omit Alignment; top → 8
+    // (numpad top-center); center → 5 (numpad middle-center).
+    // TO-VERIFY-LIVE: numpad (modern `\an`) vs legacy (`\a`) semantics.
+    final rawPosition =
+        (_stringArg(call.args, 'position') ?? 'bottom').trim().toLowerCase();
+    final position =
+        rawPosition == 'top' || rawPosition == 'center' ? rawPosition : 'bottom';
+    final alignment = position == 'top' ? 8 : position == 'center' ? 5 : null;
+    final fontSize = _numArg(call.args, 'font_size')?.toInt() ?? 24;
+
+    final cached = _ctx.readAnalysis?.call('transcript:$clipId');
+    if (cached == null || cached['source_path'] != path) {
+      return ToolResult.fail(
+        'No transcript cached for clip "$clipId" — call get_transcript '
+        'first, then retry burn_captions.',
+      );
+    }
+    final segments = transcriptSegmentsFromCache(cached['segments']);
+    if (segments.isEmpty) {
+      return ToolResult.fail(
+        'The transcript for clip "$clipId" has no timed segments — '
+        're-run get_transcript.',
+      );
+    }
+    if (_ctx.cancellation?.isCancelled == true) {
+      return ToolResult.fail(
+        'Cancelled — captions were not burned. Already-applied edits remain.',
+      );
+    }
+    if (_ctx.jobsUsed + 1 > _ctx.maxJobs) {
+      return ToolResult.fail(_budgetMessage);
+    }
+
+    final srtPath = _ctx.ffmpegService.createTempPath(suffix: '.srt');
+    try {
+      await File(srtPath).writeAsString(SrtBuilder.buildSrt(segments));
+      final opParams = <String, dynamic>{
+        'srt_path': srtPath,
+        'font_size': fontSize,
+      };
+      if (assColor != null) opParams['ass_color'] = assColor;
+      if (alignment != null) opParams['alignment'] = alignment;
+      final result = await _executeSet(
+        set: EditOperationSet(
+          operations: [
+            EditOperationRequest(
+              id: call.id,
+              type: 'burn_captions',
+              targetClipId: clipId,
+              params: opParams,
+            ),
+          ],
+          summary: 'Burn captions into "$clipId".',
+        ),
+        callId: call.id,
+        clipIds: [clipId],
+        summary: 'Burn captions into "$clipId".',
+        ffmpegFailureHint:
+            'The FFmpeg build may lack libass (subtitles filter). '
+            'Check the bundled FFmpeg installation.',
+      );
+      if (_ctx.dryRun) return result;
+      if (!result.success) return result;
+      return ToolResult.ok(
+        data: {
+          ...result.data,
+          'segments_burned': segments.length,
+        },
+        summary: 'Burned ${segments.length} caption(s) into clip "$clipId".',
+      );
+    } finally {
+      try {
+        final f = File(srtPath);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
+  }
+
   // --- Shared Phase-1 execution -------------------------------------------
 
   Future<ToolResult> _runSingleOp({
@@ -841,6 +930,7 @@ class EditToolExecutor implements ToolExecutor {
     required String callId,
     required List<String> clipIds,
     required String summary,
+    String? ffmpegFailureHint,
   }) async {
     if (_ctx.cancellation?.isCancelled == true) {
       return ToolResult.fail(
@@ -888,7 +978,7 @@ class EditToolExecutor implements ToolExecutor {
       if (!result.success) {
         return ToolResult.fail(
           'FFmpeg failed: ${result.errorMessage ?? result.summary} '
-          'Check the timecodes and clip IDs, then retry.',
+          '${ffmpegFailureHint ?? 'Check the timecodes and clip IDs, then retry.'}',
         );
       }
       final outputPath = result.outputPaths.isNotEmpty
@@ -983,6 +1073,8 @@ class EditToolExecutor implements ToolExecutor {
         return EditOperationType.rotate;
       case 'extract_audio':
         return EditOperationType.extractAudio;
+      case 'burn_captions':
+        return EditOperationType.burnCaptions;
       case 'adjust_brightness':
         return EditOperationType.adjustBrightness;
       case 'change_volume':
@@ -1016,10 +1108,32 @@ ToolRegistry createToolRegistry(ToolExecutionContext ctx) {
     'adjust_brightness': edit,
     'change_volume': edit,
     'extract_audio': edit,
+    'burn_captions': edit,
   });
 }
 
 // --- Shared arg + project helpers -------------------------------------------
+
+/// Read cached transcript segments defensively (Phase 1 + Phase 2 share).
+///
+/// Payloads written before segments existed carry no `segments` field →
+/// empty list; malformed entries are skipped silently (degradation).
+List<TranscriptSegment> transcriptSegmentsFromCache(Object? raw) {
+  if (raw is! List) return const [];
+  final segments = <TranscriptSegment>[];
+  for (final entry in raw) {
+    if (entry is! Map) continue;
+    try {
+      final segment = TranscriptSegment.fromJson(
+        Map<String, dynamic>.from(entry),
+      );
+      if (segment != null) segments.add(segment);
+    } catch (_) {
+      // Malformed cache entries are skipped silently (degradation).
+    }
+  }
+  return segments;
+}
 
 String? _stringArg(Map<String, dynamic> args, String key) {
   final value = args[key];

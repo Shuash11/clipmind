@@ -2,7 +2,7 @@ import 'tool_definition.dart';
 
 /// Curated tool surface for the agentic loop (D4, Phase 6a).
 ///
-/// Exactly 17 tools (< 20 per OpenAI guidance). The model references clips
+/// Exactly 18 tools (< 20 per OpenAI guidance). The model references clips
 /// by ID learned from [list_project_clips]; the app resolves file paths
 /// itself — file paths are never model-filled args.
 class ToolRegistry {
@@ -26,7 +26,7 @@ class ToolRegistry {
     _validate();
   }
 
-  /// The 17 canonical definitions.
+  /// The 18 canonical definitions.
   static List<ToolDefinition> defaultDefinitions() => _catalog;
 
   List<ToolDefinition> definitions() => _byName.values.toList();
@@ -429,6 +429,40 @@ class ToolRegistry {
           },
         },
         'required': ['clip_id', 'output_format'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+    ),
+    const ToolDefinition(
+      name: 'burn_captions',
+      description:
+          'Burn the cached transcript as timed captions into a clip. '
+          'Call get_transcript first. The app generates the subtitle '
+          'file; never pass paths.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'clip_id': {
+            'type': 'string',
+            'description':
+                'Clip ID from list_project_clips. The transcript must be '
+                'cached — call get_transcript first. The app generates '
+                'the subtitle file; never pass paths.',
+          },
+          'font_size': {
+            'type': ['number', 'null'],
+            'description': 'Caption font size in pixels (default 24).',
+          },
+          'font_color': {
+            'type': ['string', 'null'],
+            'description': 'Caption color as #RRGGBB (default white).',
+          },
+          'position': {
+            'type': ['string', 'null'],
+            'description': 'bottom (default), center or top.',
+          },
+        },
+        'required': ['clip_id', 'font_size', 'font_color', 'position'],
         'additionalProperties': false,
       },
       category: ToolCategory.edit,

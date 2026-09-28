@@ -143,6 +143,7 @@ class UndoRedoUseCase {
       case EditOperationType.generateThumbnail:
       case EditOperationType.changeFormat:
       case EditOperationType.overlayWatermark:
+      case EditOperationType.burnCaptions:
         return null;
     }
   }

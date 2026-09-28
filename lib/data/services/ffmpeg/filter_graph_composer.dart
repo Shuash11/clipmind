@@ -251,6 +251,23 @@ class FilterGraphComposer {
         audioFilters.add('volume=$factor');
         break;
 
+      case EditOperationType.burnCaptions:
+        {
+          // Composed replay uses the stored app-generated SRT path (see
+          // the `_buildOpArgs` note on stale temp paths).
+          final replayAlign = p['alignment'];
+          videoFilters.add(
+            CommandBuilder.burnCaptionsFilter(
+              _paramString(p, 'srt_path', ''),
+              fontSize: _paramInt(p, 'font_size', 24),
+              assColor: p['ass_color']?.toString(),
+              alignment:
+                  replayAlign is num ? replayAlign.toInt() : null,
+            ),
+          );
+          break;
+        }
+
       case EditOperationType.mute:
       case EditOperationType.trim:
       case EditOperationType.merge:
@@ -371,6 +388,18 @@ class FilterGraphComposer {
           _paramString(p, 'image_path', ''),
           _paramString(p, 'position', 'bottom-right'),
           _paramNum(p, 'opacity', 0.7),
+        );
+      case EditOperationType.burnCaptions:
+        // Replay uses the stored app-generated SRT path (the tool run
+        // regenerates it from the transcript cache; a stale temp path
+        // fails loudly in FFmpeg rather than dropping captions silently).
+        final replayAlign = p['alignment'];
+        return CommandBuilder.burnCaptions(
+          inputPath,
+          _paramString(p, 'srt_path', ''),
+          fontSize: _paramInt(p, 'font_size', 24),
+          assColor: p['ass_color']?.toString(),
+          alignment: replayAlign is num ? replayAlign.toInt() : null,
         );
     }
   }

@@ -51,6 +51,7 @@ const _$EditOperationTypeEnumMap = {
   EditOperationType.adjustBrightness: 'adjustBrightness',
   EditOperationType.changeVolume: 'changeVolume',
   EditOperationType.overlayWatermark: 'overlayWatermark',
+  EditOperationType.burnCaptions: 'burnCaptions',
 };
 
 const _$OperationStatusEnumMap = {

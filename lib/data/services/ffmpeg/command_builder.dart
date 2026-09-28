@@ -1,3 +1,5 @@
+import 'filter_escaping.dart';
+
 class CommandBuilder {
   static List<String> trim(String input, String start, String end) {
     return ['-i', input, '-ss', start, '-to', end, '-c', 'copy'];
@@ -147,6 +149,59 @@ class CommandBuilder {
     }
     if (degrees == 270) return ['-i', input, '-vf', 'transpose=2'];
     return ['-i', input, '-vf', 'rotate=$degrees*PI/180'];
+  }
+
+  /// Burn an SRT file into the video via the libass `subtitles` filter.
+  ///
+  /// [assColor] is an ASS `&H00BBGGRR` color (see
+  /// [FilterEscaping.assColorFromHex]); [alignment] is an ASS numpad
+  /// alignment (5 = middle-center, 8 = top-center, null = bottom default).
+  /// `force_style` carries only non-default keys and is omitted entirely
+  /// when everything is default.
+  ///
+  /// TO-VERIFY-LIVE: requires a libass-enabled FFmpeg build, and ASS
+  /// `Alignment` numpad (modern `\an`) vs legacy (`\a`) semantics — if the
+  /// burned position renders wrong, switch to legacy values.
+  static List<String> burnCaptions(
+    String input,
+    String srtPath, {
+    int fontSize = 24,
+    String? assColor,
+    int? alignment,
+  }) {
+    return [
+      '-i',
+      input,
+      '-vf',
+      burnCaptionsFilter(
+        srtPath,
+        fontSize: fontSize,
+        assColor: assColor,
+        alignment: alignment,
+      ),
+    ];
+  }
+
+  /// The `subtitles` filter string alone (shared with the composed
+  /// filter-graph path).
+  static String burnCaptionsFilter(
+    String srtPath, {
+    int fontSize = 24,
+    String? assColor,
+    int? alignment,
+  }) {
+    final escaped = FilterEscaping.escapeSubtitlePath(srtPath);
+    final styles = <String>[];
+    if (fontSize != 24) styles.add('FontSize=$fontSize');
+    if (assColor != null && assColor.isNotEmpty) {
+      styles.add('PrimaryColour=$assColor');
+    }
+    if (alignment != null) styles.add('Alignment=$alignment');
+    var filter = "subtitles=filename='$escaped'";
+    if (styles.isNotEmpty) {
+      filter += ":force_style='${styles.join(',')}'";
+    }
+    return filter;
   }
 
   static List<String> extractAudio(String input, String outputFormat) {
