@@ -93,6 +93,10 @@ class OllamaProvider extends OpenAiCompatibleLlmProvider {
   @override
   bool get supportsToolCalling => true;
 
+  /// Local models on the 17-tool schema need headroom per round.
+  @override
+  int get suggestedRoundTimeoutSeconds => 120;
+
   @override
   String connectionErrorText() =>
       'Cannot connect to Ollama at ${config.baseUrl}. Is Ollama running?';

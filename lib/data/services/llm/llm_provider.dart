@@ -16,6 +16,13 @@ abstract class LlmProvider {
   /// when true, else the legacy one-shot stage path.
   bool get supportsToolCalling => false;
 
+  /// Suggested per-round timeout (seconds) for [ToolCallingAgent] runs.
+  ///
+  /// Slow local models need headroom on the large tool prompt; cloud
+  /// APIs are fast. [ToolCallingAgent.run] uses this when the caller
+  /// passes no explicit `timeoutSeconds` override.
+  int get suggestedRoundTimeoutSeconds => 60;
+
   /// One API round trip with tools (D1: transport-only, no loop).
   ///
   /// Throws [UnimplementedError] by default.

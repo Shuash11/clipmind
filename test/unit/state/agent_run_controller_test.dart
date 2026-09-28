@@ -127,6 +127,23 @@ class _GatedSettingsRepo extends SettingsRepository {
   }
 }
 
+/// Filesystem-free settings double for plain sandbox tests.
+///
+/// The real repository prints a binding error there (caught degradation
+/// path); the stub keeps the same observable behavior (defaults on load,
+/// state update on save) without the noise.
+class _TestSettingsRepository extends SettingsRepository {
+  AppSettings? saved;
+
+  @override
+  Future<AppSettings> load() async => const AppSettings();
+
+  @override
+  Future<void> save(AppSettings settings) async {
+    saved = settings;
+  }
+}
+
 class _FakeFfmpeg extends FfmpegService {
   int cancelCalls = 0;
 
@@ -184,6 +201,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
           nl2vecPipelineProvider.overrideWithValue(pipeline),
           providerRegistryProvider.overrideWithValue(_FakeRegistry(
             _LegacyStub(
@@ -242,6 +260,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
           ffmpegServiceProvider.overrideWithValue(_FakeFfmpeg()),
           providerRegistryProvider.overrideWithValue(_FakeRegistry(
             _ScriptTools([
@@ -320,6 +339,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
           ffmpegServiceProvider.overrideWithValue(ffmpeg),
           providerRegistryProvider.overrideWithValue(_FakeRegistry(script)),
           projectMetadataProvider.overrideWith((ref) async => null),
@@ -363,6 +383,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
           ffmpegServiceProvider.overrideWithValue(_FakeFfmpeg()),
           providerRegistryProvider.overrideWithValue(_FakeRegistry(
             _ScriptTools([
@@ -429,6 +450,9 @@ void main() {
         overrides: [
           appDatabaseProvider.overrideWithValue(
             AppDatabase(NativeDatabase.memory()),
+          ),
+          settingsRepositoryProvider.overrideWithValue(
+            _TestSettingsRepository(),
           ),
         ],
       );
@@ -503,6 +527,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
           providerRegistryProvider.overrideWithValue(_FakeRegistry(null)),
           projectMetadataProvider.overrideWith((ref) async => null),
         ],
@@ -547,6 +572,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
           ffmpegServiceProvider.overrideWithValue(_FakeFfmpeg()),
           providerRegistryProvider.overrideWithValue(
             _FakeRegistry(script),
@@ -769,6 +795,8 @@ void main() {
       expect(stored.last.steps, hasLength(2));
       expect(stored.last.steps[0].toolName, equals('list_project_clips'));
     });
+  });
+
   group('AgentRunController plan preview', () {
     late Directory tmp;
     late AppDatabase db;
@@ -821,6 +849,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
           ffmpegServiceProvider.overrideWithValue(_FakeFfmpeg()),
           providerRegistryProvider.overrideWithValue(
             _FakeRegistry(makePlanScript()),
@@ -960,8 +989,6 @@ void main() {
     });
 
     test('first submit awaits settings load for the plan flag', () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
       final loadGate = Completer<void>();
       final pipeline = _CapturingPipeline()
         ..result = const SubmitResult(
@@ -1016,6 +1043,6 @@ void main() {
       );
     });
   });
-  });
 }
+
 

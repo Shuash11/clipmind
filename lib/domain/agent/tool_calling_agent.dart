@@ -61,11 +61,15 @@ class ToolCallingAgent {
   Future<AgentRunResult> run({
     required ValidatedCommand validated,
     List<AgentRequest>? recentHistory,
-    int timeoutSeconds = 60,
+    int? timeoutSeconds,
     double temperature = 0.1,
     CancellationToken? cancellation,
     ConfirmationGate? gate,
   }) async {
+    // Provider-aware default: slow local models (Ollama) get headroom;
+    // an explicit per-run override still wins.
+    final effectiveTimeout =
+        timeoutSeconds ?? provider.suggestedRoundTimeoutSeconds;
     context.resetRun();
     final history = <AgentTurnMessage>[];
     final systemPrompt = ToolPromptBuilder.buildSystemPrompt();
@@ -96,7 +100,7 @@ class ToolCallingAgent {
             userContent: round == 1 ? userContent : '',
             tools: registry.definitions(),
             history: List.unmodifiable(history),
-            timeoutSeconds: timeoutSeconds,
+            timeoutSeconds: effectiveTimeout,
             temperature: temperature,
           ),
         );

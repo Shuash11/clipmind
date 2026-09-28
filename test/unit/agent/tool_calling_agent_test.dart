@@ -70,6 +70,18 @@ class _GeminiScriptProvider extends _ScriptProvider {
   String get id => 'gemini:gemini-3.8-flash';
 }
 
+/// Slow-local-model scripted provider (Ollama-like): suggests a longer
+/// per-round timeout for local inference on the large tool prompt.
+class _SlowLocalScriptProvider extends _ScriptProvider {
+  _SlowLocalScriptProvider(super.script);
+
+  @override
+  String get id => 'ollama:llama3.1';
+
+  @override
+  int get suggestedRoundTimeoutSeconds => 120;
+}
+
 class _OkExecutor implements ToolExecutor {
   @override
   Future<ToolResult> execute(ToolCall call) async => ToolResult.ok(
@@ -618,6 +630,70 @@ void main() {
       expect(result.records.single.summary, startsWith('Would '));
       expect(result.appliedOperations, isEmpty);
       expect(result.outputPath, isNull);
+      agent.dispose();
+    });
+
+    test('slow local provider suggests 120s per round', () async {
+      final provider = _SlowLocalScriptProvider([
+        const AgentTurnResult(
+          text: 'Trimmed the first 5 seconds.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(),
+        registry: _registryWith({}),
+      );
+
+      final result = await agent.run(validated: _validated());
+
+      expect(result.status, equals(AgentRunStatus.success));
+      expect(provider.seen.single.timeoutSeconds, equals(120));
+      agent.dispose();
+    });
+
+    test('explicit per-run timeout wins over the provider suggestion',
+        () async {
+      final provider = _SlowLocalScriptProvider([
+        const AgentTurnResult(
+          text: 'Trimmed the first 5 seconds.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(),
+        registry: _registryWith({}),
+      );
+
+      final result = await agent.run(
+        validated: _validated(),
+        timeoutSeconds: 30,
+      );
+
+      expect(result.status, equals(AgentRunStatus.success));
+      expect(provider.seen.single.timeoutSeconds, equals(30));
+      agent.dispose();
+    });
+
+    test('default providers keep the 60s per-round timeout', () async {
+      final provider = _ScriptProvider([
+        const AgentTurnResult(
+          text: 'Trimmed the first 5 seconds.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(),
+        registry: _registryWith({}),
+      );
+
+      final result = await agent.run(validated: _validated());
+
+      expect(result.status, equals(AgentRunStatus.success));
+      expect(provider.seen.single.timeoutSeconds, equals(60));
       agent.dispose();
     });
   });
