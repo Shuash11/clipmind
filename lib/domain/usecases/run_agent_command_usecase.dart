@@ -6,6 +6,7 @@ import 'package:clipmind/domain/agent/agent_confirmation.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 
 /// Single entry point from the state layer into the Gen A tool path.
 ///
@@ -26,6 +27,7 @@ class RunAgentCommandUseCase {
     Project Function()? liveProject,
     CancellationToken? cancellation,
     ConfirmationGate? gate,
+    bool dryRun = false,
   }) {
     return _pipeline.submitCommand(
       command,
@@ -37,6 +39,28 @@ class RunAgentCommandUseCase {
       liveProject: liveProject,
       cancellation: cancellation,
       gate: gate,
+      dryRun: dryRun,
+    );
+  }
+
+  /// Deterministic replay of dry-run planned calls (Phase 6d).
+  ///
+  /// [planned] are the edit-tool [ToolCall]s recorded during a dry-run
+  /// planning pass (rebuilt from the run's successful edit-tool records:
+  /// `ToolCall(id: record.id, name: record.name, args: record.args)`).
+  Future<SubmitResult> executePlanned(
+    List<ToolCall> planned,
+    Project project, {
+    AgentEditApplier? applier,
+    Project Function()? liveProject,
+    CancellationToken? cancellation,
+  }) {
+    return _pipeline.executePlanned(
+      planned,
+      project,
+      applier: applier,
+      liveProject: liveProject,
+      cancellation: cancellation,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:clipmind/core/async/cancellation_token.dart';
+import 'package:clipmind/data/models/app_settings.dart';
 import 'package:clipmind/data/models/chat_message.dart';
 import 'package:clipmind/data/models/chat_step.dart';
 import 'package:clipmind/data/models/project.dart';
@@ -15,18 +16,59 @@ import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/domain/agent/tools/tool_registry.dart';
 import 'package:clipmind/domain/usecases/run_agent_command_usecase.dart';
+import 'package:clipmind/state/agent_analysis_providers.dart';
 import 'package:clipmind/state/agent_providers.dart';
 import 'package:clipmind/state/player_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/settings_providers.dart';
 
-enum AgentRunState { idle, running, cancelled }
+enum AgentRunState { idle, running, cancelled, planReady }
 
-/// Per-edit approval flag (readable config source for the gate).
+/// Per-edit approval flag, persisted in [AppSettings.confirmAgentEdits].
 ///
-/// `AppSettings` has no such field yet; the settings toggle (frontend)
-/// will bind here. false = bulk-only mode (rounds with ≥3 edits pause).
-final agentConfirmEditsProvider = StateProvider<bool>((ref) => false);
+/// Reads through to settings; every write persists via
+/// `settingsProvider.notifier.update`. Keeps the `StateProvider`-style
+/// interface (`watch` + `notifier.state =`) so existing bindings compile.
+/// false = bulk-only mode (rounds with ≥3 edits pause).
+final agentConfirmEditsProvider =
+    StateNotifierProvider<AgentConfirmEditsFlag, bool>(
+  (ref) => AgentConfirmEditsFlag(ref),
+);
+
+class AgentConfirmEditsFlag extends StateNotifier<bool> {
+  AgentConfirmEditsFlag(this._ref) : super(false) {
+    _syncFromSettings(_ref.read(settingsProvider).valueOrNull);
+    _ref.listen<AsyncValue<AppSettings>>(
+      settingsProvider,
+      (_, next) => _syncFromSettings(next.valueOrNull),
+    );
+  }
+
+  final Ref _ref;
+
+  void _syncFromSettings(AppSettings? settings) {
+    if (settings != null && state != settings.confirmAgentEdits) {
+      super.state = settings.confirmAgentEdits;
+    }
+  }
+
+  @override
+  set state(bool value) {
+    if (state == value) return;
+    super.state = value;
+    unawaited(_persist(value));
+  }
+
+  Future<void> _persist(bool value) async {
+    try {
+      final current = _ref.read(settingsProvider).valueOrNull;
+      if (current == null || current.confirmAgentEdits == value) return;
+      await _ref
+          .read(settingsProvider.notifier)
+          .update(current.copyWith(confirmAgentEdits: value));
+    } catch (_) {}
+  }
+}
 
 /// The confirmation request the agent is currently paused on, if any.
 /// The UI renders it and answers via [AgentRunController.approvePendingConfirmation].
@@ -40,6 +82,39 @@ class PendingConfirmation extends StateNotifier<ConfirmationRequest?> {
 
   void set(ConfirmationRequest request) {
     state = request;
+  }
+
+  void clear() {
+    state = null;
+  }
+}
+
+/// A dry-run plan awaiting review: the proposed steps for the plan card
+/// plus the recorded edit-tool calls for deterministic replay.
+class PendingPlan {
+  final String command;
+  final String projectId;
+  final List<ChatStep> steps;
+  final List<ToolCall> calls;
+
+  const PendingPlan({
+    required this.command,
+    required this.projectId,
+    this.steps = const [],
+    this.calls = const [],
+  });
+}
+
+final pendingPlanProvider =
+    StateNotifierProvider<PendingPlanHolder, PendingPlan?>(
+  (ref) => PendingPlanHolder(),
+);
+
+class PendingPlanHolder extends StateNotifier<PendingPlan?> {
+  PendingPlanHolder() : super(null);
+
+  void set(PendingPlan plan) {
+    state = plan;
   }
 
   void clear() {
@@ -106,12 +181,26 @@ class AgentRunController extends StateNotifier<AgentRunState> {
       final messages =
           await _ref.read(appDatabaseProvider).getChatMessages(projectId);
       _ref.read(chatMessagesProvider.notifier).replaceAll(messages);
+      final project = _ref.read(projectProvider).valueOrNull;
+      if (project != null && project.id == projectId) {
+        final clipIds = [
+          for (final track in project.tracks)
+            for (final clip in track.clips) clip.id,
+        ];
+        try {
+          await _ref
+              .read(agentAnalysisPortProvider(projectId))
+              .warmUp(clipIds);
+        } catch (_) {}
+      }
     } catch (_) {}
   }
 
   Future<void> submit(String command) async {
     final text = command.trim();
     if (text.isEmpty || isBusy) return;
+    // A fresh command supersedes any pending plan.
+    _ref.read(pendingPlanProvider.notifier).clear();
 
     final userMessage = ChatMessage(
       id: _uuid.v4(),
@@ -137,6 +226,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
         .read(nl2vecPipelineProvider)
         .agentActivity
         .listen(_ref.read(agentActivityFeedProvider.notifier).push);
+    var completedAsPlan = false;
 
     try {
       final project = _ref.read(projectProvider).valueOrNull;
@@ -169,11 +259,22 @@ class AgentRunController extends StateNotifier<AgentRunState> {
         _ref.read(nl2vecPipelineProvider),
       );
       final snapshot = project;
+      // Await the settings load: on the first submit after app start the
+      // repository may still be reading the JSON file, and a synchronous
+      // read would silently fall back to defaults (no plan-preview).
+      // Awaiting the cached `ready` future is free after the first load.
+      // Re-read afterwards so later updates (not just the first load) win.
+      // This also lets the confirm-edits flag sync before the gate is built.
+      try {
+        await _ref.read(settingsProvider.notifier).ready;
+      } catch (_) {}
+      final settings = _ref.read(settingsProvider).valueOrNull;
       final gate = AgentConfirmationGate(
         _ref,
         perEdit: _ref.read(agentConfirmEditsProvider),
       );
       _gate = gate;
+      final planPreview = settings?.planEditsBeforeApply ?? false;
       final result = await useCase.execute(
         text,
         snapshot,
@@ -185,40 +286,158 @@ class AgentRunController extends StateNotifier<AgentRunState> {
             _ref.read(projectProvider).valueOrNull ?? snapshot,
         cancellation: controller.token,
         gate: gate,
+        dryRun: planPreview,
       );
 
-      final status = switch (result.status) {
-        SubmitStatus.success => MessageStatus.applied,
-        SubmitStatus.clarificationNeeded => MessageStatus.needsClarification,
-        SubmitStatus.error || SubmitStatus.cancelled => MessageStatus.error,
-      };
+      if (planPreview && result.status == SubmitStatus.success) {
+        await _completeAsPlan(
+          project: project,
+          command: text,
+          result: result,
+        );
+        completedAsPlan = true;
+        return;
+      }
       final steps = [
         for (final record in result.records) _toChatStep(record),
       ];
-      final reply = ChatMessage(
-        id: _uuid.v4(),
-        role: ChatRole.agent,
-        content: result.message,
-        timestamp: DateTime.now(),
-        status: status,
-        resultingOperationIds: [
-          for (final op in result.appliedOperations) op.id,
-        ],
-        steps: steps,
-      );
-      _ref.read(chatMessagesProvider.notifier).add(reply);
-      try {
-        await _ref.read(appDatabaseProvider).saveChatMessage(
-              project.id,
-              reply,
-            );
-      } catch (_) {}
+      await _postReply(project, result, steps);
+    } finally {
+      await _feedSub?.cancel();
+      _feedSub = null;
+      _cancel = null;
+      _gate = null;
+      _ref.read(pendingConfirmationProvider.notifier).clear();
+      state = completedAsPlan ? AgentRunState.planReady : AgentRunState.idle;
+    }
+  }
 
-      if (result.status == SubmitStatus.success &&
-          result.outputPath != null) {
-        _ref.read(currentVideoPathProvider.notifier).state =
-            result.outputPath;
+  /// Finish a dry-run as a reviewable plan: record the proposed steps +
+  /// replayable edit calls, post the plan-ready reply, and park the run in
+  /// [AgentRunState.planReady]. A dry run with no edits posts normally.
+  Future<void> _completeAsPlan({
+    required Project project,
+    required String command,
+    required SubmitResult result,
+  }) async {
+    final steps = <ChatStep>[];
+    final calls = <ToolCall>[];
+    for (final record in result.records) {
+      final step = _toChatStep(record);
+      steps.add(step);
+      if (step.kind == ChatStepKind.edit) {
+        calls.add(ToolCall(
+          id: record.id,
+          name: record.name,
+          args: Map<String, dynamic>.from(record.args),
+        ));
       }
+    }
+    if (calls.isEmpty) {
+      await _postReply(project, result, steps);
+      return;
+    }
+    _ref.read(pendingPlanProvider.notifier).set(PendingPlan(
+          command: command,
+          projectId: project.id,
+          steps: steps,
+          calls: calls,
+        ));
+    final reply = ChatMessage(
+      id: _uuid.v4(),
+      role: ChatRole.agent,
+      content: 'Plan ready: ${calls.length} edit(s) proposed. '
+          'Review and approve or discard.',
+      timestamp: DateTime.now(),
+      status: MessageStatus.needsClarification,
+      steps: steps,
+    );
+    _ref.read(chatMessagesProvider.notifier).add(reply);
+    try {
+      await _ref.read(appDatabaseProvider).saveChatMessage(
+            project.id,
+            reply,
+          );
+    } catch (_) {}
+  }
+
+  /// Shared reply posting for immediate runs and plan replays.
+  Future<void> _postReply(
+    Project project,
+    SubmitResult result,
+    List<ChatStep> steps,
+  ) async {
+    final status = switch (result.status) {
+      SubmitStatus.success => MessageStatus.applied,
+      SubmitStatus.clarificationNeeded => MessageStatus.needsClarification,
+      SubmitStatus.error || SubmitStatus.cancelled => MessageStatus.error,
+    };
+    final reply = ChatMessage(
+      id: _uuid.v4(),
+      role: ChatRole.agent,
+      content: result.message,
+      timestamp: DateTime.now(),
+      status: status,
+      resultingOperationIds: [
+        for (final op in result.appliedOperations) op.id,
+      ],
+      steps: steps,
+    );
+    _ref.read(chatMessagesProvider.notifier).add(reply);
+    try {
+      await _ref.read(appDatabaseProvider).saveChatMessage(
+            project.id,
+            reply,
+          );
+    } catch (_) {}
+
+    if (result.status == SubmitStatus.success && result.outputPath != null) {
+      _ref.read(currentVideoPathProvider.notifier).state = result.outputPath;
+    }
+  }
+
+  /// Replay the pending plan deterministically (recorded calls, no new LLM
+  /// round). Cancellable via [cancel]; already-applied edits stay undoable.
+  Future<void> approvePlan() async {
+    final plan = _ref.read(pendingPlanProvider);
+    if (plan == null || state != AgentRunState.planReady) return;
+    _ref.read(pendingPlanProvider.notifier).clear();
+
+    state = AgentRunState.running;
+    _ref.read(agentActivityFeedProvider.notifier).clear();
+    final controller = CancellationController();
+    _cancel = controller;
+    _feedSub = _ref
+        .read(nl2vecPipelineProvider)
+        .agentActivity
+        .listen(_ref.read(agentActivityFeedProvider.notifier).push);
+    try {
+      final project = _ref.read(projectProvider).valueOrNull;
+      if (project == null || project.id != plan.projectId) {
+        await _replyError(
+          project,
+          'The project changed since this plan was created. '
+          'Send the command again to re-plan.',
+        );
+        return;
+      }
+      final result =
+          await _ref.read(nl2vecPipelineProvider).executePlanned(
+                plan.calls,
+                project,
+                applier: _ref.read(agentEditApplierProvider),
+                liveProject: () =>
+                    _ref.read(projectProvider).valueOrNull ?? project,
+                cancellation: controller.token,
+              );
+      final steps = [
+        for (final record in result.records) _toChatStep(record),
+      ];
+      await _postReply(
+        project,
+        result,
+        steps.isNotEmpty ? steps : plan.steps,
+      );
     } finally {
       await _feedSub?.cancel();
       _feedSub = null;
@@ -227,6 +446,30 @@ class AgentRunController extends StateNotifier<AgentRunState> {
       _ref.read(pendingConfirmationProvider.notifier).clear();
       state = AgentRunState.idle;
     }
+  }
+
+  /// Drop the pending plan with a chat reply. No-op while replaying.
+  Future<void> discardPlan() async {
+    final plan = _ref.read(pendingPlanProvider);
+    if (plan == null || state == AgentRunState.running) return;
+    _ref.read(pendingPlanProvider.notifier).clear();
+    if (state == AgentRunState.planReady) {
+      state = AgentRunState.idle;
+    }
+    final reply = ChatMessage(
+      id: _uuid.v4(),
+      role: ChatRole.agent,
+      content: 'Plan discarded.',
+      timestamp: DateTime.now(),
+      status: MessageStatus.applied,
+    );
+    _ref.read(chatMessagesProvider.notifier).add(reply);
+    try {
+      await _ref.read(appDatabaseProvider).saveChatMessage(
+            plan.projectId,
+            reply,
+          );
+    } catch (_) {}
   }
 
   /// Answer the paused confirmation round (UI): true = approve, false = skip.

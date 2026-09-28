@@ -36,6 +36,7 @@ READ TOOLS (ground truth first):
 - list_project_clips: all clip IDs, labels and time ranges. Call this first.
 - probe_video: real ffprobe metadata (duration, resolution, fps, codec, audio) for one clip ID.
 - get_edit_history: edits already applied in this project.
+- detect_scenes / get_storyboard / get_transcript: understand the video content (scene changes, narration) before creative edits.
 
 EDIT TOOLS:
 - trim_clip, cut_segment, merge_clips, change_speed, mute_clip,
@@ -48,6 +49,7 @@ RULES:
 3. Only batch independent calls; edits touching the same clip run sequentially.
 4. When a tool reports an error it names the fix — self-correct and retry. If you cannot proceed, explain in plain text and ask for clarification instead of guessing.
 5. Keep runs small: at most ~15 edits per request. When finished, summarise what was done in plain text.
+6. For creative commands (highlight reels, summaries), call detect_scenes/get_storyboard first.
 ''';
   }
 

@@ -14,10 +14,11 @@ import 'package:clipmind/presentation/shared_widgets/dashed_border.dart';
 import 'package:clipmind/state/project_providers.dart';
 
 /// Fake repository: no file IO (path_provider hangs in this sandbox);
-/// returns a fixed recent list and records createNew calls.
+/// returns a fixed recent list and records createNew calls. The memory DB
+/// is shared from the test's setUp/tearDown so it closes cleanly.
 class _FakeProjectRepository extends ProjectRepository {
-  _FakeProjectRepository({this.recent = const []})
-      : super(AppDatabase(NativeDatabase.memory()));
+  _FakeProjectRepository({required AppDatabase db, this.recent = const []})
+      : super(db);
 
   final List<Project> recent;
   int created = 0;
@@ -99,10 +100,23 @@ Future<void> _pumpHub(
 }
 
 void main() {
+  late AppDatabase db;
+
+  setUp(() {
+    db = AppDatabase(NativeDatabase.memory());
+  });
+
+  tearDown(() async {
+    await db.close();
+  });
+
   testWidgets('hub renders top bar pills, hero copy, and dashed dropzone', (
     tester,
   ) async {
-    final repo = _FakeProjectRepository(recent: [_project(durationMs: 154000)]);
+    final repo = _FakeProjectRepository(
+      db: db,
+      recent: [_project(durationMs: 154000)],
+    );
     final container = ProviderContainer(
       overrides: [projectRepositoryProvider.overrideWithValue(repo)],
     );
@@ -145,7 +159,10 @@ void main() {
   });
 
   testWidgets('blank card renders first in the recent row', (tester) async {
-    final repo = _FakeProjectRepository(recent: [_project(durationMs: 154000)]);
+    final repo = _FakeProjectRepository(
+      db: db,
+      recent: [_project(durationMs: 154000)],
+    );
     final container = ProviderContainer(
       overrides: [projectRepositoryProvider.overrideWithValue(repo)],
     );
@@ -161,7 +178,7 @@ void main() {
   });
 
   testWidgets('blank card creates and opens an empty project', (tester) async {
-    final repo = _FakeProjectRepository(recent: [_project()]);
+    final repo = _FakeProjectRepository(db: db, recent: [_project()]);
     final container = ProviderContainer(
       overrides: [projectRepositoryProvider.overrideWithValue(repo)],
     );
@@ -290,7 +307,7 @@ void main() {
   testWidgets('top bar pills do not overflow on narrow windows', (
     tester,
   ) async {
-    final repo = _FakeProjectRepository();
+    final repo = _FakeProjectRepository(db: db);
     final container = ProviderContainer(
       overrides: [projectRepositoryProvider.overrideWithValue(repo)],
     );

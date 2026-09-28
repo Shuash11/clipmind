@@ -114,8 +114,10 @@ ValidatedCommand _validated() {
 }
 
 // Minimal context: no FFmpeg runs in these loop tests (stub executors,
-// so services are never touched).
-ToolExecutionContext _context() {
+// so services are never touched). The dry-run variant uses the real
+// registry executors: mapping builds arg strings only, and dry-run
+// returns before any FFmpeg execution.
+ToolExecutionContext _context({bool dryRun = false}) {
   final project = Project(
     id: 'p1',
     name: 'Test',
@@ -148,6 +150,7 @@ ToolExecutionContext _context() {
     applier: AgentEditApplier(onApply: (_, _) async {}),
     ffmpegService: FfmpegService(),
     ffprobeService: FfprobeService(),
+    dryRun: dryRun,
   );
 }
 
@@ -462,6 +465,47 @@ void main() {
           AgentActivityKind.runCompleted,
         ]),
       );
+      agent.dispose();
+    });
+
+    test('dry-run planning round plans without applying', () async {
+      final provider = _ScriptProvider([
+        const AgentTurnResult(
+          text: 'Planning a trim.',
+          toolCalls: [
+            AgentToolCall(
+              id: 'call_plan',
+              name: 'trim_clip',
+              args: {
+                'clip_id': 'clip_1',
+                'start': '00:00:05.000',
+                'end': '00:00:15.000',
+              },
+            ),
+          ],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          text: 'Plan ready: trim the first clip.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      // Real registry executors against a dry-run context: the edit maps
+      // and returns planned, never touching FFmpeg or the applier.
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(dryRun: true),
+      );
+
+      final result = await agent.run(validated: _validated());
+
+      expect(result.status, equals(AgentRunStatus.success));
+      expect(result.message, equals('Plan ready: trim the first clip.'));
+      expect(result.records, hasLength(1));
+      expect(result.records.single.success, isTrue);
+      expect(result.records.single.summary, startsWith('Would '));
+      expect(result.appliedOperations, isEmpty);
+      expect(result.outputPath, isNull);
       agent.dispose();
     });
   });

@@ -94,7 +94,11 @@ void main() {
     await tmp.delete(recursive: true);
   });
 
-  ToolExecutionContext ctx({CancellationToken? cancellation}) {
+  ToolExecutionContext ctx({
+    CancellationToken? cancellation,
+    bool dryRun = false,
+    int? maxJobs,
+  }) {
     final project = _project(inputA, inputB, outDir);
     return ToolExecutionContext(
       project: () => project,
@@ -108,6 +112,8 @@ void main() {
       ffmpegService: ffmpeg,
       ffprobeService: _MockFfprobe(),
       cancellation: cancellation,
+      dryRun: dryRun,
+      maxJobs: maxJobs ?? 20,
     );
   }
 
@@ -249,6 +255,61 @@ void main() {
       expect(joined, contains(inputA));
       expect(joined, contains(inputB));
       expect(joined.contains('clip_1') && joined.contains('-i clip_1'), isFalse);
+    });
+  });
+
+  group('EditToolExecutor dry-run (plan preview)', () {
+    test('dry-run plans without executing FFmpeg or journaling', () async {
+      final executor = EditToolExecutor(ctx(dryRun: true));
+      final result = await executor.execute(
+        const ToolCall(
+          id: 'call_plan',
+          name: 'trim_clip',
+          args: {
+            'clip_id': 'clip_1',
+            'start': '00:00:05.000',
+            'end': '00:00:15.000',
+          },
+        ),
+      );
+
+      expect(result.success, isTrue);
+      expect(result.data['planned'], isTrue);
+      expect(result.data['op_type'], equals('trim'));
+      expect(result.data['target_clip_ids'], equals(['clip_1']));
+      expect(result.summary, startsWith('Would '));
+      // Nothing executed, applied, or journaled.
+      expect(ffmpeg.lastJob, isNull);
+      expect(applied, isEmpty);
+    });
+
+    test('dry-run still validates args', () async {
+      final executor = EditToolExecutor(ctx(dryRun: true));
+      final result = await executor.execute(
+        const ToolCall(
+          id: 'call_bad',
+          name: 'trim_clip',
+          args: {'clip_id': 'clip_1', 'start': 'nope', 'end': '15'},
+        ),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, contains('HH:MM:SS.mmm'));
+      expect(result.data.containsKey('planned'), isFalse);
+    });
+
+    test('dry-run still enforces the edit budget', () async {
+      final executor = EditToolExecutor(ctx(dryRun: true, maxJobs: 0));
+      final result = await executor.execute(
+        const ToolCall(
+          id: 'call_over',
+          name: 'mute_clip',
+          args: {'clip_id': 'clip_1'},
+        ),
+      );
+
+      expect(result.success, isFalse);
+      expect(result.error, contains('budget'));
     });
   });
 }

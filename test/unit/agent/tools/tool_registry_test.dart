@@ -15,9 +15,9 @@ class _StubExecutor implements ToolExecutor {
 
 void main() {
   group('ToolRegistry surface', () {
-    test('exposes exactly the 14 curated tools (<= 20)', () {
+    test('exposes exactly the 17 curated tools (<= 20)', () {
       final defs = ToolRegistry.defaultDefinitions();
-      expect(defs, hasLength(14));
+      expect(defs, hasLength(17));
       expect(defs.length, lessThanOrEqualTo(20));
     });
 
@@ -41,6 +41,9 @@ void main() {
       );
       expect(byName, containsPair('probe_video', ToolCategory.read));
       expect(byName, containsPair('get_edit_history', ToolCategory.read));
+      expect(byName, containsPair('detect_scenes', ToolCategory.read));
+      expect(byName, containsPair('get_storyboard', ToolCategory.read));
+      expect(byName, containsPair('get_transcript', ToolCategory.read));
       for (final name in [
         'trim_clip',
         'cut_segment',

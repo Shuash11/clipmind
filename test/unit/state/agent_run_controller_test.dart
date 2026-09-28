@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
+import 'package:clipmind/data/models/app_settings.dart';
 import 'package:clipmind/data/models/chat_message.dart';
 import 'package:clipmind/data/models/chat_step.dart';
 import 'package:clipmind/data/models/clip.dart';
@@ -14,6 +15,7 @@ import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/track.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
+import 'package:clipmind/data/repositories/settings_repository.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/data/services/llm/provider_registry.dart';
 import 'package:clipmind/domain/agent/agent_confirmation.dart';
@@ -89,6 +91,9 @@ class _FakeRegistry extends ProviderRegistry {
 
 class _CapturingPipeline extends Nl2VecPipeline {
   List<AgentRequest>? seenHistory;
+  bool? seenDryRun;
+  SubmitResult result =
+      const SubmitResult(status: SubmitStatus.success, message: 'ok');
 
   _CapturingPipeline() : super(ffmpegService: FfmpegService());
 
@@ -103,9 +108,22 @@ class _CapturingPipeline extends Nl2VecPipeline {
     Project Function()? liveProject,
     CancellationToken? cancellation,
     ConfirmationGate? gate,
+    bool dryRun = false,
   }) async {
     seenHistory = recentHistory;
-    return const SubmitResult(status: SubmitStatus.success, message: 'ok');
+    seenDryRun = dryRun;
+    return result;
+  }
+}
+
+class _GatedSettingsRepo extends SettingsRepository {
+  final Completer<void> gate;
+  _GatedSettingsRepo(this.gate);
+
+  @override
+  Future<AppSettings> load() async {
+    await gate.future;
+    return const AppSettings(planEditsBeforeApply: true);
   }
 }
 
@@ -405,6 +423,80 @@ void main() {
       expect(reply.steps.single.kind, equals(ChatStepKind.edit));
     });
 
+  group('AgentConfirmEditsFlag persistence', () {
+    Future<ProviderContainer> makeContainer() async {
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(
+            AppDatabase(NativeDatabase.memory()),
+          ),
+        ],
+      );
+      addTearDown(() async {
+        await container.read(appDatabaseProvider).close();
+        container.dispose();
+      });
+      for (var i = 0; i < 200; i++) {
+        if (container.read(settingsProvider).valueOrNull != null) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      return container;
+    }
+
+    test('reads through to settings and persists writes', () async {
+      final container = await makeContainer();
+      expect(container.read(agentConfirmEditsProvider), isFalse);
+
+      await container.read(settingsProvider.notifier).update(
+            container
+                .read(settingsProvider)
+                .valueOrNull!
+                .copyWith(confirmAgentEdits: true),
+          );
+      expect(container.read(agentConfirmEditsProvider), isTrue);
+
+      container.read(agentConfirmEditsProvider.notifier).state = false;
+      for (var i = 0; i < 200; i++) {
+        if (container.read(settingsProvider).valueOrNull?.confirmAgentEdits ==
+            false) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(
+        container.read(settingsProvider).valueOrNull?.confirmAgentEdits,
+        isFalse,
+      );
+    });
+
+    test('new settings fields default backward-compatibly', () {
+      const settings = AppSettings();
+      expect(settings.confirmAgentEdits, isFalse);
+      expect(settings.planEditsBeforeApply, isFalse);
+      expect(settings.whisperBinaryPath, isEmpty);
+      expect(settings.whisperModelPath, isEmpty);
+
+      final restored = AppSettings.fromJson(const {});
+      expect(restored.confirmAgentEdits, isFalse);
+      expect(restored.planEditsBeforeApply, isFalse);
+      expect(restored.whisperBinaryPath, isEmpty);
+      expect(restored.whisperModelPath, isEmpty);
+
+      final roundTripped = AppSettings.fromJson(
+        const AppSettings(
+          confirmAgentEdits: true,
+          planEditsBeforeApply: true,
+          whisperBinaryPath: '/usr/bin/whisper',
+          whisperModelPath: '/models/ggml.bin',
+        ).toJson(),
+      );
+      expect(roundTripped.confirmAgentEdits, isTrue);
+      expect(roundTripped.planEditsBeforeApply, isTrue);
+      expect(roundTripped.whisperBinaryPath, equals('/usr/bin/whisper'));
+      expect(roundTripped.whisperModelPath, equals('/models/ggml.bin'));
+    });
+  });
+
     test('no provider configured replies with an error bubble', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -448,10 +540,10 @@ void main() {
       await db.close();
     });
 
-    ProviderContainer makeContainer(
+    Future<ProviderContainer> makeContainer(
       _ScriptTools script, {
       bool perEdit = false,
-    }) {
+    }) async {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
@@ -469,7 +561,14 @@ void main() {
             _project(inputFile.path, outDir.path),
           );
       if (perEdit) {
+        // Wait for settings to finish loading first: the flag mirrors
+        // settings, so a late load would revert an early write.
+        for (var i = 0; i < 200; i++) {
+          if (container.read(settingsProvider).valueOrNull != null) break;
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
         container.read(agentConfirmEditsProvider.notifier).state = true;
+        expect(container.read(agentConfirmEditsProvider), isTrue);
       }
       return container;
     }
@@ -514,7 +613,7 @@ void main() {
         ]);
 
     test('bulk approve executes the whole batch', () async {
-      final container = makeContainer(makeBulkScript());
+      final container = await makeContainer(makeBulkScript());
       addTearDown(container.dispose);
 
       final run = container
@@ -546,7 +645,7 @@ void main() {
     });
 
     test('bulk deny records skips and finishes', () async {
-      final container = makeContainer(makeBulkScript());
+      final container = await makeContainer(makeBulkScript());
       addTearDown(container.dispose);
 
       final run = container
@@ -572,7 +671,7 @@ void main() {
     });
 
     test('per-edit mode pauses every edit call', () async {
-      final container = makeContainer(
+      final container = await makeContainer(
         _ScriptTools([
           const AgentTurnResult(
             toolCalls: [
@@ -613,7 +712,7 @@ void main() {
     });
 
     test('cancel while paused denies and cancels the token', () async {
-      final container = makeContainer(makeBulkScript());
+      final container = await makeContainer(makeBulkScript());
       addTearDown(container.dispose);
 
       final run = container
@@ -632,8 +731,9 @@ void main() {
           equals(AgentRunState.idle));
     });
 
+
     test('steps map read tools to read kind', () async {
-      final container = makeContainer(_ScriptTools([
+      final container = await makeContainer(_ScriptTools([
         const AgentTurnResult(
           toolCalls: [
             AgentToolCall(
@@ -669,7 +769,253 @@ void main() {
       expect(stored.last.steps, hasLength(2));
       expect(stored.last.steps[0].toolName, equals('list_project_clips'));
     });
+  group('AgentRunController plan preview', () {
+    late Directory tmp;
+    late AppDatabase db;
+    late String input;
+    late Directory outDir;
+    late List<EditOperation> applied;
+
+    setUp(() async {
+      tmp = await Directory.systemTemp.createTemp('clipmind_plan_');
+      db = AppDatabase(NativeDatabase.memory());
+      input = (File('${tmp.path}/in.mp4')..writeAsStringSync('src')).path;
+      outDir = Directory('${tmp.path}/out')..createSync();
+      applied = [];
+    });
+
+    tearDown(() async {
+      await tmp.delete(recursive: true);
+      await db.close();
+    });
+
+    _ScriptTools makePlanScript() => _ScriptTools([
+          const AgentTurnResult(
+            toolCalls: [
+              AgentToolCall(
+                id: 'c1',
+                name: 'trim_clip',
+                args: {
+                  'clip_id': 'clip_1',
+                  'start': '00:00:05.000',
+                  'end': '00:00:15.000',
+                },
+              ),
+              AgentToolCall(
+                id: 'c2',
+                name: 'mute_clip',
+                args: {'clip_id': 'clip_1'},
+              ),
+            ],
+            stopReason: AgentTurnStopReason.toolCalls,
+          ),
+          const AgentTurnResult(
+            text: 'Planned two edits.',
+            stopReason: AgentTurnStopReason.stop,
+          ),
+        ]);
+
+    Future<ProviderContainer> makePlanContainer({
+      AgentEditApplier? applier,
+    }) async {
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          ffmpegServiceProvider.overrideWithValue(_FakeFfmpeg()),
+          providerRegistryProvider.overrideWithValue(
+            _FakeRegistry(makePlanScript()),
+          ),
+          projectMetadataProvider.overrideWith((ref) async => null),
+          agentEditApplierProvider.overrideWithValue(
+            applier ??
+                AgentEditApplier(onApply: (op, path) async {
+                  applied.add(op);
+                }),
+          ),
+        ],
+      );
+      container.read(projectProvider.notifier).setProject(
+            _project(input, outDir.path),
+          );
+      for (var i = 0; i < 200; i++) {
+        if (container.read(settingsProvider).valueOrNull != null) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      await container.read(settingsProvider.notifier).update(
+            container
+                .read(settingsProvider)
+                .valueOrNull!
+                .copyWith(planEditsBeforeApply: true),
+          );
+      return container;
+    }
+
+    test('dry-run parks a pending plan without executing', () async {
+      final container = await makePlanContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(agentRunControllerProvider.notifier)
+          .submit('Trim and mute');
+
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.planReady));
+      final plan = container.read(pendingPlanProvider)!;
+      expect(plan.command, equals('Trim and mute'));
+      expect(plan.projectId, equals('p1'));
+      expect(plan.calls, hasLength(2));
+      expect(
+        plan.calls.map((c) => c.name),
+        equals(['trim_clip', 'mute_clip']),
+      );
+      expect(plan.steps, hasLength(2));
+      final reply = container.read(chatMessagesProvider).last;
+      expect(reply.content, contains('Plan ready'));
+      expect(reply.status, equals(MessageStatus.needsClarification));
+      expect(reply.steps, hasLength(2));
+      // Dry run executes nothing.
+      expect(applied, isEmpty);
+      expect(container.read(currentVideoPathProvider), isNull);
+    });
+
+    test('approvePlan replays deterministically', () async {
+      final container = await makePlanContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(agentRunControllerProvider.notifier)
+          .submit('Trim and mute');
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.planReady));
+
+      await container.read(agentRunControllerProvider.notifier).approvePlan();
+
+      expect(container.read(pendingPlanProvider), isNull);
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.idle));
+      expect(applied, hasLength(2));
+      final reply = container.read(chatMessagesProvider).last;
+      expect(reply.status, equals(MessageStatus.applied));
+      expect(reply.resultingOperationIds, equals(['c1', 'c2']));
+      expect(reply.steps, hasLength(2));
+      final preview = container.read(currentVideoPathProvider);
+      expect(preview, isNotNull);
+      expect(preview!.startsWith(outDir.path), isTrue);
+    });
+
+    test('discardPlan clears with a reply', () async {
+      final container = await makePlanContainer();
+      addTearDown(container.dispose);
+
+      await container
+          .read(agentRunControllerProvider.notifier)
+          .submit('Trim and mute');
+      expect(container.read(pendingPlanProvider), isNotNull);
+
+      await container.read(agentRunControllerProvider.notifier).discardPlan();
+
+      expect(container.read(pendingPlanProvider), isNull);
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.idle));
+      expect(
+        container.read(chatMessagesProvider).last.content,
+        equals('Plan discarded.'),
+      );
+      expect(applied, isEmpty);
+    });
+
+    test('cancel during replay keeps applied edits', () async {
+      final gate = Completer<void>();
+      final container = await makePlanContainer(
+        applier: AgentEditApplier(onApply: (op, path) async {
+          applied.add(op);
+          await gate.future;
+        }),
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(agentRunControllerProvider.notifier)
+          .submit('Trim and mute');
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.planReady));
+
+      final replay = container
+          .read(agentRunControllerProvider.notifier)
+          .approvePlan();
+      while (applied.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      container.read(agentRunControllerProvider.notifier).cancel();
+      gate.complete();
+      await replay;
+
+      expect(applied, hasLength(1));
+      expect(
+        container.read(chatMessagesProvider).last.content,
+        contains('Cancelled'),
+      );
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.idle));
+    });
+
+    test('first submit awaits settings load for the plan flag', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final loadGate = Completer<void>();
+      final pipeline = _CapturingPipeline()
+        ..result = const SubmitResult(
+          status: SubmitStatus.success,
+          message: 'Planned.',
+          records: [
+            AgentToolCallRecord(
+              id: 'c1',
+              name: 'trim_clip',
+              args: {'clip_id': 'clip_1'},
+              success: true,
+              summary: 'Trim planned.',
+            ),
+          ],
+        );
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(
+            _GatedSettingsRepo(loadGate),
+          ),
+          nl2vecPipelineProvider.overrideWithValue(pipeline),
+          providerRegistryProvider.overrideWithValue(_FakeRegistry(
+            _LegacyStub(
+              const EditOperationSet(operations: [], summary: 'noop'),
+            ),
+          )),
+          projectMetadataProvider.overrideWith((ref) async => null),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(projectProvider.notifier).setProject(
+            _project('/v/in.mp4', '/out'),
+          );
+
+      final run = container
+          .read(agentRunControllerProvider.notifier)
+          .submit('Trim it');
+      // Settings still loading: submit must park here, not race ahead
+      // with the default (planEditsBeforeApply: false).
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(pipeline.seenDryRun, isNull);
+      loadGate.complete();
+      await run;
+
+      expect(pipeline.seenDryRun, isTrue);
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.planReady));
+      expect(
+        container.read(pendingPlanProvider)!.calls.map((c) => c.name),
+        equals(['trim_clip']),
+      );
+    });
+  });
   });
 }
-
 

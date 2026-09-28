@@ -18,12 +18,20 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
 class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
   final SettingsRepository _repository;
 
+  /// Completes with the loaded settings. Await this before reading
+  /// settings-dependent flags on cold start (first submit would otherwise
+  /// see defaults while the JSON file is still loading). Cached: awaiting
+  /// after the first load returns immediately.
+  late final Future<AppSettings> ready;
+
   SettingsNotifier(this._repository) : super(const AsyncValue.loading()) {
-    _load();
+    ready = _load();
   }
 
-  Future<void> _load() async {
-    state = AsyncValue.data(await _repository.load());
+  Future<AppSettings> _load() async {
+    final settings = await _repository.load();
+    state = AsyncValue.data(settings);
+    return settings;
   }
 
   Future<void> update(AppSettings settings) async {

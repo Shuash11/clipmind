@@ -27,9 +27,9 @@ class _ImportSourceCardState extends State<ImportSourceCard> {
   Color get _accent {
     switch (widget.source) {
       case 'youtube':
-        return const Color(0xFFFF5C6C);
+        return ClipMindColors.brandYoutube;
       case 'gdrive':
-        return const Color(0xFF35C779);
+        return ClipMindColors.brandDrive;
       default:
         return ClipMindColors.accentPrimary;
     }

@@ -6,12 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
+import 'package:clipmind/data/models/app_settings.dart';
 import 'package:clipmind/data/models/chat_message.dart';
 import 'package:clipmind/data/models/chat_step.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/track.dart';
+import 'package:clipmind/data/repositories/settings_repository.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
@@ -22,6 +24,7 @@ import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/presentation/editor/widgets/agent_chat/agent_chat_panel.dart';
 import 'package:clipmind/presentation/editor/widgets/agent_chat/agent_steps_view.dart';
 import 'package:clipmind/presentation/editor/widgets/agent_chat/chat_bubble.dart';
@@ -78,6 +81,7 @@ class _GatePipeline extends Nl2VecPipeline {
     Project Function()? liveProject,
     CancellationToken? cancellation,
     ConfirmationGate? gate,
+    bool dryRun = false,
   }) async {
     calls++;
     await this.gate.future;
@@ -113,6 +117,7 @@ class _ConfirmingPipeline extends Nl2VecPipeline {
     Project Function()? liveProject,
     CancellationToken? cancellation,
     ConfirmationGate? gate,
+    bool dryRun = false,
   }) async {
     calls++;
     final approved = await gate!.ask(request);
@@ -124,6 +129,61 @@ class _ConfirmingPipeline extends Nl2VecPipeline {
     }
     return result;
   }
+}
+
+/// Plan-preview pipeline double: returns a dry-run result with edit-tool
+/// records for the plan card, and records `executePlanned` replays.
+class _PlanningPipeline extends Nl2VecPipeline {
+  final SubmitResult dryRunResult;
+  final SubmitResult plannedResult;
+  int planned = 0;
+
+  _PlanningPipeline({required this.dryRunResult, required this.plannedResult})
+      : super(ffmpegService: FfmpegService());
+
+  @override
+  Future<SubmitResult> submitCommand(
+    String text,
+    Project project, {
+    LlmProvider? provider,
+    VideoMetadata? metadata,
+    List<AgentRequest>? recentHistory,
+    AgentEditApplier? applier,
+    Project Function()? liveProject,
+    CancellationToken? cancellation,
+    ConfirmationGate? gate,
+    bool dryRun = false,
+  }) async {
+    return dryRunResult;
+  }
+
+  @override
+  Future<SubmitResult> executePlanned(
+    List<ToolCall> plannedCalls,
+    Project project, {
+    AgentEditApplier? applier,
+    Project Function()? liveProject,
+    CancellationToken? cancellation,
+  }) async {
+    planned++;
+    return plannedResult;
+  }
+}
+
+/// Settings repository double: never touches the platform (real settings
+/// load hangs in the widget-test sandbox), records saves.
+class _FakeSettingsRepository extends SettingsRepository {
+  int saves = 0;
+
+  final AppSettings settings;
+
+  _FakeSettingsRepository({this.settings = const AppSettings()});
+
+  @override
+  Future<AppSettings> load() async => settings;
+
+  @override
+  Future<void> save(AppSettings settings) async => saves++;
 }
 
 Project _project() {
@@ -203,10 +263,18 @@ void main() {
     ProviderContainer makeContainer({
       required Nl2VecPipeline pipeline,
       LlmProvider? active,
+      bool planPreview = false,
     }) {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWith(
+            (ref) => _FakeSettingsRepository(
+              settings: planPreview
+                  ? const AppSettings(planEditsBeforeApply: true)
+                  : const AppSettings(),
+            ),
+          ),
           nl2vecPipelineProvider.overrideWithValue(pipeline),
           providerRegistryProvider.overrideWithValue(
             _FakeRegistry(active ?? _StubProvider()),
@@ -563,6 +631,234 @@ void main() {
       });
     });
 
+    group('plan card', () {
+      const dryRunSteps = [
+        ChatStep(
+          toolCallId: 'call_1',
+          toolName: 'trim_clip',
+          args: {
+            'clip_id': 'clip_1',
+            'start': '00:00:00.000',
+            'end': '00:00:05.000',
+          },
+          summary: 'Would trim clip.',
+          success: true,
+          durationMs: 3,
+          kind: ChatStepKind.edit,
+        ),
+        ChatStep(
+          toolCallId: 'call_2',
+          toolName: 'mute_clip',
+          args: {'clip_id': 'clip_1'},
+          summary: 'Would mute clip.',
+          success: true,
+          durationMs: 2,
+          kind: ChatStepKind.edit,
+        ),
+      ];
+
+      PendingPlan planRequest() => const PendingPlan(
+            command: 'Trim the first 5 seconds',
+            projectId: 'p1',
+            steps: dryRunSteps,
+            calls: [
+              ToolCall(id: 'call_1', name: 'trim_clip', args: {
+                'clip_id': 'clip_1',
+                'start': '00:00:00.000',
+                'end': '00:00:05.000',
+              }),
+              ToolCall(id: 'call_2', name: 'mute_clip', args: {'clip_id': 'clip_1'}),
+            ],
+          );
+
+      /// Park the run in planReady with a pending plan (the dry-run
+      /// outcome) so the panel's plan-card rendering is exercised.
+      void parkPlan(ProviderContainer container) {
+        container.read(agentRunControllerProvider.notifier).state =
+            AgentRunState.planReady;
+        container.read(pendingPlanProvider.notifier).set(planRequest());
+      }
+
+      SubmitResult makePlanned() => SubmitResult(
+            status: SubmitStatus.success,
+            message: 'Applied 2 edit(s).',
+            appliedOperations: [
+              EditOperation(
+                id: 'call_1',
+                type: EditOperationType.trim,
+                targetClipIds: const ['clip_1'],
+                createdAt: DateTime(2026, 1, 1),
+              ),
+              EditOperation(
+                id: 'call_2',
+                type: EditOperationType.mute,
+                targetClipIds: const ['clip_1'],
+                createdAt: DateTime(2026, 1, 1),
+              ),
+            ],
+          );
+
+      testWidgets('plan card renders on planReady with planned steps', (
+        WidgetTester tester,
+      ) async {
+        final pipeline = _PlanningPipeline(
+          dryRunResult: const SubmitResult(
+            status: SubmitStatus.success,
+            message: 'Plan ready.',
+          ),
+          plannedResult: makePlanned(),
+        );
+        final container = makeContainer(pipeline: pipeline);
+        addTearDown(container.dispose);
+        await pumpPanel(tester, container);
+        parkPlan(container);
+        await tester.pump();
+
+        expect(
+          container.read(agentRunControllerProvider),
+          equals(AgentRunState.planReady),
+        );
+        final plan = container.read(pendingPlanProvider);
+        expect(plan, isNotNull);
+        expect(plan!.steps, hasLength(2));
+        expect(find.byKey(const ValueKey('agent-plan-card')), findsOneWidget);
+        expect(find.text('Edit plan — 2 steps'), findsOneWidget);
+        expect(find.text('Would trim clip.'), findsOneWidget);
+        expect(find.text('Would mute clip.'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('agent-plan-approve')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('agent-plan-discard')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('agent-plan-approve')));
+        await _settle(tester);
+        await tester.pump();
+
+        // The REAL approvePlan ran: the recorded calls replayed through
+        // the pipeline double, the plan cleared and the reply posted. The
+        // widget-test sandbox defers the final idle transition (it lands
+        // in the reply save's tail) — the Discard test covers the sync
+        // path back to idle.
+        expect(pipeline.planned, equals(1));
+        expect(container.read(pendingPlanProvider), isNull);
+        expect(find.textContaining('Applied 2 edit(s)'), findsWidgets);
+        expect(find.byKey(const ValueKey('agent-plan-card')), findsNothing);
+      });
+
+      testWidgets('plan card Discard drops the plan', (
+        WidgetTester tester,
+      ) async {
+        final pipeline = _PlanningPipeline(
+          dryRunResult: const SubmitResult(
+            status: SubmitStatus.success,
+            message: 'Plan ready.',
+          ),
+          plannedResult: makePlanned(),
+        );
+        final container = makeContainer(pipeline: pipeline);
+        addTearDown(container.dispose);
+        await pumpPanel(tester, container);
+        parkPlan(container);
+        await tester.pump();
+        expect(
+          container.read(agentRunControllerProvider),
+          equals(AgentRunState.planReady),
+        );
+
+        await tester.tap(find.byKey(const ValueKey('agent-plan-discard')));
+        await _settle(tester);
+
+        expect(pipeline.planned, equals(0));
+        expect(
+          container.read(agentRunControllerProvider),
+          equals(AgentRunState.idle),
+        );
+        expect(container.read(pendingPlanProvider), isNull);
+        expect(find.text('Plan discarded.'), findsOneWidget);
+      });
+
+      testWidgets('no overflow with the plan card at 340px', (
+        WidgetTester tester,
+      ) async {
+        final longArgs = {
+          'clip_id': 'clip_1',
+          'text': 'X' * 160,
+          'position': 'center',
+        };
+        final plan = PendingPlan(
+          command: 'Overlay long text',
+          projectId: 'p1',
+          steps: [
+            for (var i = 1; i <= 6; i++)
+              ChatStep(
+                toolCallId: 'call_$i',
+                toolName: 'overlay_text',
+                args: longArgs,
+                summary: 'Would overlay the text near the top left corner',
+                success: true,
+                durationMs: 1200,
+                kind: ChatStepKind.edit,
+              ),
+          ],
+          calls: const [],
+        );
+        final pipeline = _PlanningPipeline(
+          dryRunResult: const SubmitResult(
+            status: SubmitStatus.success,
+            message: 'Plan ready.',
+          ),
+          plannedResult: makePlanned(),
+        );
+        final container = makeContainer(pipeline: pipeline);
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(
+              home: Scaffold(
+                body: SizedBox(width: 340, child: AgentChatPanel()),
+              ),
+            ),
+          ),
+        );
+        // A user message exists in the real flow (the plan follows a
+        // submit); it also hides the suggested prompts so the plan card's
+        // space matches production.
+        container.read(chatMessagesProvider.notifier).add(
+              ChatMessage(
+                id: 'm1',
+                role: ChatRole.user,
+                content: 'Overlay long text',
+                timestamp: DateTime(2026, 1, 1),
+              ),
+            );
+        container.read(agentRunControllerProvider.notifier).state =
+            AgentRunState.planReady;
+        container.read(pendingPlanProvider.notifier).set(plan);
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('agent-plan-card')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        final stepTexts = tester.widgetList<Text>(
+          find.descendant(
+            of: find.byType(AgentStepRow),
+            matching: find.byType(Text),
+          ),
+        );
+        expect(
+          stepTexts.any((t) => t.overflow == TextOverflow.ellipsis),
+          isTrue,
+        );
+      });
+    });
+
     testWidgets('no overflow in the 340px panel during a busy run', (
       WidgetTester tester,
     ) async {
@@ -739,3 +1035,4 @@ void main() {
     });
   });
 }
+

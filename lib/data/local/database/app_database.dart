@@ -54,12 +54,32 @@ class EditHistory extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Projects, ChatMessages, EditHistory])
+/// Cached media-analysis payloads (Phase 6a).
+///
+/// One row per (`projectId`, `kind`) pair; `kind` is namespaced such as
+/// `scenes:<clipId>` or `transcript:<clipId>`. `sourcePath` stamps the media
+/// the payload was computed from so readers can invalidate the cache when
+/// the file changes. `payload` is a JSON object. The `Project` model stays
+/// unchanged — analysis lives in this extensible side table.
+@DataClassName('MediaAnalysisRow')
+class MediaAnalysis extends Table {
+  TextColumn get id => text()();
+  TextColumn get projectId => text()();
+  TextColumn get kind => text()();
+  TextColumn get sourcePath => text()();
+  TextColumn get payload => text()();
+  IntColumn get createdAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Projects, ChatMessages, EditHistory, MediaAnalysis])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -75,6 +95,9 @@ class AppDatabase extends _$AppDatabase {
           chatMessages,
           chatMessages.resultingOperationIds,
         );
+      }
+      if (from < 4) {
+        await m.createTable(mediaAnalysis);
       }
     },
   );
@@ -213,6 +236,55 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteEditHistory(String projectId) async {
     await (delete(
       editHistory,
+    )..where((t) => t.projectId.equals(projectId))).go();
+  }
+
+  // Media Analysis DAOs (Phase 6a: scene + transcript cache)
+
+  /// Upsert one analysis payload. The row id is `$projectId:$kind`.
+  Future<void> saveAnalysis({
+    required String projectId,
+    required String kind,
+    required String sourcePath,
+    required Map<String, dynamic> payload,
+  }) async {
+    await into(mediaAnalysis).insertOnConflictUpdate(
+      MediaAnalysisRow(
+        id: '$projectId:$kind',
+        projectId: projectId,
+        kind: kind,
+        sourcePath: sourcePath,
+        payload: jsonEncode(payload),
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+  }
+
+  /// Latest cached payload for (`projectId`, `kind`), or null.
+  Future<MediaAnalysisRow?> getAnalysis(String projectId, String kind) async {
+    return (select(
+      mediaAnalysis,
+    )..where((t) => t.id.equals('$projectId:$kind'))).getSingleOrNull();
+  }
+
+  /// Decode the cached JSON payload, or null when absent/corrupt.
+  Future<Map<String, dynamic>?> getAnalysisPayload(
+    String projectId,
+    String kind,
+  ) async {
+    final row = await getAnalysis(projectId, kind);
+    if (row == null || row.payload.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(row.payload);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> deleteAnalysis(String projectId) async {
+    await (delete(
+      mediaAnalysis,
     )..where((t) => t.projectId.equals(projectId))).go();
   }
 

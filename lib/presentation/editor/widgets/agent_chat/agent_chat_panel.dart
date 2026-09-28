@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/domain/agent/agent_confirmation.dart';
 import 'package:clipmind/state/agent_providers.dart';
@@ -12,8 +14,8 @@ import 'model_selector_dropdown.dart';
 import 'suggested_prompt_chip.dart';
 
 /// Dumb view over [AgentRunController]: submits commands, shows busy/cancel
-/// state, the live tool-call pipeline and the confirmation bar. All run
-/// logic lives in state.
+/// state, the live tool-call pipeline, the plan card and the confirmation
+/// bar. All run logic lives in state.
 class AgentChatPanel extends ConsumerStatefulWidget {
   const AgentChatPanel({super.key});
 
@@ -61,7 +63,9 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
     final messages = ref.watch(chatMessagesProvider);
     final runState = ref.watch(agentRunControllerProvider);
     final isBusy = runState == AgentRunState.running;
+    final isPlanReady = runState == AgentRunState.planReady;
     final pending = ref.watch(pendingConfirmationProvider);
+    final plan = ref.watch(pendingPlanProvider);
 
     return Container(
       decoration: const BoxDecoration(
@@ -131,6 +135,19 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
                 onAnswer: (approved) => ref
                     .read(agentRunControllerProvider.notifier)
                     .approvePendingConfirmation(approved),
+              ),
+            ),
+          if (isPlanReady && plan != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: _PlanCard(
+                plan: plan,
+                onApprove: () => unawaited(
+                  ref.read(agentRunControllerProvider.notifier).approvePlan(),
+                ),
+                onDiscard: () => unawaited(
+                  ref.read(agentRunControllerProvider.notifier).discardPlan(),
+                ),
               ),
             ),
           Container(
@@ -307,6 +324,106 @@ class _ConfirmBar extends StatelessWidget {
                   ),
                   onPressed: () => onAnswer(false),
                   child: Text(isBulk ? 'Skip' : 'Deny'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// In-panel plan card for a dry-run awaiting review: the planned steps
+/// plus an Approve/Discard bar. Visually distinct from the per-round
+/// confirm bar (plan-level review, same tokens).
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.plan,
+    required this.onApprove,
+    required this.onDiscard,
+  });
+
+  final PendingPlan plan;
+  final VoidCallback onApprove;
+  final VoidCallback onDiscard;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = plan.steps.length;
+
+    return Container(
+      key: const ValueKey('agent-plan-card'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ClipMindColors.accentPrimary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: ClipMindColors.accentPrimary.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.playlist_add_check_rounded,
+                size: 14,
+                color: ClipMindColors.accentPrimary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Edit plan — $count step${count == 1 ? '' : 's'}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: ClipMindColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 180),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final step in plan.steps)
+                    AgentStepRow(step: AgentStepData.fromChatStep(step)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: ClipMindColors.accentPrimary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: TextButton(
+                    key: const ValueKey('agent-plan-approve'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: ClipMindColors.bgBase,
+                    ),
+                    onPressed: onApprove,
+                    child: const Text('Approve'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  key: const ValueKey('agent-plan-discard'),
+                  onPressed: onDiscard,
+                  child: const Text('Discard'),
                 ),
               ),
             ],

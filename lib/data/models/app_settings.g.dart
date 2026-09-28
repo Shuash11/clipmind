@@ -20,6 +20,10 @@ _$AppSettingsImpl _$$AppSettingsImplFromJson(Map<String, dynamic> json) =>
             (k, e) => MapEntry(k, e as String),
           ) ??
           const {},
+      confirmAgentEdits: json['confirmAgentEdits'] as bool? ?? false,
+      planEditsBeforeApply: json['planEditsBeforeApply'] as bool? ?? false,
+      whisperBinaryPath: json['whisperBinaryPath'] as String? ?? '',
+      whisperModelPath: json['whisperModelPath'] as String? ?? '',
     );
 
 Map<String, dynamic> _$$AppSettingsImplToJson(_$AppSettingsImpl instance) =>
@@ -29,6 +33,10 @@ Map<String, dynamic> _$$AppSettingsImplToJson(_$AppSettingsImpl instance) =>
       'ollamaEndpoint': instance.ollamaEndpoint,
       'theme': _$ThemeModePreferenceEnumMap[instance.theme]!,
       'outputFormatDefaults': instance.outputFormatDefaults,
+      'confirmAgentEdits': instance.confirmAgentEdits,
+      'planEditsBeforeApply': instance.planEditsBeforeApply,
+      'whisperBinaryPath': instance.whisperBinaryPath,
+      'whisperModelPath': instance.whisperModelPath,
     };
 
 const _$ThemeModePreferenceEnumMap = {

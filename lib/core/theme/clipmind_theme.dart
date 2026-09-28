@@ -27,6 +27,9 @@ class ClipMindColors {
   static const Color statusReady = Color(0xFF35C779);
   static const Color statusError = Color(0xFFFF5C6C);
   static const Color statusWarning = Color(0xFFE7B84E);
+  // Brand accents (import-source cards): the two allowed non-palette hues.
+  static const Color brandYoutube = Color(0xFFFF5C6C);
+  static const Color brandDrive = Color(0xFF35C779);
 }
 
 class ClipMindTheme {

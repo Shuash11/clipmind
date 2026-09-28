@@ -13,6 +13,10 @@ class AppSettings with _$AppSettings {
     @Default('http://localhost:11434') String ollamaEndpoint,
     @Default(ThemeModePreference.dark) ThemeModePreference theme,
     @Default({}) Map<String, String> outputFormatDefaults,
+    @Default(false) bool confirmAgentEdits,
+    @Default(false) bool planEditsBeforeApply,
+    @Default('') String whisperBinaryPath,
+    @Default('') String whisperModelPath,
   }) = _AppSettings;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) =>

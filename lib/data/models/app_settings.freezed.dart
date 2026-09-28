@@ -27,6 +27,10 @@ mixin _$AppSettings {
   ThemeModePreference get theme => throw _privateConstructorUsedError;
   Map<String, String> get outputFormatDefaults =>
       throw _privateConstructorUsedError;
+  bool get confirmAgentEdits => throw _privateConstructorUsedError;
+  bool get planEditsBeforeApply => throw _privateConstructorUsedError;
+  String get whisperBinaryPath => throw _privateConstructorUsedError;
+  String get whisperModelPath => throw _privateConstructorUsedError;
 
   /// Serializes this AppSettings to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -51,6 +55,10 @@ abstract class $AppSettingsCopyWith<$Res> {
     String ollamaEndpoint,
     ThemeModePreference theme,
     Map<String, String> outputFormatDefaults,
+    bool confirmAgentEdits,
+    bool planEditsBeforeApply,
+    String whisperBinaryPath,
+    String whisperModelPath,
   });
 }
 
@@ -74,6 +82,10 @@ class _$AppSettingsCopyWithImpl<$Res, $Val extends AppSettings>
     Object? ollamaEndpoint = null,
     Object? theme = null,
     Object? outputFormatDefaults = null,
+    Object? confirmAgentEdits = null,
+    Object? planEditsBeforeApply = null,
+    Object? whisperBinaryPath = null,
+    Object? whisperModelPath = null,
   }) {
     return _then(
       _value.copyWith(
@@ -97,6 +109,22 @@ class _$AppSettingsCopyWithImpl<$Res, $Val extends AppSettings>
                 ? _value.outputFormatDefaults
                 : outputFormatDefaults // ignore: cast_nullable_to_non_nullable
                       as Map<String, String>,
+            confirmAgentEdits: null == confirmAgentEdits
+                ? _value.confirmAgentEdits
+                : confirmAgentEdits // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            planEditsBeforeApply: null == planEditsBeforeApply
+                ? _value.planEditsBeforeApply
+                : planEditsBeforeApply // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            whisperBinaryPath: null == whisperBinaryPath
+                ? _value.whisperBinaryPath
+                : whisperBinaryPath // ignore: cast_nullable_to_non_nullable
+                      as String,
+            whisperModelPath: null == whisperModelPath
+                ? _value.whisperModelPath
+                : whisperModelPath // ignore: cast_nullable_to_non_nullable
+                      as String,
           )
           as $Val,
     );
@@ -118,6 +146,10 @@ abstract class _$$AppSettingsImplCopyWith<$Res>
     String ollamaEndpoint,
     ThemeModePreference theme,
     Map<String, String> outputFormatDefaults,
+    bool confirmAgentEdits,
+    bool planEditsBeforeApply,
+    String whisperBinaryPath,
+    String whisperModelPath,
   });
 }
 
@@ -140,6 +172,10 @@ class __$$AppSettingsImplCopyWithImpl<$Res>
     Object? ollamaEndpoint = null,
     Object? theme = null,
     Object? outputFormatDefaults = null,
+    Object? confirmAgentEdits = null,
+    Object? planEditsBeforeApply = null,
+    Object? whisperBinaryPath = null,
+    Object? whisperModelPath = null,
   }) {
     return _then(
       _$AppSettingsImpl(
@@ -163,6 +199,22 @@ class __$$AppSettingsImplCopyWithImpl<$Res>
             ? _value._outputFormatDefaults
             : outputFormatDefaults // ignore: cast_nullable_to_non_nullable
                   as Map<String, String>,
+        confirmAgentEdits: null == confirmAgentEdits
+            ? _value.confirmAgentEdits
+            : confirmAgentEdits // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        planEditsBeforeApply: null == planEditsBeforeApply
+            ? _value.planEditsBeforeApply
+            : planEditsBeforeApply // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        whisperBinaryPath: null == whisperBinaryPath
+            ? _value.whisperBinaryPath
+            : whisperBinaryPath // ignore: cast_nullable_to_non_nullable
+                  as String,
+        whisperModelPath: null == whisperModelPath
+            ? _value.whisperModelPath
+            : whisperModelPath // ignore: cast_nullable_to_non_nullable
+                  as String,
       ),
     );
   }
@@ -177,6 +229,10 @@ class _$AppSettingsImpl implements _AppSettings {
     this.ollamaEndpoint = 'http://localhost:11434',
     this.theme = ThemeModePreference.dark,
     final Map<String, String> outputFormatDefaults = const {},
+    this.confirmAgentEdits = false,
+    this.planEditsBeforeApply = false,
+    this.whisperBinaryPath = '',
+    this.whisperModelPath = '',
   }) : _outputFormatDefaults = outputFormatDefaults;
 
   factory _$AppSettingsImpl.fromJson(Map<String, dynamic> json) =>
@@ -205,8 +261,21 @@ class _$AppSettingsImpl implements _AppSettings {
   }
 
   @override
+  @JsonKey()
+  final bool confirmAgentEdits;
+  @override
+  @JsonKey()
+  final bool planEditsBeforeApply;
+  @override
+  @JsonKey()
+  final String whisperBinaryPath;
+  @override
+  @JsonKey()
+  final String whisperModelPath;
+
+  @override
   String toString() {
-    return 'AppSettings(activeProviderId: $activeProviderId, activeModel: $activeModel, ollamaEndpoint: $ollamaEndpoint, theme: $theme, outputFormatDefaults: $outputFormatDefaults)';
+    return 'AppSettings(activeProviderId: $activeProviderId, activeModel: $activeModel, ollamaEndpoint: $ollamaEndpoint, theme: $theme, outputFormatDefaults: $outputFormatDefaults, confirmAgentEdits: $confirmAgentEdits, planEditsBeforeApply: $planEditsBeforeApply, whisperBinaryPath: $whisperBinaryPath, whisperModelPath: $whisperModelPath)';
   }
 
   @override
@@ -224,7 +293,15 @@ class _$AppSettingsImpl implements _AppSettings {
             const DeepCollectionEquality().equals(
               other._outputFormatDefaults,
               _outputFormatDefaults,
-            ));
+            ) &&
+            (identical(other.confirmAgentEdits, confirmAgentEdits) ||
+                other.confirmAgentEdits == confirmAgentEdits) &&
+            (identical(other.planEditsBeforeApply, planEditsBeforeApply) ||
+                other.planEditsBeforeApply == planEditsBeforeApply) &&
+            (identical(other.whisperBinaryPath, whisperBinaryPath) ||
+                other.whisperBinaryPath == whisperBinaryPath) &&
+            (identical(other.whisperModelPath, whisperModelPath) ||
+                other.whisperModelPath == whisperModelPath));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -236,6 +313,10 @@ class _$AppSettingsImpl implements _AppSettings {
     ollamaEndpoint,
     theme,
     const DeepCollectionEquality().hash(_outputFormatDefaults),
+    confirmAgentEdits,
+    planEditsBeforeApply,
+    whisperBinaryPath,
+    whisperModelPath,
   );
 
   /// Create a copy of AppSettings
@@ -259,6 +340,10 @@ abstract class _AppSettings implements AppSettings {
     final String ollamaEndpoint,
     final ThemeModePreference theme,
     final Map<String, String> outputFormatDefaults,
+    final bool confirmAgentEdits,
+    final bool planEditsBeforeApply,
+    final String whisperBinaryPath,
+    final String whisperModelPath,
   }) = _$AppSettingsImpl;
 
   factory _AppSettings.fromJson(Map<String, dynamic> json) =
@@ -274,6 +359,14 @@ abstract class _AppSettings implements AppSettings {
   ThemeModePreference get theme;
   @override
   Map<String, String> get outputFormatDefaults;
+  @override
+  bool get confirmAgentEdits;
+  @override
+  bool get planEditsBeforeApply;
+  @override
+  String get whisperBinaryPath;
+  @override
+  String get whisperModelPath;
 
   /// Create a copy of AppSettings
   /// with the given fields replaced by the non-null parameter values.

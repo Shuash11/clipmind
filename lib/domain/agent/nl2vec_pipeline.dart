@@ -20,6 +20,7 @@ import 'stage_5_command_mapping.dart';
 import 'stage_6_execution.dart';
 import 'operation_schema.dart';
 import 'tool_calling_agent.dart';
+import 'tools/tool_definition.dart';
 import 'tools/tool_executors.dart';
 
 enum PipelineStage {
@@ -83,6 +84,7 @@ class Nl2VecPipeline {
     Project Function()? liveProject,
     CancellationToken? cancellation,
     ConfirmationGate? gate,
+    bool dryRun = false,
   }) async {
     if (provider == null) {
       const result = SubmitResult(
@@ -120,6 +122,12 @@ class Nl2VecPipeline {
           liveProject: liveProject,
           cancellation: cancellation,
           gate: gate,
+          dryRun: dryRun,
+        );
+      }
+      if (dryRun) {
+        throw const PipelineException(
+          'Plan preview needs a tool-capable provider.',
         );
       }
 
@@ -265,6 +273,129 @@ class Nl2VecPipeline {
   ///
   /// Reads live project state per tool call via [liveProject] (falling back
   /// to the static [project]) so the agent edits against live ground truth.
+  /// Deterministic plan replay (Phase 6d): executes recorded edit-tool
+  /// calls straight through the registry with a real context — no new LLM
+  /// call. Non-edit names are skipped with a failure record. The controller
+  /// maps [SubmitResult.appliedOperations] to the reply's
+  /// `resultingOperationIds`.
+  Future<SubmitResult> executePlanned(
+    List<ToolCall> planned,
+    Project project, {
+    AgentEditApplier? applier,
+    Project Function()? liveProject,
+    CancellationToken? cancellation,
+  }) {
+    return _executeWithEvents(() async {
+      _events.add(
+        const PipelineEvent(PipelineStage.applying, 'Applying planned edits...'),
+      );
+      final ctx = _toolContext(
+        project: project,
+        applier: applier,
+        liveProject: liveProject,
+        cancellation: cancellation,
+        dryRun: false,
+      );
+      final registry = createToolRegistry(ctx);
+      final records = <AgentToolCallRecord>[];
+      for (final call in planned) {
+        if (cancellation?.isCancelled == true) {
+          return SubmitResult(
+            status: SubmitStatus.cancelled,
+            message: 'Cancelled — ${ctx.appliedOperations.length} edit(s) applied.',
+            appliedOperations: List.of(ctx.appliedOperations),
+            outputPath: ctx.outputPaths.isEmpty
+                ? null
+                : ctx.outputPaths.first,
+            records: List.unmodifiable(records),
+          );
+        }
+        final def = registry.definitionFor(call.name);
+        if (def == null || def.category != ToolCategory.edit) {
+          records.add(AgentToolCallRecord(
+            id: call.id,
+            name: call.name,
+            args: call.args,
+            success: false,
+            summary: 'Skipped in replay: "${call.name}" is not an edit tool.',
+          ));
+          continue;
+        }
+        final stopwatch = Stopwatch()..start();
+        final result = await registry.executorFor(call.name)!.execute(call);
+        stopwatch.stop();
+        records.add(AgentToolCallRecord(
+          id: call.id,
+          name: call.name,
+          args: call.args,
+          success: result.success,
+          summary: result.summary,
+          durationMs: stopwatch.elapsedMilliseconds,
+        ));
+        if (!result.success) {
+          return SubmitResult(
+            status: SubmitStatus.error,
+            message: result.error.isNotEmpty
+                ? result.error
+                : result.summary,
+            appliedOperations: List.of(ctx.appliedOperations),
+            outputPath: ctx.outputPaths.isEmpty
+                ? null
+                : ctx.outputPaths.first,
+            records: List.unmodifiable(records),
+          );
+        }
+      }
+      final applied = List<EditOperation>.from(ctx.appliedOperations);
+      final outputPath =
+          ctx.outputPaths.isEmpty ? null : ctx.outputPaths.first;
+      final message = applied.isEmpty
+          ? 'Plan applied: no edits were needed.'
+          : 'Plan applied: ${applied.length} edit(s).';
+      _events.add(PipelineEvent(PipelineStage.ready, message, null, outputPath));
+      return SubmitResult(
+        status: SubmitStatus.success,
+        message: message,
+        appliedOperations: applied,
+        outputPath: outputPath,
+        records: List.unmodifiable(records),
+      );
+    });
+  }
+
+  /// Shared live-ground-truth context for the tool path and plan replay.
+  ///
+  /// In dry-run (plan-preview) mode the agent loop still reads the real
+  /// project, but edit tools return `{'planned': true, ...}` instead of
+  /// executing — every successful edit-tool record is then a planned call
+  /// the controller can replay via [executePlanned].
+  ToolExecutionContext _toolContext({
+    required Project project,
+    required AgentEditApplier? applier,
+    required Project Function()? liveProject,
+    required CancellationToken? cancellation,
+    required bool dryRun,
+  }) {
+    final Project Function() readLive = liveProject ?? () => project;
+    final clipPathMap = _buildClipPathMap(project);
+    final defaultPath = _resolveDefaultPath(project, clipPathMap);
+    if (defaultPath == null) {
+      throw const PipelineException('No video file in project');
+    }
+    final outputDir = project.outputDir;
+    return ToolExecutionContext(
+      project: readLive,
+      outputDir: outputDir,
+      projectDir:
+          outputDir.trim().isNotEmpty ? outputDir : _dirOf(defaultPath),
+      applier: applier ?? AgentEditApplier(onApply: (_, _) async {}),
+      ffmpegService: ffmpegService,
+      ffprobeService: ffprobeService,
+      cancellation: cancellation,
+      dryRun: dryRun,
+    );
+  }
+
   Future<SubmitResult> _runToolPath({
     required Project project,
     required LlmProvider provider,
@@ -274,25 +405,16 @@ class Nl2VecPipeline {
     required Project Function()? liveProject,
     required CancellationToken? cancellation,
     required ConfirmationGate? gate,
+    bool dryRun = false,
   }) async {
     _events.add(const PipelineEvent(PipelineStage.thinking, 'Planning with tools...'));
 
-    final Project Function() readLive = liveProject ?? () => project;
-    final clipPathMap = _buildClipPathMap(project);
-    final defaultPath = _resolveDefaultPath(project, clipPathMap);
-    if (defaultPath == null) {
-      throw const PipelineException('No video file in project');
-    }
-    final outputDir = project.outputDir;
-    final ctx = ToolExecutionContext(
-      project: readLive,
-      outputDir: outputDir,
-      projectDir:
-          outputDir.trim().isNotEmpty ? outputDir : _dirOf(defaultPath),
-      applier: applier ?? AgentEditApplier(onApply: (_, _) async {}),
-      ffmpegService: ffmpegService,
-      ffprobeService: ffprobeService,
+    final ctx = _toolContext(
+      project: project,
+      applier: applier,
+      liveProject: liveProject,
       cancellation: cancellation,
+      dryRun: dryRun,
     );
     final agent = ToolCallingAgent(provider: provider, context: ctx);
     final forward = agent.activityEvents.listen(_agentActivity.add);

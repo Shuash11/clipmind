@@ -1,8 +1,8 @@
 import 'tool_definition.dart';
 
-/// Curated tool surface for the agentic loop (D4).
+/// Curated tool surface for the agentic loop (D4, Phase 6a).
 ///
-/// Exactly 14 tools (< 20 per OpenAI guidance). The model references clips
+/// Exactly 17 tools (< 20 per OpenAI guidance). The model references clips
 /// by ID learned from [list_project_clips]; the app resolves file paths
 /// itself — file paths are never model-filled args.
 class ToolRegistry {
@@ -26,7 +26,7 @@ class ToolRegistry {
     _validate();
   }
 
-  /// The 14 canonical definitions.
+  /// The 17 canonical definitions.
   static List<ToolDefinition> defaultDefinitions() => _catalog;
 
   List<ToolDefinition> definitions() => _byName.values.toList();
@@ -113,6 +113,76 @@ class ToolRegistry {
         'type': 'object',
         'properties': <String, dynamic>{},
         'required': <String>[],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.read,
+    ),
+    const ToolDefinition(
+      name: 'detect_scenes',
+      description:
+          'Detect scene-change boundaries in one clip and return their start '
+          'timestamps in milliseconds. Results are cached per media file.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'clip_id': {
+            'type': 'string',
+            'description': 'Clip ID from list_project_clips.',
+          },
+          'threshold': {
+            'type': ['number', 'null'],
+            'description':
+                'Scene sensitivity 0.0-1.0 (lower = more scenes). Default 0.3.',
+          },
+          'max_scenes': {
+            'type': ['number', 'null'],
+            'description': 'Cap on returned scenes. Default 50.',
+          },
+        },
+        'required': ['clip_id', 'threshold', 'max_scenes'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.read,
+    ),
+    const ToolDefinition(
+      name: 'get_storyboard',
+      description:
+          'Summarise the project structure: clips with time ranges, cached '
+          'scene timestamps, and edit-history count. Call detect_scenes '
+          'first when scenes are missing.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'clip_id': {
+            'type': ['string', 'null'],
+            'description':
+                'Clip ID to summarise, or null for the whole project.',
+          },
+        },
+        'required': ['clip_id'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.read,
+    ),
+    const ToolDefinition(
+      name: 'get_transcript',
+      description:
+          'Transcribe one clip\'s speech to text (optional tool: fails with '
+          'setup instructions when the whisper.cpp binary/model is missing).',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'clip_id': {
+            'type': 'string',
+            'description': 'Clip ID from list_project_clips.',
+          },
+          'max_chars': {
+            'type': ['number', 'null'],
+            'description':
+                'Max transcript characters returned. Default 4000.',
+          },
+        },
+        'required': ['clip_id', 'max_chars'],
         'additionalProperties': false,
       },
       category: ToolCategory.read,
