@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_binary_resolver.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
+import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart'
+    hide providerRegistryProvider;
 import 'package:clipmind/state/agent_providers.dart';
 
 /// Resolver used by [ffmpegBinaryAvailableProvider] (overridable in tests).
@@ -13,9 +15,16 @@ final ffmpegBinaryResolverProvider = Provider<FfmpegBinaryResolver>((ref) {
 ///
 /// Never throws: with no active provider (or a failing lookup/stream) it
 /// emits [ConnectionStatus.disconnected]. Rebuilds when the registry
-/// changes; each rebuild re-subscribes (providers cancel prior health
-/// timers per `watchConnection()` call).
+/// changes and on profile activation/usable changes only (narrow select —
+/// loading/saving/discovering do not resubscribe); each rebuild
+/// re-subscribes (providers cancel prior health timers per
+/// `watchConnection()` call).
 final providerHealthProvider = StreamProvider<ConnectionStatus>((ref) async* {
+  ref.watch(
+    providerProfileNotifierProvider.select(
+      (s) => (s.activeProfileId, s.hasUsableActiveProfile),
+    ),
+  );
   LlmProvider? provider;
   try {
     provider =
