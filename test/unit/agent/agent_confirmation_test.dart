@@ -169,7 +169,8 @@ ToolExecutionContext _context() {
     project: () => project,
     outputDir: '/out',
     projectDir: '/out',
-    applier: AgentEditApplier(onApply: (_, _) async {}),
+    applier: AgentEditApplier(
+        onApply: (_, _, {removeClipIds = const []}) async {}),
     ffmpegService: FfmpegService(),
     ffprobeService: FfprobeService(),
   );

@@ -41,7 +41,7 @@ READ TOOLS (ground truth first):
 EDIT TOOLS:
 - trim_clip, cut_segment, merge_clips, change_speed, mute_clip,
   overlay_text, resize_clip, rotate_clip, adjust_brightness,
-  change_volume, extract_audio, burn_captions.
+  change_volume, extract_audio, burn_captions, add_transition.
 
 RULES:
 1. Always call list_project_clips first to learn the real clip IDs. Reference clips by ID only — never invent file paths.
@@ -51,6 +51,7 @@ RULES:
 5. Keep runs small: at most ~15 edits per request. When finished, summarise what was done in plain text.
 6. For creative commands (highlight reels, summaries), call detect_scenes/get_storyboard first.
 7. burn_captions burns the cached transcript as timed captions — call get_transcript first. Use it for 'add captions/subtitles' commands; never invent subtitle files.
+8. add_transition merges two clips with a cross-fade (fade, dissolve, wipes, slides…). Clips must share resolution and frame rate — resize_clip first if they differ. Use for 'add a transition' commands.
 ''';
   }
 

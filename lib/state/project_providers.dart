@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/repositories/project_repository.dart';
@@ -35,7 +36,17 @@ class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
   /// Appends [operation] to [Project.editHistory] and points the affected
   /// clip(s) at [newSourcePath] so [TimelineView] (which watches
   /// [projectProvider]) re-renders immediately.
-  void applyEdit(EditOperation operation, String newSourcePath) {
+  ///
+  /// [removeClipIds] drops the listed clips from their tracks (pair
+  /// replacement for `add_transition` / fixed `merge_clips`: the first clip
+  /// is repointed at the merged output, the rest are removed). Removed
+  /// clips are NOT restored by undo (null-inverse in the domain); the
+  /// [Project.editHistory] row keeps `clip_ids` traceability.
+  void applyEdit(
+    EditOperation operation,
+    String newSourcePath, {
+    List<String> removeClipIds = const [],
+  }) {
     final project = state.valueOrNull;
     if (project == null) return;
 
@@ -44,12 +55,15 @@ class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
         : const ['_default'];
 
     final updatedTracks = project.tracks.map((track) {
-      final updatedClips = track.clips.map((clip) {
+      final updatedClips = <Clip>[];
+      for (final clip in track.clips) {
+        if (removeClipIds.contains(clip.id)) continue;
         final matches = targets.contains(clip.id) ||
             (targets.contains('_default') && _isFirstClip(project, clip.id));
-        if (!matches) return clip;
-        return clip.copyWith(sourcePath: newSourcePath);
-      }).toList();
+        updatedClips.add(
+          matches ? clip.copyWith(sourcePath: newSourcePath) : clip,
+        );
+      }
       return track.copyWith(clips: updatedClips);
     }).toList();
 

@@ -144,6 +144,7 @@ class UndoRedoUseCase {
       case EditOperationType.changeFormat:
       case EditOperationType.overlayWatermark:
       case EditOperationType.burnCaptions:
+      case EditOperationType.addTransition:
         return null;
     }
   }

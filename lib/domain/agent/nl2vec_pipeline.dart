@@ -388,7 +388,9 @@ class Nl2VecPipeline {
       outputDir: outputDir,
       projectDir:
           outputDir.trim().isNotEmpty ? outputDir : _dirOf(defaultPath),
-      applier: applier ?? AgentEditApplier(onApply: (_, _) async {}),
+      applier: applier ??
+          AgentEditApplier(
+              onApply: (_, _, {removeClipIds = const []}) async {}),
       ffmpegService: ffmpegService,
       ffprobeService: ffprobeService,
       cancellation: cancellation,
@@ -582,6 +584,8 @@ class Nl2VecPipeline {
         return EditOperationType.rotate;
       case 'extract_audio':
         return EditOperationType.extractAudio;
+      case 'add_transition':
+        return EditOperationType.addTransition;
       case 'burn_captions':
         return EditOperationType.burnCaptions;
       case 'generate_thumbnail':
@@ -614,7 +618,10 @@ class Nl2VecPipeline {
                 'overlay_text', 'resize', 'rotate',
                 'extract_audio', 'generate_thumbnail', 'change_format',
                 'adjust_brightness', 'change_volume', 'overlay_watermark',
-                'burn_captions',
+                // burn_captions is agentic-only: the legacy one-shot path
+                // has no timed-transcript context and can never
+                // meaningfully produce it.
+                'add_transition',
               ],
             },
             'target_clip_id': {'type': 'string'},

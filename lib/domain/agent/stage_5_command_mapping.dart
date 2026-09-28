@@ -23,6 +23,7 @@ class CommandMapper {
 
   static const _singlePassTypes = {
     'extract_audio', 'generate_thumbnail', 'change_format', 'merge',
+    'add_transition',
   };
 
   /// Map an LLM operation set to FFmpeg jobs using real file paths.
@@ -92,6 +93,8 @@ class CommandMapper {
     for (final op in standaloneOps) {
       if (op.type == 'merge') {
         jobs.add(_buildMergeJob(op, clipPathMap, outputDir));
+      } else if (op.type == 'add_transition') {
+        jobs.add(_buildTransitionJob(op, clipPathMap, outputDir));
       } else {
         jobs.add(_buildSingleJob(op, resolve(_clipIdOf(op)), outputDir,
             projectDir: projectDir));
@@ -315,6 +318,47 @@ class CommandMapper {
     );
   }
 
+  /// Two-input cross-fade: resolves both clip IDs via the live path map
+  /// (never passes IDs to FFmpeg). Style params were validated by the
+  /// executor; safe fallbacks apply on replay.
+  static FfmpegJob _buildTransitionJob(
+    EditOperationRequest op,
+    Map<String, String> clipPathMap,
+    String outputDir,
+  ) {
+    final firstId = op.targetClipId?.toString() ?? '';
+    final secondId = op.params['second_clip_id']?.toString() ?? '';
+    final first = clipPathMap[firstId];
+    if (first == null || first.isEmpty) {
+      throw CommandMappingException(
+        'Operation "${op.id}": unknown clip "$firstId" in transition pair.',
+      );
+    }
+    final second = clipPathMap[secondId];
+    if (second == null || second.isEmpty) {
+      throw CommandMappingException(
+        'Operation "${op.id}": unknown clip "$secondId" in transition pair.',
+      );
+    }
+    final hasAudioRaw = op.params['has_audio'];
+    final args = CommandBuilder.transition(
+      first,
+      second,
+      transition: _str(op.params, 'transition', 'fade'),
+      duration: _num(op.params, 'duration', 0.5),
+      offset: _num(op.params, 'offset', 0),
+      hasAudio: hasAudioRaw is bool ? hasAudioRaw : true,
+    );
+    return FfmpegJob(
+      id: op.id,
+      args: args,
+      expectedDurationMs: 0,
+      inputPath: first,
+      outputPath:
+          _outputPathFor(outputDir, first, '${op.id}_transition', '.mp4'),
+    );
+  }
+
   static FfmpegJob _buildSingleJob(
     EditOperationRequest op,
     String inputPath,
@@ -382,10 +426,18 @@ class CommandMapper {
       case 'burn_captions':
         // The SRT path is generated app-side by the executor from the
         // cached transcript and passed as a param — never model-provided.
+        // Defense-in-depth: reject traversal even on this internal param.
+        final srtPath = _str(params, 'srt_path', '');
+        if (srtPath.contains('..')) {
+          throw CommandMappingException(
+            'Operation "${op.id}": invalid srt_path '
+            '(path traversal is not allowed).',
+          );
+        }
         final alignRaw = params['alignment'];
         args = CommandBuilder.burnCaptions(
           inputPath,
-          _str(params, 'srt_path', ''),
+          srtPath,
           fontSize: _int(params, 'font_size', 24),
           assColor: params['ass_color']?.toString(),
           alignment: alignRaw is num ? alignRaw.toInt() : null,

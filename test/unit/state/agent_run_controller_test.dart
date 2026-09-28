@@ -286,7 +286,7 @@ void main() {
           )),
           projectMetadataProvider.overrideWith((ref) async => null),
           agentEditApplierProvider.overrideWithValue(
-            AgentEditApplier(onApply: (op, path) async {
+            AgentEditApplier(onApply: (op, path, {List<String> removeClipIds = const []}) async {
               applied.add(op);
             }),
           ),
@@ -409,7 +409,7 @@ void main() {
           )),
           projectMetadataProvider.overrideWith((ref) async => null),
           agentEditApplierProvider.overrideWithValue(
-            AgentEditApplier(onApply: (_, _) async {}),
+            AgentEditApplier(onApply: (_, _, {List<String> removeClipIds = const []}) async {}),
           ),
         ],
       );
@@ -579,7 +579,7 @@ void main() {
           ),
           projectMetadataProvider.overrideWith((ref) async => null),
           agentEditApplierProvider.overrideWithValue(
-            AgentEditApplier(onApply: (_, _) async {}),
+            AgentEditApplier(onApply: (_, _, {List<String> removeClipIds = const []}) async {}),
           ),
         ],
       );
@@ -857,7 +857,7 @@ void main() {
           projectMetadataProvider.overrideWith((ref) async => null),
           agentEditApplierProvider.overrideWithValue(
             applier ??
-                AgentEditApplier(onApply: (op, path) async {
+                AgentEditApplier(onApply: (op, path, {List<String> removeClipIds = const []}) async {
                   applied.add(op);
                 }),
           ),
@@ -956,7 +956,7 @@ void main() {
     test('cancel during replay keeps applied edits', () async {
       final gate = Completer<void>();
       final container = await makePlanContainer(
-        applier: AgentEditApplier(onApply: (op, path) async {
+        applier: AgentEditApplier(onApply: (op, path, {List<String> removeClipIds = const []}) async {
           applied.add(op);
           await gate.future;
         }),
@@ -1044,5 +1044,7 @@ void main() {
     });
   });
 }
+
+
 
 

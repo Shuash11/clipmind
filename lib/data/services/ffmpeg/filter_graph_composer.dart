@@ -44,7 +44,10 @@ class FilterGraphComposer {
         trimOp = op;
       } else if (op.type == EditOperationType.merge ||
           op.type == EditOperationType.extractAudio ||
-          op.type == EditOperationType.generateThumbnail) {
+          op.type == EditOperationType.generateThumbnail ||
+          op.type == EditOperationType.addTransition) {
+        // add_transition is a standalone two-input op like merge — never
+        // composable into a single-input filter chain.
         standalone.add(op);
       } else {
         filterable.add(op);
@@ -268,6 +271,11 @@ class FilterGraphComposer {
           break;
         }
 
+      case EditOperationType.addTransition:
+        // Unreachable via routing (standalone-only, like merge) — the
+        // switch stays total over the enum.
+        break;
+
       case EditOperationType.mute:
       case EditOperationType.trim:
       case EditOperationType.merge:
@@ -401,6 +409,11 @@ class FilterGraphComposer {
           assColor: p['ass_color']?.toString(),
           alignment: replayAlign is num ? replayAlign.toInt() : null,
         );
+      case EditOperationType.addTransition:
+        // Two-input ops cannot rebuild from this single input path; the
+        // tool path executes them directly via CommandMapper. Skip rather
+        // than fabricate a broken job.
+        return null;
     }
   }
 

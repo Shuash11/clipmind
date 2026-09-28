@@ -61,7 +61,8 @@ ToolExecutionContext _ctx(Project project, FfprobeService ffprobe) {
     project: () => project,
     outputDir: r'C:\out',
     projectDir: r'C:\out',
-    applier: AgentEditApplier(onApply: (_, _) async {}),
+    applier: AgentEditApplier(
+        onApply: (_, _, {removeClipIds = const []}) async {}),
     ffmpegService: FfmpegService(),
     ffprobeService: ffprobe,
   );

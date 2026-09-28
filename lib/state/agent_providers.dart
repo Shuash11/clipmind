@@ -53,9 +53,13 @@ final projectMetadataProvider = FutureProvider<VideoMetadata?>((ref) async {
 /// Single wiring point: AI edits -> ProjectNotifier + undo stack + DB/file.
 final agentEditApplierProvider = Provider<AgentEditApplier>((ref) {
   return AgentEditApplier(
-    onApply: (operation, newSourcePath) async {
+    onApply: (operation, newSourcePath, {List<String> removeClipIds = const []}) async {
       final project = ref.read(projectProvider).valueOrNull;
-      ref.read(projectProvider.notifier).applyEdit(operation, newSourcePath);
+      ref.read(projectProvider.notifier).applyEdit(
+            operation,
+            newSourcePath,
+            removeClipIds: removeClipIds,
+          );
       ref.read(undoRedoProvider.notifier).push(operation);
       if (project != null) {
         await ref
@@ -113,3 +117,4 @@ class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> {
     state = [];
   }
 }
+

@@ -18,7 +18,8 @@ enum EditOperationType {
   adjustBrightness,
   changeVolume,
   overlayWatermark,
-  burnCaptions;
+  burnCaptions,
+  addTransition;
 
   String get jsonValue => name;
 }

@@ -2,7 +2,7 @@ import 'tool_definition.dart';
 
 /// Curated tool surface for the agentic loop (D4, Phase 6a).
 ///
-/// Exactly 18 tools (< 20 per OpenAI guidance). The model references clips
+/// Exactly 19 tools (< 20 per OpenAI guidance). The model references clips
 /// by ID learned from [list_project_clips]; the app resolves file paths
 /// itself — file paths are never model-filled args.
 class ToolRegistry {
@@ -26,7 +26,7 @@ class ToolRegistry {
     _validate();
   }
 
-  /// The 18 canonical definitions.
+  /// The 19 canonical definitions.
   static List<ToolDefinition> defaultDefinitions() => _catalog;
 
   List<ToolDefinition> definitions() => _byName.values.toList();
@@ -463,6 +463,44 @@ class ToolRegistry {
           },
         },
         'required': ['clip_id', 'font_size', 'font_color', 'position'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+    ),
+    const ToolDefinition(
+      name: 'add_transition',
+      description:
+          'Merge two clips with a cross-fade transition into one clip. '
+          'Clips must share resolution and frame rate.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'clip_id': {
+            'type': 'string',
+            'description':
+                'The FIRST clip (the transition exits this clip) — from '
+                'list_project_clips.',
+          },
+          'second_clip_id': {
+            'type': 'string',
+            'description':
+                'The SECOND clip (the transition enters this clip).',
+          },
+          'transition': {
+            'type': ['string', 'null'],
+            'description':
+                'fade (default), dissolve, wipeleft, wiperight, slideleft, '
+                'slideright, fadeblack, fadewhite, circleopen, circleclose, '
+                'smoothleft, smoothright, wipeup, wipedown, slideup, '
+                'slidedown.',
+          },
+          'duration': {
+            'type': ['number', 'null'],
+            'description':
+                'Transition duration in seconds, 0–60 (default 0.5).',
+          },
+        },
+        'required': ['clip_id', 'second_clip_id', 'transition', 'duration'],
         'additionalProperties': false,
       },
       category: ToolCategory.edit,

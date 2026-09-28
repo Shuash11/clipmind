@@ -105,7 +105,7 @@ void main() {
       outputDir: outDir,
       projectDir: tmp.path,
       applier: AgentEditApplier(
-        onApply: (op, path) async {
+        onApply: (op, path, {removeClipIds = const []}) async {
           applied.add(_Applied(op, path));
         },
       ),

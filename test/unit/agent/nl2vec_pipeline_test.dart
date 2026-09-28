@@ -303,7 +303,7 @@ void main() {
         final applied = <EditOperation>[];
         final appliedPaths = <String>[];
         final applier = AgentEditApplier(
-          onApply: (op, path) async {
+          onApply: (op, path, {removeClipIds = const []}) async {
             applied.add(op);
             appliedPaths.add(path);
           },
@@ -380,7 +380,7 @@ void main() {
 
         final applied = <EditOperation>[];
         final applier = AgentEditApplier(
-          onApply: (op, path) async {
+          onApply: (op, path, {removeClipIds = const []}) async {
             applied.add(op);
           },
         );

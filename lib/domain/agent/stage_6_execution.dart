@@ -143,6 +143,7 @@ class ExecutionEngine {
     if (job.args.any((a) => a.startsWith('transpose'))) return 'rotate';
     if (job.args.any((a) => a.contains('drawtext'))) return 'overlay_text';
     if (job.args.any((a) => a.contains('subtitles'))) return 'burn_captions';
+    if (job.args.any((a) => a.contains('xfade='))) return 'add_transition';
     if (job.args.any((a) => a.contains('overlay='))) return 'overlay_watermark';
     if (job.args.any((a) => a.contains('brightness'))) return 'adjust_brightness';
     if (job.args.any((a) => a.contains('volume='))) return 'change_volume';
@@ -165,6 +166,7 @@ class ExecutionEngine {
       case 'rotate': return EditOperationType.rotate;
       case 'extract_audio': return EditOperationType.extractAudio;
       case 'burn_captions': return EditOperationType.burnCaptions;
+      case 'add_transition': return EditOperationType.addTransition;
       case 'generate_thumbnail': return EditOperationType.generateThumbnail;
       case 'adjust_brightness': return EditOperationType.adjustBrightness;
       case 'change_volume': return EditOperationType.changeVolume;

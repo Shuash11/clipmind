@@ -131,7 +131,8 @@ void main() {
       project: () => project ?? _project(inputA, inputB, outDir),
       outputDir: outDir,
       projectDir: tmp.path,
-      applier: AgentEditApplier(onApply: (_, _) async {}),
+      applier: AgentEditApplier(
+          onApply: (_, _, {removeClipIds = const []}) async {}),
       ffmpegService: ffmpeg,
       ffprobeService: _MockFfprobe(),
       sceneDetectionService: sceneService ?? scenes(),

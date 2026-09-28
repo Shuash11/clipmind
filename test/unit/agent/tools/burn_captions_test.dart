@@ -12,6 +12,8 @@ import 'package:clipmind/data/services/ffmpeg/filter_escaping.dart';
 import 'package:clipmind/data/services/ffmpeg/srt_builder.dart';
 import 'package:clipmind/data/services/transcription/whisper_service.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
+import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/domain/agent/tools/tool_executors.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -208,7 +210,8 @@ void main() {
         project: () => _project(inputA, outDir),
         outputDir: outDir,
         projectDir: tmp.path,
-        applier: AgentEditApplier(onApply: (_, _) async {}),
+        applier: AgentEditApplier(
+            onApply: (_, _, {removeClipIds = const []}) async {}),
         ffmpegService: ffmpeg ?? _FakeFfmpeg(),
         ffprobeService: _MockFfprobe(),
         readAnalysis: (kind) => store[kind],
@@ -403,6 +406,61 @@ void main() {
       expect(result.success, isFalse);
       expect(result.error, contains('budget'));
       expect(ffmpeg.jobs, isEmpty);
+    });
+  });
+
+  group('burn_captions mapping guard', () {
+    test('traversal srt_path is rejected (defense-in-depth)', () {
+      expect(
+        () => CommandMapper.mapOperations(
+          const EditOperationSet(
+            operations: [
+              EditOperationRequest(
+                id: 'op_1',
+                type: 'burn_captions',
+                targetClipId: 'clip_1',
+                params: {
+                  'srt_path': '../evil/cap.srt',
+                  'font_size': 24,
+                },
+              ),
+            ],
+            summary: 'x',
+          ),
+          {'clip_1': '/v/a.mp4'},
+          '/out',
+        ),
+        throwsA(
+          isA<CommandMappingException>().having(
+            (e) => e.message,
+            'message',
+            contains('traversal'),
+          ),
+        ),
+      );
+    });
+
+    test('clean srt_path maps to a subtitles job', () {
+      final jobs = CommandMapper.mapOperations(
+        const EditOperationSet(
+          operations: [
+            EditOperationRequest(
+              id: 'op_1',
+              type: 'burn_captions',
+              targetClipId: 'clip_1',
+              params: {
+                'srt_path': '/t/cap.srt',
+                'font_size': 24,
+              },
+            ),
+          ],
+          summary: 'x',
+        ),
+        {'clip_1': '/v/a.mp4'},
+        '/out',
+      );
+      expect(jobs, hasLength(1));
+      expect(jobs.single.args.join(' '), contains('subtitles='));
     });
   });
 }

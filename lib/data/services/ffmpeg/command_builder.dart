@@ -204,6 +204,48 @@ class CommandBuilder {
     return filter;
   }
 
+  /// Cross-fade two clips into one output via `xfade` + `acrossfade`.
+  ///
+  /// [offset] is the fade start relative to the FIRST input in seconds
+  /// (for an end-of-first-clip transition: `max(0, dur_first - duration)`).
+  /// [duration] is clamped to the doc-verified 0–60s range (default 0.5).
+  /// When neither input [hasAudio], the audio crossfade is skipped and the
+  /// output maps video only (`-an`).
+  ///
+  /// TO-VERIFY-LIVE: both inputs must share resolution/pixel-format/frame
+  /// rate/timebase (the executor enforces resolution+fps via ffprobe), and
+  /// `acrossfade` sample-rate matching.
+  static List<String> transition(
+    String firstPath,
+    String secondPath, {
+    String transition = 'fade',
+    double duration = 0.5,
+    double offset = 0,
+    bool hasAudio = true,
+  }) {
+    final d = duration.clamp(0.0, 60.0);
+    final o = offset < 0 ? 0.0 : offset;
+    final video =
+        '[0:v][1:v]xfade=transition=$transition:duration=$d:offset=$o[outv]';
+    final graph = hasAudio ? '$video;[0:a][1:a]acrossfade=d=$d[outa]' : video;
+    final args = [
+      '-i',
+      firstPath,
+      '-i',
+      secondPath,
+      '-filter_complex',
+      graph,
+      '-map',
+      '[outv]',
+    ];
+    if (hasAudio) {
+      args.addAll(['-map', '[outa]']);
+    } else {
+      args.add('-an');
+    }
+    return args;
+  }
+
   static List<String> extractAudio(String input, String outputFormat) {
     final codec = switch (outputFormat) {
       'mp3' => 'libmp3lame',

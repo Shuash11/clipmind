@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/core/utils/timecode_utils.dart';
@@ -524,6 +525,8 @@ class EditToolExecutor implements ToolExecutor {
           return await _extractAudio(call);
         case 'burn_captions':
           return await _burnCaptions(call);
+        case 'add_transition':
+          return await _addTransition(call);
         default:
           return ToolResult.fail(
             'Unknown edit tool "${call.name}".',
@@ -619,6 +622,11 @@ class EditToolExecutor implements ToolExecutor {
       set: set,
       callId: call.id,
       clipIds: [ids.first],
+      // Replacement, not duplication: the merged output replaces the
+      // pair, so every clip but the first is removed from the project.
+      // (Fixes the old double-pointing where the second clip kept its
+      // original path and the merged content played twice.)
+      removeClipIds: ids.sublist(1),
       summary: 'Merged ${ids.length} clips starting with "${ids.first}".',
     );
   }
@@ -799,6 +807,147 @@ class EditToolExecutor implements ToolExecutor {
     );
   }
 
+  /// Curated xfade transition names (~15; FFmpeg defines 59).
+  static const supportedTransitions = {
+    'fade',
+    'dissolve',
+    'wipeleft',
+    'wiperight',
+    'slideleft',
+    'slideright',
+    'fadeblack',
+    'fadewhite',
+    'circleopen',
+    'circleclose',
+    'smoothleft',
+    'smoothright',
+    'wipeup',
+    'wipedown',
+    'slideup',
+    'slidedown',
+  };
+
+  /// Merge two clips with a cross-fade into ONE output that replaces the
+  /// pair (the second clip is removed from the project via [removeClipIds]).
+  Future<ToolResult> _addTransition(ToolCall call) async {
+    final firstId = _stringArg(call.args, 'clip_id');
+    final secondId = _stringArg(call.args, 'second_clip_id');
+    final firstError = _requireClip(firstId);
+    if (firstError != null) return ToolResult.fail(firstError);
+    if (secondId == null || secondId.trim().isEmpty) {
+      return ToolResult.fail(
+        'Missing "second_clip_id". Call list_project_clips first to learn '
+        'clip IDs, then retry with two valid IDs.',
+      );
+    }
+    if (_clipPath(_ctx, secondId) == null) {
+      return ToolResult.fail(_unknownClip(secondId));
+    }
+    if (firstId == secondId) {
+      return ToolResult.fail(
+        'add_transition needs two different clips — got "$firstId" twice. '
+        'Pick the outgoing clip and the incoming clip from '
+        'list_project_clips.',
+      );
+    }
+    final rawName =
+        (_stringArg(call.args, 'transition') ?? 'fade').trim().toLowerCase();
+    final transition = rawName.isEmpty ? 'fade' : rawName;
+    if (!supportedTransitions.contains(transition)) {
+      return ToolResult.fail(
+        'Unknown transition "$transition". Supported: '
+        '${supportedTransitions.join(', ')}. Retry with one of these.',
+      );
+    }
+    var duration = _numArg(call.args, 'duration') ?? 0.5;
+    if (!duration.isFinite || duration <= 0) {
+      return ToolResult.fail(
+        'add_transition "duration" must be a positive number of seconds '
+        '(0–60, default 0.5). Got "${call.args['duration']}".',
+      );
+    }
+    if (duration > 60) duration = 60;
+
+    final firstPath = _clipPath(_ctx, firstId!)!;
+    final secondPath = _clipPath(_ctx, secondId)!;
+
+    // xfade requires matched inputs: enforce resolution + fps via
+    // ffprobe. Unavailable metadata degrades to a caution, never a crash.
+    final meta1 = await _ctx.ffprobeService.extractMetadata(firstPath);
+    final meta2 = await _ctx.ffprobeService.extractMetadata(secondPath);
+    var caution = '';
+    var hasAudio = true;
+    if (meta1 == null || meta2 == null) {
+      caution =
+          ' Inputs could not be verified — the transition may fail if the '
+          'clips differ in resolution/fps.';
+    } else {
+      if (meta1.width != meta2.width || meta1.height != meta2.height) {
+        return ToolResult.fail(
+          'Clips differ in resolution '
+          '(${meta1.width}x${meta1.height} vs ${meta2.width}x${meta2.height}) '
+          '— resize both to the same resolution first (resize_clip), '
+          'then retry add_transition.',
+        );
+      }
+      if ((meta1.fps - meta2.fps).abs() > 0.01) {
+        return ToolResult.fail(
+          'Clips differ in frame rate (${meta1.fps} vs ${meta2.fps} fps) — '
+          'use clips with matching frame rates, then retry add_transition.',
+        );
+      }
+      hasAudio = meta1.hasAudio || meta2.hasAudio;
+    }
+
+    final metaMs =
+        meta1 != null && meta1.durationMs > 0 ? meta1.durationMs : 0;
+    final range = _clipRange(_ctx, firstId);
+    final rangeMs = range != null ? range.endMs - range.startMs : 0;
+    final firstMs = metaMs > 0 ? metaMs : rangeMs;
+    if (firstMs <= 0) {
+      return ToolResult.fail(
+        'Could not determine the duration of clip "$firstId" — run '
+        'probe_video first, then retry add_transition.',
+      );
+    }
+    final offset = math.max(0.0, firstMs / 1000.0 - duration);
+
+    if (_ctx.cancellation?.isCancelled == true) {
+      return ToolResult.fail(
+        'Cancelled — this edit did not run. Already-applied edits remain.',
+      );
+    }
+    if (_ctx.jobsUsed + 1 > _ctx.maxJobs) {
+      return ToolResult.fail(_budgetMessage);
+    }
+
+    return _executeSet(
+      set: EditOperationSet(
+        operations: [
+          EditOperationRequest(
+            id: call.id,
+            type: 'add_transition',
+            targetClipId: firstId,
+            params: {
+              'second_clip_id': secondId,
+              'transition': transition,
+              'duration': duration,
+              'offset': offset,
+              'has_audio': hasAudio,
+              'clip_ids': [firstId, secondId],
+            },
+          ),
+        ],
+        summary: 'Transition "$firstId" into "$secondId".',
+      ),
+      callId: call.id,
+      clipIds: [firstId, secondId],
+      removeClipIds: [secondId],
+      summary: 'Added $transition transition (${duration}s) '
+          'between "$firstId" and "$secondId".$caution',
+    );
+  }
+
   /// Burn the cached transcript as timed captions (SRT via libass).
   ///
   /// The SRT is generated app-side from the FULL cached segment set and
@@ -931,6 +1080,7 @@ class EditToolExecutor implements ToolExecutor {
     required List<String> clipIds,
     required String summary,
     String? ffmpegFailureHint,
+    List<String> removeClipIds = const [],
   }) async {
     if (_ctx.cancellation?.isCancelled == true) {
       return ToolResult.fail(
@@ -993,7 +1143,7 @@ class EditToolExecutor implements ToolExecutor {
         status: OperationStatus.applied,
         ffmpegCommand: jobs.first.args.join(' '),
       );
-      await _ctx.applier.apply(op, outputPath);
+      await _ctx.applier.apply(op, outputPath, removeClipIds: removeClipIds);
       _ctx.appliedOperations.add(op);
       _ctx.outputPaths.add(outputPath);
       return ToolResult.ok(
@@ -1075,6 +1225,8 @@ class EditToolExecutor implements ToolExecutor {
         return EditOperationType.extractAudio;
       case 'burn_captions':
         return EditOperationType.burnCaptions;
+      case 'add_transition':
+        return EditOperationType.addTransition;
       case 'adjust_brightness':
         return EditOperationType.adjustBrightness;
       case 'change_volume':
@@ -1109,6 +1261,7 @@ ToolRegistry createToolRegistry(ToolExecutionContext ctx) {
     'change_volume': edit,
     'extract_audio': edit,
     'burn_captions': edit,
+    'add_transition': edit,
   });
 }
 
@@ -1175,6 +1328,20 @@ Map<String, String> _clipPathMap(ToolExecutionContext ctx) {
 
 String? _clipPath(ToolExecutionContext ctx, String clipId) {
   return _clipPathMap(ctx)[clipId];
+}
+
+({int startMs, int endMs})? _clipRange(
+  ToolExecutionContext ctx,
+  String clipId,
+) {
+  for (final track in ctx.project().tracks) {
+    for (final clip in track.clips) {
+      if (clip.id == clipId) {
+        return (startMs: clip.startMs, endMs: clip.endMs);
+      }
+    }
+  }
+  return null;
 }
 
 String? _defaultPath(ToolExecutionContext ctx) {
