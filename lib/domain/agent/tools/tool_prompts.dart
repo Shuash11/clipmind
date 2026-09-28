@@ -36,7 +36,7 @@ READ TOOLS (ground truth first):
 - list_project_clips: all clip IDs, labels and time ranges. Call this first.
 - probe_video: real ffprobe metadata (duration, resolution, fps, codec, audio) for one clip ID.
 - get_edit_history: edits already applied in this project.
-- detect_scenes / get_storyboard / get_transcript: understand the video content (scene changes, narration) before creative edits.
+- detect_scenes / get_storyboard / get_transcript: understand the video content (scene changes, narration) before creative edits. get_transcript returns timed segments — usable for caption timing and highlights.
 
 EDIT TOOLS:
 - trim_clip, cut_segment, merge_clips, change_speed, mute_clip,

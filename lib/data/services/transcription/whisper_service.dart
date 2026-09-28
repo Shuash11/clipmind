@@ -10,11 +10,39 @@ class WhisperPaths {
   const WhisperPaths({required this.binaryPath, required this.modelPath});
 }
 
-/// Plain-text transcription of one audio file.
-class WhisperTranscript {
+/// One timed caption segment: millisecond range plus spoken text.
+class TranscriptSegment {
+  final int startMs;
+  final int endMs;
   final String text;
 
-  const WhisperTranscript({required this.text});
+  const TranscriptSegment({
+    required this.startMs,
+    required this.endMs,
+    required this.text,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'start_ms': startMs,
+        'end_ms': endMs,
+        'text': text,
+      };
+
+  static TranscriptSegment? fromJson(Map<String, dynamic> json) {
+    final start = json['start_ms'];
+    final end = json['end_ms'];
+    final text = json['text'];
+    if (start is! int || end is! int || text is! String) return null;
+    return TranscriptSegment(startMs: start, endMs: end, text: text);
+  }
+}
+
+/// Plain-text transcription of one audio file, plus timed segments.
+class WhisperTranscript {
+  final String text;
+  final List<TranscriptSegment> segments;
+
+  const WhisperTranscript({required this.text, this.segments = const []});
 
   int get charCount => text.length;
   bool get isEmpty => text.trim().isEmpty;
@@ -34,7 +62,10 @@ class WhisperTranscript {
 /// whisper.cpp README/USAGE docs and have not been run. Re-verify against a
 /// real install before relying on flag details. What IS fixed: whisper.cpp
 /// requires 16 kHz mono WAV input — the tool executor extracts that via
-/// FFmpeg before calling [transcribe].
+/// FFmpeg before calling [transcribe]. Timed [TranscriptSegment]s are
+/// parsed from the same stdout (no extra flags); the line format is
+/// likewise unverified until a real install, but the parser is
+/// synthetic-stdout-testable regardless.
 class WhisperTranscriptionService {
   /// Process runner seam (defaults to [Process.run]) for unit tests.
   final Future<ProcessResult> Function(String exe, List<String> args) _run;
@@ -87,11 +118,56 @@ class WhisperTranscriptionService {
       final stdout = result.stdout is String ? result.stdout as String : '';
       final text = parseTranscriptText(stdout);
       if (text.trim().isEmpty) return null;
-      return WhisperTranscript(text: text);
+      return WhisperTranscript(
+        text: text,
+        segments: parseTranscriptSegments(stdout),
+      );
     } catch (e, s) {
       debugPrint('WhisperTranscription error: $e\n$s');
       return null;
     }
+  }
+
+  /// Pure parser: `[HH:MM:SS.mmm --> HH:MM:SS.mmm] text` lines become
+  /// timed segments. Blank / progress / malformed lines are skipped
+  /// silently (degradation); order follows stdout.
+  static List<TranscriptSegment> parseTranscriptSegments(String stdout) {
+    final segments = <TranscriptSegment>[];
+    final pattern = RegExp(
+      r'^\[(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*'
+      r'(\d{2}):(\d{2}):(\d{2})\.(\d{3})\]\s*(.*?)\s*$',
+    );
+    for (final raw in stdout.split('\n')) {
+      final line = raw.trim();
+      if (line.isEmpty) continue;
+      final match = pattern.firstMatch(line);
+      if (match == null) continue;
+      final text = match.group(9) ?? '';
+      if (text.isEmpty) continue;
+      segments.add(TranscriptSegment(
+        startMs: _toMs(
+          match.group(1)!,
+          match.group(2)!,
+          match.group(3)!,
+          match.group(4)!,
+        ),
+        endMs: _toMs(
+          match.group(5)!,
+          match.group(6)!,
+          match.group(7)!,
+          match.group(8)!,
+        ),
+        text: text,
+      ));
+    }
+    return segments;
+  }
+
+  static int _toMs(String hh, String mm, String ss, String ms) {
+    return int.parse(hh) * 3600000 +
+        int.parse(mm) * 60000 +
+        int.parse(ss) * 1000 +
+        int.parse(ms);
   }
 
   /// Pure parser: strip `[start --> end]` timestamp prefixes (and blank /

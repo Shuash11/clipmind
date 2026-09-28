@@ -361,6 +361,7 @@ class ReadToolExecutor implements ToolExecutor {
       return _transcriptResult(
         clipId: clipId,
         text: (cached['text'] ?? '').toString(),
+        segments: _segmentsFromCache(cached['segments']),
         maxChars: maxChars,
         cached: true,
       );
@@ -423,10 +424,15 @@ class ReadToolExecutor implements ToolExecutor {
         'source_path': path,
         'text': transcript.text,
         'chars': transcript.charCount,
+        // All segments persist (no cap); the tool result caps at 100.
+        'segments': [
+          for (final s in transcript.segments) s.toJson(),
+        ],
       });
       return _transcriptResult(
         clipId: clipId,
         text: transcript.text,
+        segments: transcript.segments,
         maxChars: maxChars,
         cached: false,
       );
@@ -438,24 +444,54 @@ class ReadToolExecutor implements ToolExecutor {
     }
   }
 
+  /// Tool-result segments stay bounded (first 100) so the model context
+  /// stays bounded; the cached payload keeps every segment (no data loss).
+  static const maxTranscriptResultSegments = 100;
+
+  /// Backward-compatible cache read: payloads written before segments
+  /// existed carry no `segments` field → empty list. Stamp invalidation
+  /// (`source_path`) is unchanged.
+  List<TranscriptSegment> _segmentsFromCache(Object? raw) {
+    if (raw is! List) return const [];
+    final segments = <TranscriptSegment>[];
+    for (final entry in raw) {
+      if (entry is! Map) continue;
+      try {
+        final segment = TranscriptSegment.fromJson(
+          Map<String, dynamic>.from(entry),
+        );
+        if (segment != null) segments.add(segment);
+      } catch (_) {
+        // Malformed cache entries are skipped silently (degradation).
+      }
+    }
+    return segments;
+  }
+
   ToolResult _transcriptResult({
     required String clipId,
     required String text,
+    required List<TranscriptSegment> segments,
     required int maxChars,
     required bool cached,
   }) {
     final truncated = text.length > maxChars;
+    final shown = segments.length > maxTranscriptResultSegments
+        ? segments.sublist(0, maxTranscriptResultSegments)
+        : segments;
     return ToolResult.ok(
       data: {
         'clip_id': clipId,
         'text': truncated ? text.substring(0, maxChars) : text,
+        'segments': [for (final s in shown) s.toJson()],
+        'count': segments.length,
         'chars': text.length,
         'truncated': truncated,
         'cached': cached,
       },
       summary: truncated
-          ? 'Transcript for "$clipId" (${text.length} chars, truncated to $maxChars).'
-          : 'Transcript for "$clipId" (${text.length} chars${cached ? ', cached' : ''}).',
+          ? 'Transcript for "$clipId" (${text.length} chars, truncated to $maxChars, ${segments.length} caption segments).'
+          : 'Transcript for "$clipId" (${text.length} chars, ${segments.length} caption segments${cached ? ', cached' : ''}).',
     );
   }
 

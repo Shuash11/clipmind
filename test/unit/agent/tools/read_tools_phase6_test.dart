@@ -380,6 +380,68 @@ void main() {
       expect(result.success, isFalse);
       expect(result.error, contains('Unknown clip ID "ghost"'));
     });
+
+    test('returns timed segments, persists all, caps result at 100',
+        () async {
+      final fakeBinary = '${tmp.path}/whisper-cli';
+      final model = '${tmp.path}/model.bin';
+      await File(fakeBinary).writeAsString('fake');
+      await File(model).writeAsString('fake-model');
+      var transcribes = 0;
+      final whisper = WhisperTranscriptionService(
+        runProcess: (_, _) async {
+          transcribes++;
+          final lines = List.generate(150, (i) {
+            final mm = (i ~/ 60).toString().padLeft(2, '0');
+            final ss = (i % 60).toString().padLeft(2, '0');
+            return '[00:$mm:$ss.000 --> 00:$mm:$ss.500] seg$i';
+          });
+          return ProcessResult(0, 0, '${lines.join('\n')}\n', '');
+        },
+      );
+      final c = ctx(
+        whisper: whisper,
+        whisperConfig: () =>
+            WhisperPaths(binaryPath: fakeBinary, modelPath: model),
+      );
+
+      final first = await call(c, 'get_transcript', {'clip_id': 'clip_1'});
+      expect(first.success, isTrue);
+      expect(first.data['count'], equals(150));
+      final shown = first.data['segments'] as List;
+      expect(shown, hasLength(100));
+      expect((shown.first as Map)['start_ms'], equals(0));
+      expect((shown.first as Map)['text'], equals('seg0'));
+      expect((shown.last as Map)['text'], equals('seg99'));
+      expect(first.summary, contains('150 caption segments'));
+      final persisted = store['transcript:clip_1']!['segments'] as List;
+      expect(persisted, hasLength(150));
+      expect((persisted.last as Map)['text'], equals('seg149'));
+
+      final second = await call(c, 'get_transcript', {'clip_id': 'clip_1'});
+      expect(second.success, isTrue);
+      expect(second.data['cached'], isTrue);
+      expect(second.data['count'], equals(150));
+      expect((second.data['segments'] as List), hasLength(100));
+      expect(second.summary, contains('150 caption segments'));
+      expect(transcribes, equals(1), reason: 'no recompute on cache hit');
+    });
+
+    test('pre-segments cache payloads read as empty segments', () async {
+      store['transcript:clip_1'] = {
+        'clip_id': 'clip_1',
+        'source_path': inputA,
+        'text': 'hello',
+        'chars': 5,
+      };
+      final result = await call(ctx(), 'get_transcript', {
+        'clip_id': 'clip_1',
+      });
+      expect(result.success, isTrue);
+      expect(result.data['segments'], isEmpty);
+      expect(result.data['count'], equals(0));
+      expect(result.data['cached'], isTrue);
+    });
   });
 
   group('whisper helpers', () {
@@ -394,6 +456,56 @@ void main() {
       expect(
         WhisperTranscriptionService.parseTranscriptText('plain text\n'),
         equals('plain text'),
+      );
+    });
+
+    test('parseTranscriptSegments maps timing lines to ms', () {
+      final segments =
+          WhisperTranscriptionService.parseTranscriptSegments(
+        '[00:00:01.000 --> 00:00:02.500] Hello\n'
+        '[00:01:02.003 --> 00:01:05.250] second line\n',
+      );
+      expect(segments, hasLength(2));
+      expect(segments[0].startMs, equals(1000));
+      expect(segments[0].endMs, equals(2500));
+      expect(segments[0].text, equals('Hello'));
+      expect(segments[1].startMs, equals(62003));
+      expect(segments[1].endMs, equals(65250));
+      expect(segments[1].text, equals('second line'));
+    });
+
+    test('parseTranscriptSegments skips blank/progress/malformed lines',
+        () {
+      final segments =
+          WhisperTranscriptionService.parseTranscriptSegments(
+        '\n'
+        'whisper_print_progress_callback: progress =  50%\n'
+        '[00:00:01.000 --> 00:00:02.000] kept\n'
+        '[00:00:01 --> 00:00:02] no millis\n'
+        '[bad line] junk\n'
+        '[00:00:03.000 --> 00:00:04.000]   \n'
+        'plain text without brackets\n',
+      );
+      expect(segments, hasLength(1));
+      expect(segments.single.text, equals('kept'));
+      expect(segments.single.startMs, equals(1000));
+      expect(segments.single.endMs, equals(2000));
+    });
+
+    test('parseTranscriptSegments preserves order; empty stdout is empty',
+        () {
+      expect(
+        WhisperTranscriptionService.parseTranscriptSegments(''),
+        isEmpty,
+      );
+      final segments =
+          WhisperTranscriptionService.parseTranscriptSegments(
+        '[00:00:05.000 --> 00:00:06.000] second\n'
+        '[00:00:01.000 --> 00:00:02.000] first\n',
+      );
+      expect(
+        segments.map((s) => s.text).toList(),
+        equals(['second', 'first']),
       );
     });
 

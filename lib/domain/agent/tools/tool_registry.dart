@@ -167,8 +167,7 @@ class ToolRegistry {
     const ToolDefinition(
       name: 'get_transcript',
       description:
-          'Transcribe one clip\'s speech to text (optional tool: fails with '
-          'setup instructions when the whisper.cpp binary/model is missing).',
+          'Return the transcript as timed segments (start/end ms) and plain text.',
       inputSchema: {
         'type': 'object',
         'properties': {
