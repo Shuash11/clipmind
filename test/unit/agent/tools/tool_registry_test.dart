@@ -113,7 +113,7 @@ void main() {
   });
 
   group('Provider capability gate', () {
-    test('only OpenAI and Anthropic support tool calling', () {
+    test('OpenAI, Anthropic and Ollama support tool calling', () {
       expect(
         OpenAiProvider(config: const OpenAiConfig(apiKey: 'x'))
             .supportsToolCalling,
@@ -124,8 +124,8 @@ void main() {
             .supportsToolCalling,
         isTrue,
       );
+      expect(OllamaProvider().supportsToolCalling, isTrue);
       expect(GeminiProvider().supportsToolCalling, isFalse);
-      expect(OllamaProvider().supportsToolCalling, isFalse);
       expect(NvidiaNimProvider().supportsToolCalling, isFalse);
     });
   });

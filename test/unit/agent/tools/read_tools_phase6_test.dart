@@ -4,6 +4,7 @@ import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/track.dart';
+import 'package:clipmind/data/services/ffmpeg/ffmpeg_binary_resolver.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/ffmpeg/scene_detection_service.dart';
@@ -15,6 +16,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockFfprobe extends Mock implements FfprobeService {}
+
+/// Deterministic binary for scene-detection tests: the fake `runProcess`
+/// below never executes it, but the service resolves the binary first —
+/// without this stub the tests would depend on FFmpeg being installed
+/// (green locally, red in CI).
+class _FakeResolver extends FfmpegBinaryResolver {
+  @override
+  String? resolveFfmpeg({String? settingsPath}) => '/fake/ffmpeg';
+}
 
 class _NoWhisper extends WhisperTranscriptionService {
   @override
@@ -102,6 +112,7 @@ void main() {
   });
 
   SceneDetectionService scenes() => SceneDetectionService(
+    resolver: _FakeResolver(),
     runProcess: (_, _) async {
       sceneRuns++;
       return ProcessResult(0, 0, '', _sceneStderr);
@@ -201,6 +212,7 @@ void main() {
 
     test('ffmpeg failure degrades to an actionable error', () async {
       final failing = SceneDetectionService(
+        resolver: _FakeResolver(),
         runProcess: (_, _) async => ProcessResult(0, 1, '', 'boom'),
       );
       final result = await call(

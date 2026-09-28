@@ -9,6 +9,15 @@ class _NoFfmpeg extends FfmpegBinaryResolver {
   String? resolveFfmpeg({String? settingsPath}) => null;
 }
 
+/// Deterministic binary for fake-runner tests: the injected `runProcess`
+/// never executes it, but the service resolves the binary first — without
+/// this stub the tests would depend on FFmpeg being installed (green
+/// locally, red in CI).
+class _FakeResolver extends FfmpegBinaryResolver {
+  @override
+  String? resolveFfmpeg({String? settingsPath}) => '/fake/ffmpeg';
+}
+
 /// Realistic stderr fragment: FFmpeg 8.1.1 `showinfo` lines for a red→blue
 /// hard cut at t=1s (verified manually against the bundled-style build).
 const _stderrTwoScenes =
@@ -63,6 +72,7 @@ void main() {
     test('runs select+showinfo to null and caps at maxScenes', () async {
       var runs = 0;
       final service = SceneDetectionService(
+        resolver: _FakeResolver(),
         runProcess: (exe, args) async {
           runs++;
           expect(
@@ -89,6 +99,7 @@ void main() {
 
     test('non-zero exit yields null', () async {
       final service = SceneDetectionService(
+        resolver: _FakeResolver(),
         runProcess: (_, _) async => ProcessResult(0, 1, '', 'boom'),
       );
       expect(await service.detectScenes(video), isNull);
@@ -107,6 +118,7 @@ void main() {
     test('missing file yields null without running', () async {
       var runs = 0;
       final service = SceneDetectionService(
+        resolver: _FakeResolver(),
         runProcess: (_, _) async {
           runs++;
           return ProcessResult(0, 0, '', '');

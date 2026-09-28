@@ -6,6 +6,7 @@ import 'package:clipmind/data/local/secure_key_store.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'llm_provider.dart';
+import 'openai_compatible_provider.dart';
 
 class OpenAiConfig {
   final String model;
@@ -14,8 +15,8 @@ class OpenAiConfig {
   const OpenAiConfig({this.model = 'gpt-4o', this.apiKey = ''});
 }
 
-class OpenAiProvider extends LlmProvider {
-  static const _baseUrl = 'https://api.openai.com';
+class OpenAiProvider extends OpenAiCompatibleLlmProvider {
+  static const _base = 'https://api.openai.com';
   static const _models = [
     'gpt-5.5',
     'gpt-5.4',
@@ -36,13 +37,22 @@ class OpenAiProvider extends LlmProvider {
   @override
   String get id => 'openai:${config.model}';
 
+  @override
+  String get baseUrl => _base;
+
+  @override
+  String get modelName => config.model;
+
+  @override
+  Dio get dio => _dio;
+
   OpenAiProvider({OpenAiConfig? config, SecureKeyStore? keyStore, Dio? dio})
     : config = config ?? const OpenAiConfig(),
       _keyStore = keyStore ?? SecureKeyStore() {
     _dio = dio ??
         Dio(
           BaseOptions(
-            baseUrl: _baseUrl,
+            baseUrl: _base,
             connectTimeout: const Duration(seconds: 10),
             receiveTimeout: const Duration(seconds: 30),
             sendTimeout: const Duration(seconds: 30),
@@ -54,7 +64,8 @@ class OpenAiProvider extends LlmProvider {
         );
   }
 
-  Future<String> _resolveApiKey() async {
+  @override
+  Future<String?> resolveApiKey() async {
     if (config.apiKey.isNotEmpty) return config.apiKey;
     final stored = await _keyStore.readApiKey('openai');
     if (stored == null || stored.isEmpty) {
@@ -75,7 +86,7 @@ class OpenAiProvider extends LlmProvider {
 
     while (true) {
       try {
-        final apiKey = await _resolveApiKey();
+        final apiKey = await resolveApiKey();
         final schema = _buildStructuredOutputSchema(request.schemaJson);
 
         final messages = [
@@ -125,7 +136,7 @@ class OpenAiProvider extends LlmProvider {
           await Future<void>.delayed(Duration(seconds: attempt * 2));
           continue;
         }
-        throw ProviderFailure(id, _formatDioError(e), e);
+        throw ProviderFailure(id, formatDioError(e), e);
       } on FormatException catch (e) {
         throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
       } on ProviderFailure {
@@ -136,155 +147,14 @@ class OpenAiProvider extends LlmProvider {
     }
   }
 
+  /// Tool-calling transport lives in [OpenAiCompatibleLlmProvider]:
+  /// strict tools, `tool_choice: auto`, `parallel_tool_calls: false`,
+  /// `max_completion_tokens: 4096`, JSON-string `arguments` decode with
+  /// validation, `role: tool` history mapping, empty-`userContent`
+  /// omission, retry/backoff. This override only documents the contract.
   @override
-  bool get supportsToolCalling => true;
-
-  /// One Chat Completions round trip with tools (transport-only, D1).
-  ///
-  /// Sends `strict: true` function tools with `tool_choice: auto`,
-  /// `parallel_tool_calls: false` and `max_completion_tokens`. Parses
-  /// `tool_calls` (JSON-string `arguments`) into canonical [AgentToolCall]s.
-  @override
-  Future<AgentTurnResult> chatWithTools(AgentTurnRequest request) async {
-    try {
-      final apiKey = await _resolveApiKey();
-      final body = {
-        'model': config.model,
-        'messages': _toWireMessages(request),
-        'tools': [
-          for (final tool in request.tools)
-            {
-              'type': 'function',
-              'function': {
-                'name': tool.name,
-                'description': tool.description,
-                'parameters': tool.inputSchema,
-                'strict': true,
-              },
-            },
-        ],
-        'tool_choice': {'type': 'auto'},
-        'parallel_tool_calls': false,
-        'max_completion_tokens': 4096,
-        'temperature': request.temperature,
-      };
-
-      final response = await _dio.post<Map<String, dynamic>>(
-        '/v1/chat/completions',
-        data: body,
-        options: Options(
-          receiveTimeout: Duration(seconds: request.timeoutSeconds),
-          headers: {'Authorization': 'Bearer $apiKey'},
-        ),
-      );
-
-      return _parseTurnResponse(response.data);
-    } on DioException catch (e) {
-      throw ProviderFailure(id, _formatDioError(e), e);
-    } on FormatException catch (e) {
-      throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
-    } on ProviderFailure {
-      rethrow;
-    } catch (e) {
-      throw ProviderFailure(id, 'Unexpected error: $e');
-    }
-  }
-
-  List<Map<String, dynamic>> _toWireMessages(AgentTurnRequest request) {
-    final messages = <Map<String, dynamic>>[
-      {'role': 'system', 'content': request.systemPrompt},
-    ];
-    for (final turn in request.history) {
-      messages.add(_turnToWire(turn));
-    }
-    // Rounds 2+ send empty userContent (the original user turn already
-    // lives in history). Omitting keeps the trailing `tool` message last,
-    // which the protocol requires after tool calls.
-    if (request.userContent.trim().isNotEmpty) {
-      messages.add({'role': 'user', 'content': request.userContent});
-    }
-    return messages;
-  }
-
-  Map<String, dynamic> _turnToWire(AgentTurnMessage turn) {
-    switch (turn.role) {
-      case AgentTurnRole.user:
-        return {'role': 'user', 'content': turn.content ?? ''};
-      case AgentTurnRole.assistant:
-        return {
-          'role': 'assistant',
-          'content': turn.content,
-          if (turn.toolCalls.isNotEmpty)
-            'tool_calls': [
-              for (final call in turn.toolCalls)
-                {
-                  'id': call.id,
-                  'type': 'function',
-                  'function': {
-                    'name': call.name,
-                    // jsonEncode handles Windows backslashes and quotes.
-                    'arguments': jsonEncode(call.args),
-                  },
-                },
-            ],
-        };
-      case AgentTurnRole.toolResult:
-        return {
-          'role': 'tool',
-          'tool_call_id': turn.toolCallId ?? '',
-          // jsonEncode keeps model-provided strings intact on the wire.
-          'content': turn.content ?? '',
-        };
-    }
-  }
-
-  AgentTurnResult _parseTurnResponse(Map<String, dynamic>? data) {
-    final choices = data?['choices'] as List<dynamic>?;
-    if (choices == null || choices.isEmpty) {
-      throw ProviderFailure(id, 'Empty response from model');
-    }
-    final message = (choices[0] as Map<String, dynamic>)['message']
-        as Map<String, dynamic>?;
-    if (message == null) {
-      throw ProviderFailure(id, 'Empty message in response');
-    }
-    final finishReason =
-        (choices[0] as Map<String, dynamic>)['finish_reason'] as String?;
-
-    final calls = <AgentToolCall>[];
-    final rawCalls = message['tool_calls'] as List<dynamic>?;
-    if (rawCalls != null) {
-      for (final raw in rawCalls) {
-        final entry = raw as Map<String, dynamic>;
-        final function = entry['function'] as Map<String, dynamic>? ?? {};
-        final argsJson = function['arguments'] as String? ?? '{}';
-        Map<String, dynamic> args;
-        try {
-          args = Map<String, dynamic>.from(
-            jsonDecode(argsJson) as Map,
-          );
-        } on FormatException {
-          throw ProviderFailure(
-            id,
-            'Invalid tool arguments JSON for "${function['name']}".',
-          );
-        }
-        calls.add(AgentToolCall(
-          id: entry['id'] as String? ?? '',
-          name: function['name'] as String? ?? '',
-          args: args,
-        ));
-      }
-    }
-
-    return AgentTurnResult(
-      text: message['content'] as String? ?? '',
-      toolCalls: calls,
-      stopReason: finishReason == 'tool_calls'
-          ? AgentTurnStopReason.toolCalls
-          : AgentTurnStopReason.stop,
-    );
-  }
+  Future<AgentTurnResult> chatWithTools(AgentTurnRequest request) =>
+      super.chatWithTools(request);
 
   Map<String, dynamic> _buildStructuredOutputSchema(String schemaJson) {
     try {
@@ -353,24 +223,6 @@ class OpenAiProvider extends LlmProvider {
     }
   }
 
-  String _formatDioError(DioException e) {
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return 'Connection timed out';
-      case DioExceptionType.badResponse:
-        final status = e.response?.statusCode ?? 0;
-        if (status == 401) return 'Invalid API key';
-        if (status == 429) return 'Rate limited. Please try again.';
-        return 'Server error: $status';
-      case DioExceptionType.connectionError:
-        return 'Cannot connect to OpenAI API';
-      default:
-        return 'Network error: ${e.message}';
-    }
-  }
-
   @override
   Stream<ConnectionStatus> watchConnection() {
     _checkHealth();
@@ -385,7 +237,7 @@ class OpenAiProvider extends LlmProvider {
   Future<void> _checkHealth() async {
     _connectionCtrl.add(ConnectionStatus.connecting);
     try {
-      final apiKey = await _resolveApiKey();
+      final apiKey = await resolveApiKey();
       await _dio.get<Map<String, dynamic>>(
         '/v1/models',
         options: Options(
@@ -410,4 +262,3 @@ class OpenAiProvider extends LlmProvider {
     _connectionCtrl.close();
   }
 }
-

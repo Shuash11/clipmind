@@ -11,9 +11,9 @@ abstract class LlmProvider {
 
   /// Whether this provider supports native tool calling.
   ///
-  /// Only OpenAI and Anthropic override this in Phase 2. The pipeline
-  /// routes to [ToolCallingAgent] when true, else the legacy one-shot
-  /// stage path.
+  /// OpenAI, Anthropic, and Ollama (via its OpenAI-compatible `/v1`
+  /// endpoint) override this. The pipeline routes to [ToolCallingAgent]
+  /// when true, else the legacy one-shot stage path.
   bool get supportsToolCalling => false;
 
   /// One API round trip with tools (D1: transport-only, no loop).

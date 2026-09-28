@@ -2,25 +2,32 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:clipmind/core/errors/failures.dart';
+import 'package:clipmind/data/local/secure_key_store.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'llm_provider.dart';
+import 'openai_compatible_provider.dart';
 
 class OllamaConfig {
   final String host;
   final int port;
   final String model;
+  final String apiKey;
 
   const OllamaConfig({
     this.host = 'localhost',
     this.port = 11434,
     this.model = 'llama3.1',
+    this.apiKey = '',
   });
 
   String get baseUrl => 'http://$host:$port';
+
+  String get compatBaseUrl => 'http://$host:$port/v1';
 }
 
-class OllamaProvider extends LlmProvider {
+class OllamaProvider extends OpenAiCompatibleLlmProvider {
   final OllamaConfig config;
+  final SecureKeyStore _keyStore;
   late final Dio _dio;
   final StreamController<ConnectionStatus> _connectionCtrl =
       StreamController<ConnectionStatus>.broadcast();
@@ -30,17 +37,74 @@ class OllamaProvider extends LlmProvider {
   @override
   String get id => 'ollama:${config.model}';
 
-  OllamaProvider({OllamaConfig? config})
-    : config = config ?? const OllamaConfig() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: this.config.baseUrl,
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 60),
-        sendTimeout: const Duration(seconds: 60),
-        headers: {'Content-Type': 'application/json'},
-      ),
-    );
+  @override
+  String get baseUrl => config.compatBaseUrl;
+
+  @override
+  String get modelName => config.model;
+
+  @override
+  Dio get dio => _dio;
+
+  /// `max_completion_tokens` support on Ollama's compat layer is
+  /// unverified, so the shared transport sends legacy `max_tokens: 4096`
+  /// instead (see [OpenAiCompatibleLlmProvider.toolRequestExtras]).
+  @override
+  bool get usesMaxCompletionTokens => false;
+
+  OllamaProvider({
+    OllamaConfig? config,
+    SecureKeyStore? keyStore,
+    Dio? dio,
+  })  : config = config ?? const OllamaConfig(),
+        _keyStore = keyStore ?? SecureKeyStore() {
+    _dio = dio ??
+        Dio(
+          BaseOptions(
+            baseUrl: this.config.compatBaseUrl,
+            connectTimeout: const Duration(seconds: 5),
+            // Local models are slow; keep the generous receive timeout.
+            receiveTimeout: const Duration(seconds: 60),
+            sendTimeout: const Duration(seconds: 60),
+            headers: {'Content-Type': 'application/json'},
+          ),
+        );
+  }
+
+  @override
+  Future<String?> resolveApiKey() async {
+    if (config.apiKey.isNotEmpty) return config.apiKey;
+    try {
+      final stored = await _keyStore.readApiKey('ollama');
+      if (stored != null && stored.isNotEmpty) return stored;
+    } catch (_) {
+      // Keyless local installs are the norm; ignore store failures.
+    }
+    // No key: the shared transport sends no `Authorization` header.
+    return null;
+  }
+
+  /// Tool-calling transport is shared with OpenAI via
+  /// [OpenAiCompatibleLlmProvider] against `{host}:{port}/v1` (which
+  /// officially supports tools). Conservative extras only: `max_tokens`
+  /// with no `parallel_tool_calls`/`max_completion_tokens` until verified
+  /// against a live Ollama. Requires a tools-capable model (e.g.
+  /// `ollama pull llama3.1`); other models fail via [mapToolsModelError].
+  @override
+  bool get supportsToolCalling => true;
+
+  @override
+  String connectionErrorText() =>
+      'Cannot connect to Ollama at ${config.baseUrl}. Is Ollama running?';
+
+  @override
+  String? mapToolsModelError(Object? data) {
+    if (data == null) return null;
+    final text = data.toString().toLowerCase();
+    if (!text.contains('tool')) return null;
+    return 'Model "${config.model}" does not support tool calling. '
+        'Use a tools-capable model (e.g. llama3.1) — '
+        'run `ollama pull llama3.1` and select it.';
   }
 
   @override
@@ -56,7 +120,7 @@ class OllamaProvider extends LlmProvider {
     } on DioException catch (e) {
       throw ProviderFailure(
         id,
-        'Failed to fetch models: ${_formatDioError(e)}',
+        'Failed to fetch models: ${formatDioError(e)}',
       );
     }
   }
@@ -97,7 +161,7 @@ class OllamaProvider extends LlmProvider {
       final parsed = jsonDecode(cleaned) as Map<String, dynamic>;
       return EditOperationSet.fromJson(parsed);
     } on DioException catch (e) {
-      throw ProviderFailure(id, _formatDioError(e), e);
+      throw ProviderFailure(id, formatDioError(e), e);
     } on FormatException catch (e) {
       throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
     } on ProviderFailure {
@@ -138,21 +202,6 @@ class OllamaProvider extends LlmProvider {
         },
         'required': ['operations', 'summary'],
       };
-    }
-  }
-
-  String _formatDioError(DioException e) {
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return 'Connection timed out';
-      case DioExceptionType.badResponse:
-        return 'Server error: ${e.response?.statusCode}';
-      case DioExceptionType.connectionError:
-        return 'Cannot connect to Ollama at ${config.baseUrl}. Is Ollama running?';
-      default:
-        return 'Network error: ${e.message}';
     }
   }
 
