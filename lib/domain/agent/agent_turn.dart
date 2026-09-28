@@ -28,6 +28,9 @@ class AgentToolCall with _$AgentToolCall {
 /// Assistant messages carry [toolCalls]; each tool result is its own
 /// [AgentTurnRole.toolResult] message identified by [toolCallId].
 /// [toolError] marks failed results (Anthropic `is_error`).
+/// [toolName] is the provider-neutral function name for tool results
+/// (Gemini `functionResponse` is keyed by name; `functionCall` carries no
+/// id). OpenAI/Anthropic mappers ignore it; never repurpose [toolCallId].
 @freezed
 class AgentTurnMessage with _$AgentTurnMessage {
   const factory AgentTurnMessage({
@@ -36,6 +39,7 @@ class AgentTurnMessage with _$AgentTurnMessage {
     @Default([]) List<AgentToolCall> toolCalls,
     String? toolCallId,
     @Default(false) bool toolError,
+    String? toolName,
   }) = _AgentTurnMessage;
 
   factory AgentTurnMessage.fromJson(Map<String, dynamic> json) =>

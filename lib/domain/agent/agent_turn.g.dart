@@ -32,6 +32,7 @@ _$AgentTurnMessageImpl _$$AgentTurnMessageImplFromJson(
       const [],
   toolCallId: json['toolCallId'] as String?,
   toolError: json['toolError'] as bool? ?? false,
+  toolName: json['toolName'] as String?,
 );
 
 Map<String, dynamic> _$$AgentTurnMessageImplToJson(
@@ -42,6 +43,7 @@ Map<String, dynamic> _$$AgentTurnMessageImplToJson(
   'toolCalls': instance.toolCalls,
   'toolCallId': instance.toolCallId,
   'toolError': instance.toolError,
+  'toolName': instance.toolName,
 };
 
 const _$AgentTurnRoleEnumMap = {

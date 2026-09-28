@@ -59,6 +59,17 @@ class _NimScriptProvider extends _ScriptProvider {
   String get id => 'nvidia_nim:meta/llama-3.3-70b-instruct';
 }
 
+/// Gemini-flavored scripted provider: same loop contract, Gemini identity.
+/// Proves the agentic loop is provider-agnostic end-to-end for Gemini
+/// (whose native wire uses synthetic `functionCall` ids and name-keyed
+/// `functionResponse`, mapped to canonical turns by the provider).
+class _GeminiScriptProvider extends _ScriptProvider {
+  _GeminiScriptProvider(super.script);
+
+  @override
+  String get id => 'gemini:gemini-3.8-flash';
+}
+
 class _OkExecutor implements ToolExecutor {
   @override
   Future<ToolResult> execute(ToolCall call) async => ToolResult.ok(
@@ -245,6 +256,56 @@ void main() {
             m.role == AgentTurnRole.toolResult &&
             m.toolCallId == 'call_1'),
         isTrue,
+      );
+      expect(result.records, hasLength(1));
+      expect(result.records.single.success, isTrue);
+      agent.dispose();
+    });
+
+    test('Gemini-flavored provider runs the loop end-to-end', () async {
+      final provider = _GeminiScriptProvider([
+        const AgentTurnResult(
+          text: 'Trimming now.',
+          toolCalls: [
+            AgentToolCall(
+              id: 'fc_1_1',
+              name: 'trim_clip',
+              args: {'clip_id': 'clip_1'},
+            ),
+          ],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          text: 'Trimmed the first 5 seconds.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      expect(provider.supportsToolCalling, isTrue);
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(),
+        registry: _registryWith({}),
+      );
+
+      final result = await agent.run(validated: _validated());
+
+      expect(result.status, equals(AgentRunStatus.success));
+      expect(result.message, equals('Trimmed the first 5 seconds.'));
+      expect(provider.calls, equals(2));
+      final round2 = provider.seen[1];
+      expect(
+        round2.history.any((m) =>
+            m.role == AgentTurnRole.toolResult &&
+            m.toolCallId == 'fc_1_1'),
+        isTrue,
+      );
+      // The provider-neutral tool name travels with the result turn.
+      expect(
+        round2.history
+            .where((m) => m.role == AgentTurnRole.toolResult)
+            .single
+            .toolName,
+        equals('trim_clip'),
       );
       expect(result.records, hasLength(1));
       expect(result.records.single.success, isTrue);

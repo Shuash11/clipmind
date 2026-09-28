@@ -341,6 +341,7 @@ class ToolCallingAgent {
       }),
       toolCallId: call.id,
       toolError: true,
+      toolName: call.name,
     ));
     _emit(
       AgentActivityKind.toolCallFailed,
@@ -406,6 +407,7 @@ class ToolCallingAgent {
       }),
       toolCallId: call.id,
       toolError: !result.success,
+      toolName: call.name,
     ));
 
     _emit(

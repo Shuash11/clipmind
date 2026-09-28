@@ -224,6 +224,7 @@ mixin _$AgentTurnMessage {
   List<AgentToolCall> get toolCalls => throw _privateConstructorUsedError;
   String? get toolCallId => throw _privateConstructorUsedError;
   bool get toolError => throw _privateConstructorUsedError;
+  String? get toolName => throw _privateConstructorUsedError;
 
   /// Serializes this AgentTurnMessage to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -248,6 +249,7 @@ abstract class $AgentTurnMessageCopyWith<$Res> {
     List<AgentToolCall> toolCalls,
     String? toolCallId,
     bool toolError,
+    String? toolName,
   });
 }
 
@@ -271,6 +273,7 @@ class _$AgentTurnMessageCopyWithImpl<$Res, $Val extends AgentTurnMessage>
     Object? toolCalls = null,
     Object? toolCallId = freezed,
     Object? toolError = null,
+    Object? toolName = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -294,6 +297,10 @@ class _$AgentTurnMessageCopyWithImpl<$Res, $Val extends AgentTurnMessage>
                 ? _value.toolError
                 : toolError // ignore: cast_nullable_to_non_nullable
                       as bool,
+            toolName: freezed == toolName
+                ? _value.toolName
+                : toolName // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -315,6 +322,7 @@ abstract class _$$AgentTurnMessageImplCopyWith<$Res>
     List<AgentToolCall> toolCalls,
     String? toolCallId,
     bool toolError,
+    String? toolName,
   });
 }
 
@@ -337,6 +345,7 @@ class __$$AgentTurnMessageImplCopyWithImpl<$Res>
     Object? toolCalls = null,
     Object? toolCallId = freezed,
     Object? toolError = null,
+    Object? toolName = freezed,
   }) {
     return _then(
       _$AgentTurnMessageImpl(
@@ -360,6 +369,10 @@ class __$$AgentTurnMessageImplCopyWithImpl<$Res>
             ? _value.toolError
             : toolError // ignore: cast_nullable_to_non_nullable
                   as bool,
+        toolName: freezed == toolName
+            ? _value.toolName
+            : toolName // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -374,6 +387,7 @@ class _$AgentTurnMessageImpl implements _AgentTurnMessage {
     final List<AgentToolCall> toolCalls = const [],
     this.toolCallId,
     this.toolError = false,
+    this.toolName,
   }) : _toolCalls = toolCalls;
 
   factory _$AgentTurnMessageImpl.fromJson(Map<String, dynamic> json) =>
@@ -397,10 +411,12 @@ class _$AgentTurnMessageImpl implements _AgentTurnMessage {
   @override
   @JsonKey()
   final bool toolError;
+  @override
+  final String? toolName;
 
   @override
   String toString() {
-    return 'AgentTurnMessage(role: $role, content: $content, toolCalls: $toolCalls, toolCallId: $toolCallId, toolError: $toolError)';
+    return 'AgentTurnMessage(role: $role, content: $content, toolCalls: $toolCalls, toolCallId: $toolCallId, toolError: $toolError, toolName: $toolName)';
   }
 
   @override
@@ -417,7 +433,9 @@ class _$AgentTurnMessageImpl implements _AgentTurnMessage {
             (identical(other.toolCallId, toolCallId) ||
                 other.toolCallId == toolCallId) &&
             (identical(other.toolError, toolError) ||
-                other.toolError == toolError));
+                other.toolError == toolError) &&
+            (identical(other.toolName, toolName) ||
+                other.toolName == toolName));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -429,6 +447,7 @@ class _$AgentTurnMessageImpl implements _AgentTurnMessage {
     const DeepCollectionEquality().hash(_toolCalls),
     toolCallId,
     toolError,
+    toolName,
   );
 
   /// Create a copy of AgentTurnMessage
@@ -455,6 +474,7 @@ abstract class _AgentTurnMessage implements AgentTurnMessage {
     final List<AgentToolCall> toolCalls,
     final String? toolCallId,
     final bool toolError,
+    final String? toolName,
   }) = _$AgentTurnMessageImpl;
 
   factory _AgentTurnMessage.fromJson(Map<String, dynamic> json) =
@@ -470,6 +490,8 @@ abstract class _AgentTurnMessage implements AgentTurnMessage {
   String? get toolCallId;
   @override
   bool get toolError;
+  @override
+  String? get toolName;
 
   /// Create a copy of AgentTurnMessage
   /// with the given fields replaced by the non-null parameter values.
