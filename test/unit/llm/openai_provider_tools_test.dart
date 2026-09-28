@@ -275,8 +275,8 @@ void main() {
       expect(provider.supportsToolCalling, isTrue);
     });
 
-    test('registry exposes exactly the 19 curated tools', () {
-      expect(ToolRegistry.defaultDefinitions(), hasLength(19));
+    test('registry exposes exactly the 20 curated tools', () {
+      expect(ToolRegistry.defaultDefinitions(), hasLength(20));
     });
   });
 }

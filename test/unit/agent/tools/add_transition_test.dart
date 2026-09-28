@@ -9,6 +9,8 @@ import 'package:clipmind/data/services/ffmpeg/command_builder.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
+import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
 import 'package:clipmind/domain/agent/stage_6_execution.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/domain/agent/tools/tool_executors.dart';
@@ -107,7 +109,7 @@ void main() {
         transition: 'fade',
         duration: 0.5,
         offset: 59.5,
-        hasAudio: true,
+        audioMode: 'crossfade',
       );
       expect(
         args,
@@ -131,11 +133,28 @@ void main() {
       final args = CommandBuilder.transition(
         '/v/a.mp4',
         '/v/b.mp4',
-        hasAudio: false,
+        audioMode: 'none',
       );
       expect(args, contains('-an'));
       expect(args.join(' '), isNot(contains('acrossfade')));
       expect(args.join(' '), isNot(contains('[outa]')));
+    });
+
+    test('one-sided modes map the bearing track', () {
+      final first = CommandBuilder.transition(
+        '/v/a.mp4',
+        '/v/b.mp4',
+        audioMode: 'first',
+      );
+      expect(first.join(' '), contains('-map 0:a'));
+      expect(first.join(' '), isNot(contains('acrossfade')));
+      final second = CommandBuilder.transition(
+        '/v/a.mp4',
+        '/v/b.mp4',
+        audioMode: 'second',
+      );
+      expect(second.join(' '), contains('-map 1:a'));
+      expect(second.join(' '), isNot(contains('acrossfade')));
     });
 
     test('duration clamps to the doc-verified 0–60 range', () {
@@ -295,6 +314,104 @@ void main() {
       final joined = ffmpeg.jobs.single.args.join(' ');
       expect(joined, contains('-an'));
       expect(joined, isNot(contains('acrossfade')));
+      expect(applied.single.op.params['audio_mode'], equals('none'));
+    });
+
+    test('first-only audio maps 0:a with a caution', () async {
+      when(() => ffprobe.extractMetadata(inputB)).thenAnswer(
+        (_) async => const VideoMetadata(
+          durationMs: 30000,
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          codec: 'h264',
+          hasAudio: false,
+          bitrate: 1000,
+        ),
+      );
+
+      final result = await call(ctx(), 'add_transition', {
+        'clip_id': 'clip_1',
+        'second_clip_id': 'clip_2',
+      });
+
+      expect(result.success, isTrue);
+      final joined = ffmpeg.jobs.single.args.join(' ');
+      expect(joined, contains('-map 0:a'));
+      expect(joined, isNot(contains('acrossfade')));
+      expect(result.summary, contains('Only "clip_1" has audio'));
+      expect(applied.single.op.params['audio_mode'], equals('first'));
+    });
+
+    test('second-only audio maps 1:a with a caution', () async {
+      when(() => ffprobe.extractMetadata(inputA)).thenAnswer(
+        (_) async => const VideoMetadata(
+          durationMs: 60000,
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          codec: 'h264',
+          hasAudio: false,
+          bitrate: 1000,
+        ),
+      );
+
+      final result = await call(ctx(), 'add_transition', {
+        'clip_id': 'clip_1',
+        'second_clip_id': 'clip_2',
+      });
+
+      expect(result.success, isTrue);
+      final joined = ffmpeg.jobs.single.args.join(' ');
+      expect(joined, contains('-map 1:a'));
+      expect(joined, isNot(contains('acrossfade')));
+      expect(result.summary, contains('Only "clip_2" has audio'));
+      expect(applied.single.op.params['audio_mode'], equals('second'));
+    });
+
+    test('both audio tracks crossfade without caution', () async {
+      final result = await call(ctx(), 'add_transition', {
+        'clip_id': 'clip_1',
+        'second_clip_id': 'clip_2',
+      });
+
+      expect(result.success, isTrue);
+      expect(
+        ffmpeg.jobs.single.args.join(' '),
+        contains('acrossfade'),
+      );
+      expect(result.summary, isNot(contains('has audio')));
+      expect(applied.single.op.params['audio_mode'], equals('crossfade'));
+    });
+
+    test('legacy has_audio params replay unchanged', () {
+      for (final entry in [
+        ({'has_audio': false}, '-an'),
+        ({'has_audio': true}, 'acrossfade'),
+      ]) {
+        final jobs = CommandMapper.mapOperations(
+          EditOperationSet(
+            operations: [
+              EditOperationRequest(
+                id: 'op_1',
+                type: 'add_transition',
+                targetClipId: 'clip_1',
+                params: {
+                  'second_clip_id': 'clip_2',
+                  'transition': 'fade',
+                  'duration': 0.5,
+                  'offset': 59.5,
+                  ...entry.$1,
+                },
+              ),
+            ],
+            summary: 'x',
+          ),
+          {'clip_1': '/v/a.mp4', 'clip_2': '/v/b.mp4'},
+          '/out',
+        );
+        expect(jobs.single.args.join(' '), contains(entry.$2));
+      }
     });
 
     test('resolution mismatch fails with a resize hint', () async {

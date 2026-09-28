@@ -527,6 +527,8 @@ class EditToolExecutor implements ToolExecutor {
           return await _burnCaptions(call);
         case 'add_transition':
           return await _addTransition(call);
+        case 'apply_effect':
+          return await _applyEffect(call);
         default:
           return ToolResult.fail(
             'Unknown edit tool "${call.name}".',
@@ -807,6 +809,88 @@ class EditToolExecutor implements ToolExecutor {
     );
   }
 
+  /// Supported creative looks for [apply_effect] (brightness lives with
+  /// `adjust_brightness` — the prompt steers the model there).
+  static const supportedEffects = {
+    'vignette',
+    'blur',
+    'grayscale',
+    'contrast',
+    'saturation',
+  };
+
+  /// Single-input creative look via [_runSingleOp] (no `removeClipIds` —
+  /// the same clip is replaced in place).
+  Future<ToolResult> _applyEffect(ToolCall call) async {
+    final clipId = _stringArg(call.args, 'clip_id');
+    final clipError = _requireClip(clipId);
+    if (clipError != null) return ToolResult.fail(clipError);
+    final rawEffect =
+        (_stringArg(call.args, 'effect') ?? '').trim().toLowerCase();
+    if (!supportedEffects.contains(rawEffect)) {
+      return ToolResult.fail(
+        'Unknown effect "$rawEffect". Supported: '
+        '${supportedEffects.join(', ')}. For brightness use '
+        'adjust_brightness.',
+      );
+    }
+    // Per-effect validation + clamping (builders re-clamp defensively,
+    // like adjustBrightness). Unused params for the chosen effect are
+    // ignored (degradation, not error).
+    double? strength;
+    double? contrast;
+    double? saturation;
+    switch (rawEffect) {
+      case 'vignette':
+      case 'blur':
+        final fallback = rawEffect == 'vignette' ? 0.4 : 0.3;
+        strength = _numArg(call.args, 'strength') ?? fallback;
+        if (!strength.isFinite || strength <= 0) {
+          return ToolResult.fail(
+            'apply_effect "$rawEffect" needs "strength" 0.0–1.0 '
+            '(default $fallback). Got "${call.args['strength']}".',
+          );
+        }
+        if (strength > 1) strength = 1;
+        break;
+      case 'contrast':
+        contrast = _numArg(call.args, 'contrast');
+        if (contrast == null || !contrast.isFinite) {
+          return ToolResult.fail(
+            'apply_effect "contrast" needs "contrast" 0.0–3.0 '
+            '(1.0 unchanged). Got "${call.args['contrast']}".',
+          );
+        }
+        if (contrast < 0) contrast = 0;
+        if (contrast > 3) contrast = 3;
+        break;
+      case 'saturation':
+        saturation = _numArg(call.args, 'saturation');
+        if (saturation == null || !saturation.isFinite) {
+          return ToolResult.fail(
+            'apply_effect "saturation" needs "saturation" 0.0–3.0 '
+            '(1.0 unchanged). Got "${call.args['saturation']}".',
+          );
+        }
+        if (saturation < 0) saturation = 0;
+        if (saturation > 3) saturation = 3;
+        break;
+      case 'grayscale':
+        break;
+    }
+    final params = <String, dynamic>{'effect': rawEffect};
+    if (strength != null) params['strength'] = strength;
+    if (contrast != null) params['contrast'] = contrast;
+    if (saturation != null) params['saturation'] = saturation;
+    return _runSingleOp(
+      callId: call.id,
+      opType: 'apply_effect',
+      clipId: clipId!,
+      params: params,
+      summary: 'Applied $rawEffect effect to "$clipId".',
+    );
+  }
+
   /// Curated xfade transition names (~15; FFmpeg defines 59).
   static const supportedTransitions = {
     'fade',
@@ -876,7 +960,7 @@ class EditToolExecutor implements ToolExecutor {
     final meta1 = await _ctx.ffprobeService.extractMetadata(firstPath);
     final meta2 = await _ctx.ffprobeService.extractMetadata(secondPath);
     var caution = '';
-    var hasAudio = true;
+    var audioMode = 'crossfade';
     if (meta1 == null || meta2 == null) {
       caution =
           ' Inputs could not be verified — the transition may fail if the '
@@ -896,7 +980,27 @@ class EditToolExecutor implements ToolExecutor {
           'use clips with matching frame rates, then retry add_transition.',
         );
       }
-      hasAudio = meta1.hasAudio || meta2.hasAudio;
+      // Asymmetric audio: acrossfade with one audio-less input fails the
+      // whole graph live-verified — map the bearing track directly.
+      // `&&` would strip the one audio-bearing track (silent data loss);
+      // caution-only would leave the runtime failure.
+      if (meta1.hasAudio && meta2.hasAudio) {
+        audioMode = 'crossfade';
+      } else if (meta1.hasAudio) {
+        audioMode = 'first';
+        caution =
+            ' Only "$firstId" has audio — the audio crossfade is skipped '
+            'and that clip\'s audio plays unchanged (it may end before '
+            'the video).';
+      } else if (meta2.hasAudio) {
+        audioMode = 'second';
+        caution =
+            ' Only "$secondId" has audio — the audio crossfade is skipped '
+            'and that clip\'s audio plays unchanged (it may end before '
+            'the video).';
+      } else {
+        audioMode = 'none';
+      }
     }
 
     final metaMs =
@@ -933,7 +1037,7 @@ class EditToolExecutor implements ToolExecutor {
               'transition': transition,
               'duration': duration,
               'offset': offset,
-              'has_audio': hasAudio,
+              'audio_mode': audioMode,
               'clip_ids': [firstId, secondId],
             },
           ),
@@ -1227,6 +1331,8 @@ class EditToolExecutor implements ToolExecutor {
         return EditOperationType.burnCaptions;
       case 'add_transition':
         return EditOperationType.addTransition;
+      case 'apply_effect':
+        return EditOperationType.applyEffect;
       case 'adjust_brightness':
         return EditOperationType.adjustBrightness;
       case 'change_volume':
@@ -1262,6 +1368,7 @@ ToolRegistry createToolRegistry(ToolExecutionContext ctx) {
     'extract_audio': edit,
     'burn_captions': edit,
     'add_transition': edit,
+    'apply_effect': edit,
   });
 }
 

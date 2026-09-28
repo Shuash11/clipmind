@@ -276,6 +276,17 @@ class FilterGraphComposer {
         // switch stays total over the enum.
         break;
 
+      case EditOperationType.applyEffect:
+        videoFilters.add(
+          CommandBuilder.effectFilter(
+            effect: _paramString(p, 'effect', ''),
+            strength: _paramDoubleOrNull(p, 'strength'),
+            contrast: _paramDoubleOrNull(p, 'contrast'),
+            saturation: _paramDoubleOrNull(p, 'saturation'),
+          ),
+        );
+        break;
+
       case EditOperationType.mute:
       case EditOperationType.trim:
       case EditOperationType.merge:
@@ -414,6 +425,14 @@ class FilterGraphComposer {
         // tool path executes them directly via CommandMapper. Skip rather
         // than fabricate a broken job.
         return null;
+      case EditOperationType.applyEffect:
+        return CommandBuilder.effect(
+          inputPath,
+          effect: _paramString(p, 'effect', ''),
+          strength: _paramDoubleOrNull(p, 'strength'),
+          contrast: _paramDoubleOrNull(p, 'contrast'),
+          saturation: _paramDoubleOrNull(p, 'saturation'),
+        );
     }
   }
 
@@ -453,5 +472,12 @@ class FilterGraphComposer {
     if (v == null) return fallback;
     if (v is num) return v.toInt();
     return int.tryParse(v.toString()) ?? fallback;
+  }
+
+  /// Null-safe double read for optional effect params (builder defaults).
+  double? _paramDoubleOrNull(Map<String, dynamic> p, String key) {
+    final v = p[key];
+    if (v is num) return v.toDouble();
+    return null;
   }
 }

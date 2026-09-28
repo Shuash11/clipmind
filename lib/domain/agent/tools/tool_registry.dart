@@ -2,7 +2,7 @@ import 'tool_definition.dart';
 
 /// Curated tool surface for the agentic loop (D4, Phase 6a).
 ///
-/// Exactly 19 tools (< 20 per OpenAI guidance). The model references clips
+/// Exactly 20 tools (at the ≤20 cap). The model references clips
 /// by ID learned from [list_project_clips]; the app resolves file paths
 /// itself — file paths are never model-filled args.
 class ToolRegistry {
@@ -26,7 +26,7 @@ class ToolRegistry {
     _validate();
   }
 
-  /// The 19 canonical definitions.
+  /// The 20 canonical definitions.
   static List<ToolDefinition> defaultDefinitions() => _catalog;
 
   List<ToolDefinition> definitions() => _byName.values.toList();
@@ -501,6 +501,50 @@ class ToolRegistry {
           },
         },
         'required': ['clip_id', 'second_clip_id', 'transition', 'duration'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+    ),
+    const ToolDefinition(
+      name: 'apply_effect',
+      description:
+          'Apply a creative visual effect to one clip: vignette, blur '
+          '(gblur), grayscale, contrast or saturation. strength (0-1) '
+          'drives vignette/blur; contrast/saturation are 0-3 multipliers '
+          'where 1.0 is unchanged. For brightness use adjust_brightness '
+          'instead.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'clip_id': {
+            'type': 'string',
+            'description': 'Clip ID from list_project_clips.',
+          },
+          'effect': {
+            'type': 'string',
+            'description':
+                'vignette, blur, grayscale, contrast or saturation.',
+          },
+          'strength': {
+            'type': ['number', 'null'],
+            'description':
+                'Effect strength 0.0-1.0 for vignette (default 0.4) and '
+                'blur (default 0.3). Ignored by other effects.',
+          },
+          'contrast': {
+            'type': ['number', 'null'],
+            'description':
+                'Contrast multiplier 0.0-3.0, 1.0 unchanged. Required for '
+                'the contrast effect. Ignored by other effects.',
+          },
+          'saturation': {
+            'type': ['number', 'null'],
+            'description':
+                'Saturation multiplier 0.0-3.0, 1.0 unchanged. Required '
+                'for the saturation effect. Ignored by other effects.',
+          },
+        },
+        'required': ['clip_id', 'effect', 'strength', 'contrast', 'saturation'],
         'additionalProperties': false,
       },
       category: ToolCategory.edit,

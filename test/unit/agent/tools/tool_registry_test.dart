@@ -15,9 +15,9 @@ class _StubExecutor implements ToolExecutor {
 
 void main() {
   group('ToolRegistry surface', () {
-    test('exposes exactly the 19 curated tools (<= 20)', () {
+    test('exposes exactly the 20 curated tools (at the <= 20 cap)', () {
       final defs = ToolRegistry.defaultDefinitions();
-      expect(defs, hasLength(19));
+      expect(defs, hasLength(20));
       expect(defs.length, lessThanOrEqualTo(20));
     });
 
@@ -58,6 +58,7 @@ void main() {
         'extract_audio',
         'burn_captions',
         'add_transition',
+        'apply_effect',
       ]) {
         expect(byName, containsPair(name, ToolCategory.edit));
       }

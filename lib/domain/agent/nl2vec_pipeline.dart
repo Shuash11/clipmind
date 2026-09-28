@@ -584,6 +584,8 @@ class Nl2VecPipeline {
         return EditOperationType.rotate;
       case 'extract_audio':
         return EditOperationType.extractAudio;
+      case 'apply_effect':
+        return EditOperationType.applyEffect;
       case 'add_transition':
         return EditOperationType.addTransition;
       case 'burn_captions':
@@ -621,7 +623,7 @@ class Nl2VecPipeline {
                 // burn_captions is agentic-only: the legacy one-shot path
                 // has no timed-transcript context and can never
                 // meaningfully produce it.
-                'add_transition',
+                'add_transition', 'apply_effect',
               ],
             },
             'target_clip_id': {'type': 'string'},

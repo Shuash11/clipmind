@@ -18,7 +18,7 @@ class CommandMapper {
   static const _composableTypes = {
     'trim', 'cut', 'change_speed', 'mute', 'overlay_text',
     'resize', 'rotate', 'adjust_brightness', 'change_volume',
-    'overlay_watermark',
+    'overlay_watermark', 'apply_effect',
   };
 
   static const _singlePassTypes = {
@@ -208,8 +208,19 @@ class CommandMapper {
           );
           break;
 
-        case 'overlay_text':
-          final rawText = _str(params, 'text', '');
+      case 'apply_effect':
+        filters.add(
+          '[$prev]${CommandBuilder.effectFilter(
+            effect: _str(params, 'effect', ''),
+            strength: _numOrNull(params, 'strength'),
+            contrast: _numOrNull(params, 'contrast'),
+            saturation: _numOrNull(params, 'saturation'),
+          )}[$next]',
+        );
+        break;
+
+      case 'overlay_text':
+        final rawText = _str(params, 'text', '');
           final text = FilterEscaping.escapeDrawtext(rawText);
           final pos = _str(params, 'position', 'center');
           final fs = _int(params, 'font_size', 48);
@@ -340,14 +351,22 @@ class CommandMapper {
         'Operation "${op.id}": unknown clip "$secondId" in transition pair.',
       );
     }
+    // audio_mode with legacy has_audio fallback: pre-Phase-4 stored ops
+    // carry {'has_audio': bool} and replay unchanged.
+    final modeRaw = op.params['audio_mode'];
     final hasAudioRaw = op.params['has_audio'];
+    final audioMode = modeRaw is String
+        ? modeRaw
+        : hasAudioRaw is bool
+            ? (hasAudioRaw ? 'crossfade' : 'none')
+            : 'crossfade';
     final args = CommandBuilder.transition(
       first,
       second,
       transition: _str(op.params, 'transition', 'fade'),
       duration: _num(op.params, 'duration', 0.5),
       offset: _num(op.params, 'offset', 0),
-      hasAudio: hasAudioRaw is bool ? hasAudioRaw : true,
+      audioMode: audioMode,
     );
     return FfmpegJob(
       id: op.id,
@@ -391,6 +410,15 @@ class CommandMapper {
         break;
       case 'mute':
         args = CommandBuilder.mute(inputPath);
+        break;
+      case 'apply_effect':
+        args = CommandBuilder.effect(
+          inputPath,
+          effect: _str(params, 'effect', ''),
+          strength: _numOrNull(params, 'strength'),
+          contrast: _numOrNull(params, 'contrast'),
+          saturation: _numOrNull(params, 'saturation'),
+        );
         break;
       case 'overlay_text':
         args = CommandBuilder.overlayText(
@@ -520,6 +548,13 @@ class CommandMapper {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value) ?? fallback;
     return fallback;
+  }
+
+  /// Null-safe double read for optional effect params (builder defaults).
+  static double? _numOrNull(Map<String, dynamic> params, String key) {
+    final value = params[key];
+    if (value is num) return value.toDouble();
+    return null;
   }
 
   static String _validatedColor(String color) {

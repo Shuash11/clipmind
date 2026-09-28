@@ -146,6 +146,16 @@ class ExecutionEngine {
     if (job.args.any((a) => a.contains('xfade='))) return 'add_transition';
     if (job.args.any((a) => a.contains('overlay='))) return 'overlay_watermark';
     if (job.args.any((a) => a.contains('brightness'))) return 'adjust_brightness';
+    // After the brightness check so `eq=brightness=` keeps mapping to
+    // adjust_brightness.
+    if (job.args.any((a) => a.contains('vignette='))) return 'apply_effect';
+    if (job.args.any((a) => a.contains('gblur='))) return 'apply_effect';
+    if (job.args.any((a) => a.contains('eq=contrast='))) {
+      return 'apply_effect';
+    }
+    if (job.args.any((a) => a.contains('eq=saturation='))) {
+      return 'apply_effect';
+    }
     if (job.args.any((a) => a.contains('volume='))) return 'change_volume';
     if (job.args.contains('-vn')) return 'extract_audio';
     if (job.args.contains('-vframes')) return 'generate_thumbnail';
@@ -167,6 +177,7 @@ class ExecutionEngine {
       case 'extract_audio': return EditOperationType.extractAudio;
       case 'burn_captions': return EditOperationType.burnCaptions;
       case 'add_transition': return EditOperationType.addTransition;
+      case 'apply_effect': return EditOperationType.applyEffect;
       case 'generate_thumbnail': return EditOperationType.generateThumbnail;
       case 'adjust_brightness': return EditOperationType.adjustBrightness;
       case 'change_volume': return EditOperationType.changeVolume;

@@ -356,4 +356,85 @@ void main() {
       expect(args, containsAll(['-map', '[outv]', '-map', '0:a']));
     });
   });
+
+  group('CommandBuilder.effectFilter', () {
+    test('vignette strength 0.4 equals the FFmpeg default PI/5', () {
+      expect(
+        CommandBuilder.effectFilter(effect: 'vignette', strength: 0.4),
+        startsWith('vignette=angle=0.6283185'),
+      );
+    });
+
+    test('blur strength maps to gblur sigma with an app-chosen cap', () {
+      expect(
+        CommandBuilder.effectFilter(effect: 'blur', strength: 1.0),
+        equals('gblur=sigma=20.0'),
+      );
+      expect(
+        CommandBuilder.effectFilter(effect: 'blur'),
+        startsWith('gblur=sigma=6.'),
+      );
+    });
+
+    test('grayscale has no standalone filter (eq saturation zero)', () {
+      expect(
+        CommandBuilder.effectFilter(effect: 'grayscale'),
+        equals('eq=saturation=0'),
+      );
+    });
+
+    test('contrast and saturation clamp to 0-3', () {
+      expect(
+        CommandBuilder.effectFilter(effect: 'contrast', contrast: 9),
+        equals('eq=contrast=3.0'),
+      );
+      expect(
+        CommandBuilder.effectFilter(effect: 'saturation'),
+        equals('eq=saturation=1.0'),
+      );
+    });
+
+    test('effect() wraps the filter in a single-op job', () {
+      final args = CommandBuilder.effect(
+        'in.mp4',
+        effect: 'vignette',
+        strength: 0.4,
+      );
+      expect(args.sublist(0, 2), equals(['-i', 'in.mp4']));
+      expect(args[2], equals('-vf'));
+      expect(args[3], startsWith('vignette=angle='));
+    });
+  });
+
+  group('CommandBuilder.transition audioMode', () {
+    test('crossfade maps both outputs', () {
+      final args = CommandBuilder.transition(
+        'a.mp4',
+        'b.mp4',
+        audioMode: 'crossfade',
+      );
+      expect(args.join(' '), contains('acrossfade'));
+      expect(args, containsAll(['-map', '[outv]', '-map', '[outa]']));
+    });
+
+    test('first/second map the bearing track without acrossfade', () {
+      final first = CommandBuilder.transition('a.mp4', 'b.mp4',
+          audioMode: 'first');
+      expect(first.join(' '), contains('-map 0:a'));
+      expect(first.join(' '), isNot(contains('acrossfade')));
+      final second = CommandBuilder.transition('a.mp4', 'b.mp4',
+          audioMode: 'second');
+      expect(second.join(' '), contains('-map 1:a'));
+      expect(second.join(' '), isNot(contains('acrossfade')));
+    });
+
+    test('none and unknown modes disable audio', () {
+      for (final mode in ['none', 'bogus']) {
+        final args = CommandBuilder.transition('a.mp4', 'b.mp4',
+            audioMode: mode);
+        expect(args, contains('-an'));
+        expect(args.join(' '), isNot(contains('acrossfade')));
+      }
+    });
+  });
 }

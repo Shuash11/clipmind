@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'filter_escaping.dart';
 
 class CommandBuilder {
@@ -221,13 +223,18 @@ class CommandBuilder {
     String transition = 'fade',
     double duration = 0.5,
     double offset = 0,
-    bool hasAudio = true,
+    String audioMode = 'crossfade',
   }) {
     final d = duration.clamp(0.0, 60.0);
     final o = offset < 0 ? 0.0 : offset;
     final video =
         '[0:v][1:v]xfade=transition=$transition:duration=$d:offset=$o[outv]';
-    final graph = hasAudio ? '$video;[0:a][1:a]acrossfade=d=$d[outa]' : video;
+    // Asymmetric audio is live-verified on FFmpeg 8.1.1: one-sided inputs
+    // must map the bearing track directly — `[0:a][1:a]acrossfade` with
+    // one audio-less input fails the whole graph (exit −22).
+    final graph = audioMode == 'crossfade'
+        ? '$video;[0:a][1:a]acrossfade=d=$d[outa]'
+        : video;
     final args = [
       '-i',
       firstPath,
@@ -238,13 +245,79 @@ class CommandBuilder {
       '-map',
       '[outv]',
     ];
-    if (hasAudio) {
-      args.addAll(['-map', '[outa]']);
-    } else {
-      args.add('-an');
+    switch (audioMode) {
+      case 'crossfade':
+        args.addAll(['-map', '[outa]']);
+        break;
+      case 'first':
+        args.addAll(['-map', '0:a']);
+        break;
+      case 'second':
+        args.addAll(['-map', '1:a']);
+        break;
+      default:
+        args.add('-an');
+        break;
     }
     return args;
   }
+
+  /// Creative look filter for one clip (shared with the composed path).
+  ///
+  /// - `vignette`: strength 0–1 → lens angle 0–PI/2 radians; 0.4 ≡ the
+  ///   FFmpeg default PI/5. There is no 0–1 "strength" param in the
+  ///   filter — this mapping is app-side.
+  /// - `blur`: strength 0–1 → `gblur` sigma 0–20 (app-chosen cap).
+  /// - `grayscale`: `eq=saturation=0` (no standalone `grayscale` filter
+  ///   exists in the FFmpeg docs).
+  /// - `contrast` / `saturation`: `eq` multipliers clamped to 0–3.
+  ///
+  /// All mappings live-verified 2026-09-28 on FFmpeg 8.1.1 (exit 0).
+  /// The sigma cap is app-chosen (spot-checked at 6) — TO-VERIFY-LIVE
+  /// beyond that. Unknown effects yield the `null` passthrough.
+  static String effectFilter({
+    required String effect,
+    double? strength,
+    double? contrast,
+    double? saturation,
+  }) {
+    switch (effect) {
+      case 'vignette':
+        final s = (strength ?? 0.4).clamp(0.0, 1.0);
+        return 'vignette=angle=${s * math.pi / 2}';
+      case 'blur':
+        final s = (strength ?? 0.3).clamp(0.0, 1.0);
+        return 'gblur=sigma=${s * 20}';
+      case 'grayscale':
+        return 'eq=saturation=0';
+      case 'contrast':
+        return 'eq=contrast=${(contrast ?? 1.0).clamp(0.0, 3.0)}';
+      case 'saturation':
+        return 'eq=saturation=${(saturation ?? 1.0).clamp(0.0, 3.0)}';
+      default:
+        return 'null';
+    }
+  }
+
+  /// Single-op job for [effectFilter].
+  static List<String> effect(
+    String input, {
+    required String effect,
+    double? strength,
+    double? contrast,
+    double? saturation,
+  }) =>
+      [
+        '-i',
+        input,
+        '-vf',
+        effectFilter(
+          effect: effect,
+          strength: strength,
+          contrast: contrast,
+          saturation: saturation,
+        ),
+      ];
 
   static List<String> extractAudio(String input, String outputFormat) {
     final codec = switch (outputFormat) {
