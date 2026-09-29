@@ -46,11 +46,6 @@ class SettingsRepository {
     return s.activeProviderId;
   }
 
-  Future<String?> getActiveModel() async {
-    final s = await load();
-    return s.activeModel;
-  }
-
   void dispose() {
     _disposed = true;
     _controller.close();

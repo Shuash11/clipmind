@@ -9,7 +9,11 @@ enum ThemeModePreference { dark, light, system }
 class AppSettings with _$AppSettings {
   const factory AppSettings({
     @Default('ollama') String activeProviderId,
-    @Default('') String activeModel,
+    @Deprecated('Unused since the provider-profile system; model selection '
+        'lives in the provider profile (selectedModelId). Kept for the '
+        'legacy-settings migration and JSON round-trip.')
+    @Default('')
+    String activeModel,
     @Default('http://localhost:11434') String ollamaEndpoint,
     @Default(ThemeModePreference.dark) ThemeModePreference theme,
     @Default({}) Map<String, String> outputFormatDefaults,

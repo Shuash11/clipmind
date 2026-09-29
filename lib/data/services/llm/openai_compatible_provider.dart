@@ -33,6 +33,10 @@ import 'llm_provider.dart';
 /// - [connectionErrorText]: provider-specific unreachable message.
 /// - [mapToolsModelError]: actionable message for non-tools models
 ///   (Ollama overrides; default `null`).
+/// - [chatCompletionsPath]: endpoint path posted by [chatWithTools];
+///   default path-absolute `/v1/chat/completions`. Custom servers whose
+///   Dio `baseUrl` already includes the version prefix override with the
+///   relative `chat/completions`.
 abstract class OpenAiCompatibleLlmProvider extends LlmProvider {
   /// Origin + `/v1` prefix of the OpenAI-compatible endpoint.
   String get baseUrl;
@@ -42,6 +46,16 @@ abstract class OpenAiCompatibleLlmProvider extends LlmProvider {
 
   /// Injectable HTTP client (mocked Dio in tests).
   Dio get dio;
+
+  /// Path of the Chat Completions endpoint posted by [chatWithTools].
+  ///
+  /// Default is path-absolute (`/v1/chat/completions`), preserving
+  /// OpenAI/Ollama/NIM behavior verbatim. Custom servers whose Dio
+  /// `baseUrl` already includes the version prefix (e.g.
+  /// `https://…/api/v1`) override with the relative `chat/completions`:
+  /// Dio joins it onto the base path, while a leading `/` would replace
+  /// the base path (RFC 3986) and drop the prefix.
+  String get chatCompletionsPath => '/v1/chat/completions';
 
   /// API key, or `null` when the endpoint needs no auth (Ollama keyless).
   ///
@@ -117,7 +131,7 @@ abstract class OpenAiCompatibleLlmProvider extends LlmProvider {
         };
 
         final response = await dio.post<Map<String, dynamic>>(
-          '/v1/chat/completions',
+          chatCompletionsPath,
           data: body,
           options: Options(
             receiveTimeout: Duration(seconds: request.timeoutSeconds),

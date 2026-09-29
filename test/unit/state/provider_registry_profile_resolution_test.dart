@@ -1,4 +1,5 @@
 import 'package:clipmind/data/services/llm/anthropic_provider.dart';
+import 'package:clipmind/data/services/llm/custom_openai_compatible_provider.dart';
 import 'package:clipmind/data/services/llm/gemini_provider.dart';
 import 'package:clipmind/data/services/llm/nvidia_nim_provider.dart';
 import 'package:clipmind/data/services/llm/ollama_provider.dart';
@@ -125,6 +126,47 @@ void main() {
     test('unknown/custom providerId resolves to null', () async {
       final provider = await registryWith(
         () => const ActiveLlmConfig(providerId: 'my-custom-thing'),
+      ).getActiveProvider();
+      expect(provider, isNull);
+    });
+
+    test('usable custom profile resolves with the selected model', () async {
+      final provider = await registryWith(
+        () => ActiveLlmConfig(
+          providerId: 'custom',
+          endpoint: Uri.parse('https://openrouter.ai/api/v1'),
+          apiKey: 'sk-test',
+          model: 'openai/gpt-oss-120b',
+        ),
+      ).getActiveProvider();
+
+      expect(provider, isA<CustomOpenAiCompatibleProvider>());
+      final custom = provider as CustomOpenAiCompatibleProvider;
+      expect(custom.modelName, equals('openai/gpt-oss-120b'));
+      expect(custom.id, equals('custom:openai/gpt-oss-120b'));
+      expect(custom.supportsToolCalling, isTrue);
+      expect(await custom.resolveApiKey(), equals('sk-test'));
+    });
+
+    test('custom without a selected model resolves to null', () async {
+      for (final model in [null, '', '   ']) {
+        final provider = await registryWith(
+          () => ActiveLlmConfig(
+            providerId: 'custom',
+            endpoint: Uri.parse('https://openrouter.ai/api/v1'),
+            model: model,
+          ),
+        ).getActiveProvider();
+        expect(provider, isNull, reason: 'model=$model');
+      }
+    });
+
+    test('custom without an endpoint resolves to null', () async {
+      final provider = await registryWith(
+        () => const ActiveLlmConfig(
+          providerId: 'custom',
+          model: 'openai/gpt-oss-120b',
+        ),
       ).getActiveProvider();
       expect(provider, isNull);
     });

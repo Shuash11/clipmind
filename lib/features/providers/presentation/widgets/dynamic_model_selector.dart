@@ -17,14 +17,21 @@ class DynamicModelSelector extends ConsumerWidget {
     final state = ref.watch(providerProfileNotifierProvider);
     final profile = state.activeProfile;
     final usable = state.hasUsableActiveProfile;
+    // Precise hint: presets have class defaults so they run without a
+    // selection; the custom profile has none — it runs nothing until a
+    // model is chosen.
+    final needsModel = usable &&
+        profile!.providerId == customOpenAiCompatibleProviderId &&
+        profile.selectedModelId == null;
+    final modelHint = needsModel ? ' · select a model' : '';
     final label = usable
-        ? '${profile!.displayName}${profile.selectedModelId == null ? '' : ' · ${profile.selectedModelId}'}'
+        ? '${profile!.displayName}${profile.selectedModelId == null ? '' : ' · ${profile.selectedModelId}'}$modelHint'
         : 'Configure AI Providers';
     return Semantics(
       button: true,
       enabled: true,
       label: usable
-          ? 'Select model for ${profile!.displayName}'
+          ? 'Select model for ${profile!.displayName}$modelHint'
           : 'Configure AI Providers',
       child: Tooltip(
         message: usable ? 'Select model' : 'No enabled provider profile',

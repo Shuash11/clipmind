@@ -74,6 +74,104 @@ void main() {
     },
   );
 
+  testWidgets(
+    'hints to select a model for custom without a selection',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'custom-1',
+        providerId: 'custom',
+        displayName: 'Custom',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Custom has no class default: the label hints until a model is
+      // chosen, and the Semantics label matches.
+      expect(find.textContaining('· select a model'), findsOneWidget);
+      final semantics = tester.widget<Semantics>(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Semantics &&
+              (w.properties.label ?? '').contains('Custom'),
+        ),
+      );
+      expect(semantics.properties.label ?? '', contains('select a model'));
+    },
+  );
+
+  testWidgets(
+    'selected custom model clears the hint',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'custom-2',
+        providerId: 'custom',
+        displayName: 'Custom',
+        endpoint: Uri.parse('https://example.test'),
+        selectedModelId: 'my-model',
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.textContaining('· select a model'), findsNothing);
+      expect(find.textContaining('my-model'), findsOneWidget);
+    },
+  );
+
   test(
     'retains manual models and exposes the exact discovery fallback',
     () async {

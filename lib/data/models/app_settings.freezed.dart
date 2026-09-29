@@ -22,6 +22,11 @@ AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$AppSettings {
   String get activeProviderId => throw _privateConstructorUsedError;
+  @Deprecated(
+    'Unused since the provider-profile system; model selection '
+    'lives in the provider profile (selectedModelId). Kept for the '
+    'legacy-settings migration and JSON round-trip.',
+  )
   String get activeModel => throw _privateConstructorUsedError;
   String get ollamaEndpoint => throw _privateConstructorUsedError;
   ThemeModePreference get theme => throw _privateConstructorUsedError;
@@ -51,6 +56,11 @@ abstract class $AppSettingsCopyWith<$Res> {
   @useResult
   $Res call({
     String activeProviderId,
+    @Deprecated(
+      'Unused since the provider-profile system; model selection '
+      'lives in the provider profile (selectedModelId). Kept for the '
+      'legacy-settings migration and JSON round-trip.',
+    )
     String activeModel,
     String ollamaEndpoint,
     ThemeModePreference theme,
@@ -142,6 +152,11 @@ abstract class _$$AppSettingsImplCopyWith<$Res>
   @useResult
   $Res call({
     String activeProviderId,
+    @Deprecated(
+      'Unused since the provider-profile system; model selection '
+      'lives in the provider profile (selectedModelId). Kept for the '
+      'legacy-settings migration and JSON round-trip.',
+    )
     String activeModel,
     String ollamaEndpoint,
     ThemeModePreference theme,
@@ -225,6 +240,11 @@ class __$$AppSettingsImplCopyWithImpl<$Res>
 class _$AppSettingsImpl implements _AppSettings {
   const _$AppSettingsImpl({
     this.activeProviderId = 'ollama',
+    @Deprecated(
+      'Unused since the provider-profile system; model selection '
+      'lives in the provider profile (selectedModelId). Kept for the '
+      'legacy-settings migration and JSON round-trip.',
+    )
     this.activeModel = '',
     this.ollamaEndpoint = 'http://localhost:11434',
     this.theme = ThemeModePreference.dark,
@@ -243,6 +263,11 @@ class _$AppSettingsImpl implements _AppSettings {
   final String activeProviderId;
   @override
   @JsonKey()
+  @Deprecated(
+    'Unused since the provider-profile system; model selection '
+    'lives in the provider profile (selectedModelId). Kept for the '
+    'legacy-settings migration and JSON round-trip.',
+  )
   final String activeModel;
   @override
   @JsonKey()
@@ -336,6 +361,11 @@ class _$AppSettingsImpl implements _AppSettings {
 abstract class _AppSettings implements AppSettings {
   const factory _AppSettings({
     final String activeProviderId,
+    @Deprecated(
+      'Unused since the provider-profile system; model selection '
+      'lives in the provider profile (selectedModelId). Kept for the '
+      'legacy-settings migration and JSON round-trip.',
+    )
     final String activeModel,
     final String ollamaEndpoint,
     final ThemeModePreference theme,
@@ -352,6 +382,11 @@ abstract class _AppSettings implements AppSettings {
   @override
   String get activeProviderId;
   @override
+  @Deprecated(
+    'Unused since the provider-profile system; model selection '
+    'lives in the provider profile (selectedModelId). Kept for the '
+    'legacy-settings migration and JSON round-trip.',
+  )
   String get activeModel;
   @override
   String get ollamaEndpoint;

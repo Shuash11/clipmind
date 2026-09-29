@@ -1,6 +1,7 @@
 import 'package:clipmind/data/local/secure_key_store.dart';
 import 'package:clipmind/data/repositories/settings_repository.dart';
 import 'anthropic_provider.dart';
+import 'custom_openai_compatible_provider.dart';
 import 'gemini_provider.dart';
 import 'llm_provider.dart';
 import 'nvidia_nim_provider.dart';
@@ -165,8 +166,7 @@ class ProviderRegistry {
   ///
   /// Named params with explicit null override Dart defaults, so the
   /// null-coalescing to each provider's class default is mandatory.
-  /// Unknown/custom ids return null (graceful — same as today; the custom
-  /// adapter lands in Phase 2).
+  /// Genuinely unknown ids return null (graceful — same as today).
   LlmProvider? _providerFromConfig(ActiveLlmConfig config) {
     final model = config.model;
     final apiKey = config.apiKey ?? '';
@@ -210,6 +210,19 @@ class ProviderRegistry {
             apiKey: apiKey,
           ),
           keyStore: _keyStore,
+        );
+      case 'custom':
+        // A custom profile has no default model and no usable fallback:
+        // without a selected model or endpoint the run truthfully fails
+        // until the user completes the profile.
+        if (model == null || model.trim().isEmpty) return null;
+        if (config.endpoint == null) return null;
+        return CustomOpenAiCompatibleProvider(
+          config: CustomOpenAiConfig(
+            endpoint: config.endpoint!,
+            model: model,
+            apiKey: config.apiKey,
+          ),
         );
       default:
         return null;

@@ -16,6 +16,7 @@ class StatusBar extends ConsumerWidget {
     final health = ref.watch(providerHealthProvider);
     final ffmpeg = ref.watch(ffmpegBinaryAvailableProvider);
     final runState = ref.watch(agentRunControllerProvider);
+    final modelName = ref.watch(resolvedModelNameProvider).valueOrNull;
 
     return Container(
       key: const ValueKey('status-bar'),
@@ -27,7 +28,7 @@ class StatusBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          _providerPill(health),
+          _providerPill(health, modelName),
           const SizedBox(width: 8),
           _ffmpegPill(ffmpeg),
           if (runState == AgentRunState.running ||
@@ -40,16 +41,17 @@ class StatusBar extends ConsumerWidget {
     );
   }
 
-  /// connected -> green dot + "AI connected"; connecting/loading ->
-  /// spinner/muted + "Connecting…"; disconnected/error -> red + offline.
-  Widget _providerPill(AsyncValue<ConnectionStatus> health) {
+  /// connected -> green dot + "AI connected · {model}" (ids truncated to
+  /// ~24 chars + a tooltip with the full name) or plain "AI connected";
+  /// connecting/loading -> spinner/muted + "Connecting…"; disconnected/
+  /// error -> red + offline.
+  Widget _providerPill(
+    AsyncValue<ConnectionStatus> health,
+    String? modelName,
+  ) {
     return health.when(
       data: (status) => switch (status) {
-        ConnectionStatus.connected => const _StatusPill(
-            key: ValueKey('status-provider-pill'),
-            color: ClipMindColors.statusReady,
-            label: 'AI connected',
-          ),
+        ConnectionStatus.connected => _connectedPill(modelName),
         ConnectionStatus.connecting => const _StatusPill(
             key: ValueKey('status-provider-pill'),
             color: ClipMindColors.textMuted,
@@ -75,6 +77,27 @@ class StatusBar extends ConsumerWidget {
         label: 'Provider offline',
       ),
     );
+  }
+
+  /// "AI connected" when no OpenAI-compatible model resolves; with one,
+  /// "AI connected · {model}" (truncated) + a tooltip with the full name.
+  Widget _connectedPill(String? modelName) {
+    final pill = _StatusPill(
+      key: const ValueKey('status-provider-pill'),
+      color: ClipMindColors.statusReady,
+      label: modelName == null || modelName.isEmpty
+          ? 'AI connected'
+          : 'AI connected · ${_truncateModel(modelName)}',
+    );
+    if (modelName == null || modelName.isEmpty) return pill;
+    return Tooltip(message: 'AI connected · $modelName', child: pill);
+  }
+
+  /// Model ids like `meta/llama-3.3-70b-instruct` are long — protect the
+  /// 32px bar by truncating to 24 chars + an ellipsis.
+  String _truncateModel(String model) {
+    if (model.length <= 24) return model;
+    return '${model.substring(0, 24)}…';
   }
 
   /// true -> green "FFmpeg ready"; false/error -> red "FFmpeg missing".

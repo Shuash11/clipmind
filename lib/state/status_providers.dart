@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_binary_resolver.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
+import 'package:clipmind/data/services/llm/openai_compatible_provider.dart';
 import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart'
     hide providerRegistryProvider;
 import 'package:clipmind/state/agent_providers.dart';
@@ -51,5 +52,35 @@ final ffmpegBinaryAvailableProvider = FutureProvider<bool>((ref) async {
     return ref.watch(ffmpegBinaryResolverProvider).resolveFfmpeg() != null;
   } catch (_) {
     return false;
+  }
+});
+
+/// The active provider's resolved model name (same registry the run path
+/// uses) — for the status bar's model pill.
+///
+/// Rebuilds only on profile/model selection changes (narrow select); the
+/// registry's `ref.listen` → `invalidateActive` makes each rebuild resolve
+/// fresh, so model changes flow through. Only OpenAI-compatible providers
+/// expose a model name — native Gemini/Anthropic return null and the
+/// frontend keeps the plain label. Never throws in build.
+final resolvedModelNameProvider = FutureProvider<String?>((ref) async {
+  ref.watch(
+    providerProfileNotifierProvider.select(
+      (s) => (
+        s.activeProfileId,
+        s.hasUsableActiveProfile,
+        s.selectedModelId,
+      ),
+    ),
+  );
+  try {
+    final provider =
+        await ref.watch(providerRegistryProvider).getActiveProvider();
+    if (provider is OpenAiCompatibleLlmProvider) {
+      return provider.modelName;
+    }
+    return null;
+  } catch (_) {
+    return null;
   }
 });

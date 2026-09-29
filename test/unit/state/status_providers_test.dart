@@ -2,10 +2,23 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:clipmind/core/results/result.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_binary_resolver.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
+import 'package:clipmind/data/services/llm/openai_provider.dart';
 import 'package:clipmind/data/services/llm/provider_registry.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart'
+    hide providerRegistryProvider;
+import 'package:clipmind/features/providers/domain/contracts/credential_store.dart';
+import 'package:clipmind/features/providers/domain/contracts/model_provider_adapter.dart';
+import 'package:clipmind/features/providers/domain/contracts/provider_profile_repository.dart';
+import 'package:clipmind/features/providers/domain/contracts/provider_registry.dart'
+    as genb;
+import 'package:clipmind/features/providers/domain/entities/provider_definition.dart';
+import 'package:clipmind/features/providers/domain/entities/provider_profile.dart';
+import 'package:clipmind/features/providers/domain/entities/provider_profiles_document.dart';
+import 'package:clipmind/features/providers/domain/provider_platform_bootstrap.dart';
 import 'package:clipmind/state/agent_providers.dart';
 import 'package:clipmind/state/status_providers.dart';
 
@@ -33,6 +46,56 @@ class _FakeRegistry extends ProviderRegistry {
 
   @override
   Future<LlmProvider?> getActiveProvider() async => active;
+}
+
+class _FakeGenBRegistry implements genb.ProviderRegistry {
+  @override
+  Iterable<ProviderDefinition> get definitions => const [];
+
+  @override
+  ProviderDefinition? definitionFor(String providerId) => null;
+
+  @override
+  ModelProviderAdapter? adapterFor(String providerId) => null;
+}
+
+class _FakeProfileRepository implements ProviderProfileRepository {
+  _FakeProfileRepository(this.document);
+
+  final ProviderProfilesDocument document;
+
+  @override
+  Future<Result<ProviderProfilesDocument>> load() async =>
+      Success(document);
+
+  @override
+  Future<Result<void>> save(ProviderProfilesDocument document) async =>
+      const Success(null);
+
+  @override
+  Future<Result<void>> deleteProfile(
+    String profileId,
+    CredentialStore credentials,
+  ) async => const Success(null);
+
+  @override
+  Future<Result<void>> resumePendingDeletions(
+    CredentialStore credentials,
+  ) async => const Success(null);
+}
+
+class _FakeCredentials implements CredentialStore {
+  @override
+  Future<Result<String?>> read(String credentialId) async =>
+      const Success('key-123');
+
+  @override
+  Future<Result<void>> write(String credentialId, String secret) async =>
+      const Success(null);
+
+  @override
+  Future<Result<void>> delete(String credentialId) async =>
+      const Success(null);
 }
 
 class _StubResolver extends FfmpegBinaryResolver {
@@ -96,6 +159,91 @@ void main() {
       expect(
         container.read(providerHealthProvider).valueOrNull,
         equals(ConnectionStatus.disconnected),
+      );
+    });
+  });
+
+  group('resolvedModelNameProvider', () {
+    test('returns the active OpenAI-compatible model name', () async {
+      final container = ProviderContainer(
+        overrides: [
+          providerRegistryProvider.overrideWithValue(
+            _FakeRegistry(
+              OpenAiProvider(
+                config: const OpenAiConfig(
+                  apiKey: 'test-key',
+                  model: 'test-model',
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        await container.read(resolvedModelNameProvider.future),
+        equals('test-model'),
+      );
+    });
+
+    test('null when there is no active provider', () async {
+      final container = ProviderContainer(
+        overrides: [
+          providerRegistryProvider.overrideWithValue(_FakeRegistry(null)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        await container.read(resolvedModelNameProvider.future),
+        isNull,
+      );
+    });
+
+    test('rebuilds when the selected model changes', () async {
+      final profile = ProviderProfile(
+        id: 'profile-1',
+        providerId: 'openai',
+        displayName: 'Test OpenAI',
+        endpoint: Uri.parse('https://api.openai.com'),
+        credentialId: 'cred-1',
+        manualModelIds: const ['m1', 'm2'],
+        selectedModelId: 'm1',
+      );
+      final container = ProviderContainer(
+        overrides: [
+          providerPlatformBootstrapResultProvider.overrideWithValue(
+            Success(
+              ProviderPlatformBootstrapResult(
+                _FakeGenBRegistry(),
+                profiles: [profile],
+                activeProfileId: profile.id,
+                repository: _FakeProfileRepository(
+                  ProviderProfilesDocument(
+                    schemaVersion: 1,
+                    profiles: [profile],
+                    activeProfileId: profile.id,
+                  ),
+                ),
+                credentials: _FakeCredentials(),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        await container.read(resolvedModelNameProvider.future),
+        equals('m1'),
+      );
+      await container
+          .read(providerProfileNotifierProvider.notifier)
+          .selectModel(profile.id, 'm2');
+      expect(
+        await container.read(resolvedModelNameProvider.future),
+        equals('m2'),
       );
     });
   });

@@ -49,8 +49,3 @@ final activeProviderIdProvider = Provider<String>((ref) {
   final settings = ref.watch(settingsProvider);
   return settings.valueOrNull?.activeProviderId ?? 'ollama';
 });
-
-final activeModelProvider = Provider<String>((ref) {
-  final settings = ref.watch(settingsProvider);
-  return settings.valueOrNull?.activeModel ?? '';
-});
