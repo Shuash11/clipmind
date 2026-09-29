@@ -92,13 +92,17 @@ final projectMetadataProvider = FutureProvider<VideoMetadata?>((ref) async {
 final agentEditApplierProvider = Provider<AgentEditApplier>((ref) {
   return AgentEditApplier(
     onApply: (operation, newSourcePath, {List<String> removeClipIds = const []}) async {
+      // Memento order: snapshot first, then mutate. Guarded: no project
+      // means nothing to snapshot (and nothing to apply to).
       final project = ref.read(projectProvider).valueOrNull;
+      if (project != null) {
+        ref.read(undoRedoProvider.notifier).pushEdit(project, operation);
+      }
       ref.read(projectProvider.notifier).applyEdit(
             operation,
             newSourcePath,
             removeClipIds: removeClipIds,
           );
-      ref.read(undoRedoProvider.notifier).push(operation);
       if (project != null) {
         await ref
             .read(appDatabaseProvider)

@@ -1,157 +1,83 @@
 import 'package:clipmind/data/models/edit_operation.dart';
+import 'package:clipmind/data/models/project.dart';
 
+/// One undoable step: the PRE-edit project snapshot plus the op that
+/// produced the edit (null for op-less structural edits).
+typedef UndoEntry = ({Project projectBefore, EditOperation? operation});
+
+/// One redoable step: the POST-edit project snapshot plus the op.
+typedef RedoEntry = ({Project projectAfter, EditOperation? operation});
+
+/// Memento snapshot undo for timeline edits.
+///
+/// Uniform for ALL op types — including pair-replacement (`removeClipIds`),
+/// captions and effects — because undo restores the whole pre-edit
+/// [Project] instead of inverting individual ops. [Project] is immutable
+/// freezed, so snapshots are safe copies.
+///
+/// Memento order at every mutation site: snapshot first, then mutate.
+///
+/// Policy for external resources (documented, not silent): undo restores
+/// the in-memory project (the caller persists the project file); old
+/// output files remain on disk (harmless); DB op rows remain untouched as
+/// the historical journal (the op WAS applied then reverted; the project
+/// state is authoritative).
 class UndoRedoUseCase {
   static const int maxHistorySize = 500;
 
-  final List<EditOperation> _history = [];
-  int _position = -1;
+  final List<UndoEntry> _undoStack = [];
+  final List<RedoEntry> _redoStack = [];
 
-  List<EditOperation> get history => List.unmodifiable(_history);
+  bool get canUndo => _undoStack.isNotEmpty;
+  bool get canRedo => _redoStack.isNotEmpty;
 
-  List<EditOperation> getHistory() => List.unmodifiable(_history);
+  /// Depth of the undo stack (for status/UI enablement).
+  int get undoDepth => _undoStack.length;
 
-  bool get canUndo => _position >= 0;
-
-  bool get canRedo => _position < _history.length - 1;
-
-  void push(EditOperation op) {
-    if (_position < _history.length - 1) {
-      _history.removeRange(_position + 1, _history.length);
-    }
-
-    _history.add(op);
-    _position = _history.length - 1;
-
-    while (_history.length > maxHistorySize) {
-      _history.removeAt(0);
-      _position--;
-    }
+  /// FFmpeg edits: snapshot the PRE-edit project + the op.
+  /// Clears the redo stack (standard undo semantics).
+  void pushEdit(Project projectBefore, EditOperation operation) {
+    _undoStack.add((projectBefore: projectBefore, operation: operation));
+    _redoStack.clear();
+    _trim();
   }
 
-  EditOperation? undo() {
-    if (!canUndo) return null;
-    final op = _history[_position];
-    _position--;
-    return op;
+  /// Manual structural edits (delete/copy): snapshot only, no op.
+  /// Clears the redo stack (standard undo semantics).
+  void pushStructural(Project projectBefore) {
+    _undoStack.add((projectBefore: projectBefore, operation: null));
+    _redoStack.clear();
+    _trim();
   }
 
-  EditOperation? redo() {
-    if (!canRedo) return null;
-    _position++;
-    return _history[_position];
+  /// Undo: returns the PRE-edit project to restore + the op (for UI
+  /// confirmation). [projectNow] becomes the redo target.
+  /// Returns null when there is nothing to undo.
+  ({Project project, EditOperation? operation})? undo(Project projectNow) {
+    if (_undoStack.isEmpty) return null;
+    final entry = _undoStack.removeLast();
+    _redoStack.add((projectAfter: projectNow, operation: entry.operation));
+    return (project: entry.projectBefore, operation: entry.operation);
   }
 
-  EditOperation? revertOperation(EditOperation op) {
-    switch (op.type) {
-      case EditOperationType.trim:
-        final start = op.params['start'];
-        final end = op.params['end'];
-        final originalPath = op.params['originalPath'] as String?;
-        if (originalPath == null || start == null || end == null) return null;
-        return EditOperation(
-          id: '${op.id}_inverse',
-          type: EditOperationType.trim,
-          targetClipIds: op.targetClipIds,
-          params: {
-            'start': '0',
-            'end': end,
-            'restoreOriginal': true,
-            'originalPath': originalPath,
-            'originalStart': start,
-            'originalEnd': end,
-          },
-          createdAt: DateTime.now(),
-          status: OperationStatus.pending,
-        );
+  /// Redo: returns the POST-edit project to restore + the op.
+  /// [projectNow] becomes the undo target.
+  /// Returns null when there is nothing to redo.
+  ({Project project, EditOperation? operation})? redo(Project projectNow) {
+    if (_redoStack.isEmpty) return null;
+    final entry = _redoStack.removeLast();
+    _undoStack.add((projectBefore: projectNow, operation: entry.operation));
+    return (project: entry.projectAfter, operation: entry.operation);
+  }
 
-      case EditOperationType.changeSpeed:
-        final factor = (op.params['factor'] as num?)?.toDouble() ?? 1.0;
-        if (factor <= 0) return null;
-        return EditOperation(
-          id: '${op.id}_inverse',
-          type: EditOperationType.changeSpeed,
-          targetClipIds: op.targetClipIds,
-          params: {'factor': 1.0 / factor},
-          createdAt: DateTime.now(),
-          status: OperationStatus.pending,
-        );
-
-      case EditOperationType.mute:
-        return EditOperation(
-          id: '${op.id}_inverse',
-          type: EditOperationType.changeVolume,
-          targetClipIds: op.targetClipIds,
-          params: {'factor': 1.0},
-          createdAt: DateTime.now(),
-          status: OperationStatus.pending,
-        );
-
-      case EditOperationType.rotate:
-        final degrees = (op.params['degrees'] as num?)?.toDouble() ?? 0;
-        return EditOperation(
-          id: '${op.id}_inverse',
-          type: EditOperationType.rotate,
-          targetClipIds: op.targetClipIds,
-          params: {'degrees': (-degrees) % 360},
-          createdAt: DateTime.now(),
-          status: OperationStatus.pending,
-        );
-
-      case EditOperationType.adjustBrightness:
-        return EditOperation(
-          id: '${op.id}_inverse',
-          type: EditOperationType.adjustBrightness,
-          targetClipIds: op.targetClipIds,
-          params: {'value': 0.0},
-          createdAt: DateTime.now(),
-          status: OperationStatus.pending,
-        );
-
-      case EditOperationType.changeVolume:
-        final factor = (op.params['factor'] as num?)?.toDouble() ?? 1.0;
-        if (factor <= 0) return null;
-        return EditOperation(
-          id: '${op.id}_inverse',
-          type: EditOperationType.changeVolume,
-          targetClipIds: op.targetClipIds,
-          params: {'factor': 1.0 / factor},
-          createdAt: DateTime.now(),
-          status: OperationStatus.pending,
-        );
-
-      case EditOperationType.resize:
-        final originalWidth = op.params['originalWidth'];
-        final originalHeight = op.params['originalHeight'];
-        if (originalWidth == null || originalHeight == null) return null;
-        return EditOperation(
-          id: '${op.id}_inverse',
-          type: EditOperationType.resize,
-          targetClipIds: op.targetClipIds,
-          params: {
-            'width': originalWidth,
-            'height': originalHeight,
-            'fit': op.params['originalFit'] ?? 'fill',
-          },
-          createdAt: DateTime.now(),
-          status: OperationStatus.pending,
-        );
-
-      case EditOperationType.cut:
-      case EditOperationType.merge:
-      case EditOperationType.overlayText:
-      case EditOperationType.extractAudio:
-      case EditOperationType.generateThumbnail:
-      case EditOperationType.changeFormat:
-      case EditOperationType.overlayWatermark:
-      case EditOperationType.burnCaptions:
-      case EditOperationType.addTransition:
-      case EditOperationType.applyEffect:
-        return null;
+  void _trim() {
+    while (_undoStack.length > maxHistorySize) {
+      _undoStack.removeAt(0);
     }
   }
 
   void clear() {
-    _history.clear();
-    _position = -1;
+    _undoStack.clear();
+    _redoStack.clear();
   }
 }

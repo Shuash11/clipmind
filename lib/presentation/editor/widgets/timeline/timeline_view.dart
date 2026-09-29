@@ -9,6 +9,7 @@ import 'package:clipmind/features/projects/domain/entities/project_document.dart
 import 'package:clipmind/features/tagging/presentation/providers/tagging_providers.dart';
 import 'package:clipmind/features/tagging/presentation/widgets/marker_ruler.dart';
 import 'package:clipmind/state/project_providers.dart';
+import 'package:clipmind/state/undo_redo_providers.dart';
 import 'track_row.dart';
 
 final class TimelineClipRange {
@@ -162,6 +163,9 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       updatedAt: DateTime.now(),
     );
 
+    // Memento order: snapshot the PRE-edit project first, then mutate —
+    // manual delete/copy enter the undo stack (op-less) and stay persisted.
+    ref.read(undoRedoProvider.notifier).pushStructural(project);
     setState(() => _isEditing = true);
     try {
       await ref.read(projectRepositoryProvider).save(updatedProject);
