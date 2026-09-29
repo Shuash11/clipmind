@@ -1,16 +1,21 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:clipmind/core/constants/effect_presets.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
+import 'package:clipmind/data/services/ffmpeg/procedural_sound_service.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
 import 'package:clipmind/domain/agent/stage_6_execution.dart';
 import 'package:clipmind/state/agent_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 
-/// Typed outcome of a manual cut (mirrors the `SubmitResult` pattern).
+/// Typed outcome of a manual panel edit (cut, effect recipe, text overlay,
+/// sound). Mirrors the `SubmitResult` pattern.
 class ManualCutResult {
   final bool success;
   final String message;
@@ -22,9 +27,15 @@ class ManualCutResult {
     this.outputPath,
   });
 
-  factory ManualCutResult.ok(String outputPath) => ManualCutResult(
+  factory ManualCutResult.ok(String outputPath) => ManualCutResult.okWith(
+        outputPath,
+        'Cut applied.',
+      );
+
+  factory ManualCutResult.okWith(String outputPath, String message) =>
+      ManualCutResult(
         success: true,
-        message: 'Cut applied.',
+        message: message,
         outputPath: outputPath,
       );
 
@@ -34,15 +45,28 @@ class ManualCutResult {
       );
 }
 
-/// Manual-FFmpeg cut controller (D4): single `cut_segment` op executed
-/// through the existing `CommandMapper` → `ExecutionEngine` →
-/// `agentEditApplierProvider` chain, so the cut is undoable, journaled
+/// Manual-FFmpeg edit controller (D4): panel submits executed through the
+/// existing `CommandMapper` → `ExecutionEngine` →
+/// `agentEditApplierProvider` chain, so every edit is undoable, journaled
 /// and persisted exactly like an agent edit.
 ///
-/// Package C reads `ref.read(manualEditControllerProvider)` and calls
-/// [submitCut] with plain params (clip id + timeline ruler times); the
-/// controller validates, converts to clip-local times and builds the op.
-/// No presentation types cross this boundary.
+/// Package C (the CapCut-style panels, Track 3) reads
+/// `ref.read(manualEditControllerProvider)` and calls the plain-param
+/// submits below; no presentation types cross this boundary.
+///
+/// Expose-points for Track 3:
+/// - `submitCut({clipId, startMs, endMs})` — ruler range-cut (existing).
+/// - `submitRecipe(presetId, {clipId})` — one-click effect preset; ids and
+///   labels come from `effectPresets` (`noir`, `vintage`, `cinematic`,
+///   `warm`, `cool`, `brighten`, `soften`, `dramatic`).
+/// - `submitOverlayText({clipId, text, fontFamily, position, fontSize,
+///   color, start, end})` — text overlay; `fontFamily` is a bundled family
+///   id/label (`Inter` … `EB Garamond`) or null for the system default.
+/// - `submitSound({clipId, soundSource, volume})` — sound-source
+///   convention (auto-detect): a known procedural preset id (`beep`,
+///   `drone-low`, `drone-mid`, `hum`, `static-noise`, `alert-chime`)
+///   renders a temp wav via `ProceduralSoundService`; anything else is a
+///   local file path (frontend passes the file_picker result).
 class ManualEditController {
   final Ref _ref;
   final Uuid _uuid = const Uuid();
@@ -55,20 +79,15 @@ class ManualEditController {
     required int startMs,
     required int endMs,
   }) async {
-    final project = _ref.read(projectProvider).valueOrNull;
-    if (project == null) {
-      return ManualCutResult.fail('No project open. Open a project first.');
+    final target = _resolveTarget(clipId);
+    if (target.failure != null) {
+      return ManualCutResult.fail(target.failure!);
     }
-
-    final target = _findClip(project, clipId);
-    if (target == null) {
-      return ManualCutResult.fail(
-        'Unknown clip "$clipId". Select a timeline clip and retry.',
-      );
-    }
-    final spanStart = target.positionMs;
+    final project = target.project!;
+    final found = target.clip!;
+    final spanStart = found.positionMs;
     final spanEnd =
-        target.positionMs + (target.endMs - target.startMs);
+        found.positionMs + (found.endMs - found.startMs);
     if (startMs < spanStart || endMs > spanEnd || startMs >= endMs) {
       return ManualCutResult.fail(
         'Invalid cut range [$startMs, $endMs): must lie inside clip '
@@ -83,17 +102,8 @@ class ManualEditController {
       'remove_start': _toSeconds(localStart),
       'remove_end': _toSeconds(localEnd),
     };
-    final clipPathMap = <String, String>{};
-    for (final track in project.tracks) {
-      for (final clip in track.clips) {
-        if (clip.sourcePath.trim().isNotEmpty) {
-          clipPathMap[clip.id] = clip.sourcePath;
-        }
-      }
-    }
-    final defaultPath = project.sourceMediaPaths.isNotEmpty
-        ? project.sourceMediaPaths.first
-        : (clipPathMap.values.isNotEmpty ? clipPathMap.values.first : null);
+    final clipPathMap = _clipPathMap(project);
+    final defaultPath = _defaultPath(project, clipPathMap);
     if (defaultPath == null) {
       return ManualCutResult.fail('No video file in project.');
     }
@@ -149,6 +159,427 @@ class ManualEditController {
     } finally {
       engine.dispose();
     }
+  }
+
+  /// Apply the one-click effect preset [presetId] to [clipId].
+  ///
+  /// The recipe steps expand directly into op requests over the same clip,
+  /// so `CommandMapper` composes them into ONE job. Each step is journaled
+  /// as its own `EditOperation` (the legacy pipeline pattern), all
+  /// pointing at the composed output, so history replay stays faithful.
+  Future<ManualCutResult> submitRecipe(
+    String presetId, {
+    required String clipId,
+  }) async {
+    EffectPreset? preset;
+    for (final candidate in effectPresets) {
+      if (candidate.id == presetId) {
+        preset = candidate;
+        break;
+      }
+    }
+    if (preset == null) {
+      return ManualCutResult.fail(
+        'Unknown effect preset "$presetId". Available: '
+        '${effectPresets.map((p) => p.id).join(', ')}.',
+      );
+    }
+    if (preset.recipe.isEmpty) {
+      return ManualCutResult.fail(
+        'Effect preset "$presetId" has no steps.',
+      );
+    }
+    for (final step in preset.recipe) {
+      if (_recipeJournalType(step.opType) == null) {
+        return ManualCutResult.fail(
+          'Effect preset "$presetId" uses unsupported op "${step.opType}".',
+        );
+      }
+    }
+
+    final target = _resolveTarget(clipId);
+    if (target.failure != null) {
+      return ManualCutResult.fail(target.failure!);
+    }
+    final project = target.project!;
+
+    final clipPathMap = _clipPathMap(project);
+    final defaultPath = _defaultPath(project, clipPathMap);
+    if (defaultPath == null) {
+      return ManualCutResult.fail('No video file in project.');
+    }
+
+    final requests = [
+      for (final step in preset.recipe)
+        EditOperationRequest(
+          id: _uuid.v4(),
+          type: step.opType,
+          targetClipId: clipId,
+          params: Map<String, dynamic>.from(step.params),
+        ),
+    ];
+    late final List<FfmpegJob> jobs;
+    try {
+      jobs = CommandMapper.mapOperations(
+        EditOperationSet(
+          operations: requests,
+          summary: 'Effect preset "${preset.label}"',
+        ),
+        clipPathMap,
+        project.outputDir,
+        defaultPath: defaultPath,
+      );
+    } catch (e) {
+      return ManualCutResult.fail(
+        'Could not map effect "${preset.label}": $e',
+      );
+    }
+    if (jobs.length != 1) {
+      return ManualCutResult.fail(
+        'Effect mapping produced ${jobs.length} jobs; expected 1.',
+      );
+    }
+
+    final engine = ExecutionEngine(_ref.read(ffmpegServiceProvider));
+    try {
+      final result = await engine.execute(jobs, '');
+      if (!result.success) {
+        return ManualCutResult.fail(
+          'FFmpeg failed: ${result.errorMessage ?? result.summary}',
+        );
+      }
+      final outputPath = result.outputPaths.isNotEmpty
+          ? result.outputPaths.first
+          : jobs.first.outputPath;
+      final ffmpegCommand = jobs.first.args.join(' ');
+      for (final request in requests) {
+        await _ref.read(agentEditApplierProvider).apply(
+              EditOperation(
+                id: request.id,
+                type: _recipeJournalType(request.type)!,
+                targetClipIds: [clipId],
+                params: Map<String, dynamic>.from(request.params),
+                createdAt: DateTime.now(),
+                ffmpegCommand: ffmpegCommand,
+              ),
+              outputPath,
+            );
+      }
+      return ManualCutResult.okWith(
+        outputPath,
+        'Effect "${preset.label}" applied.',
+      );
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  /// Overlay [text] on [clipId], resolving [fontFamily] through
+  /// `fontResolverProvider` when given (null/empty = system default).
+  ///
+  /// `fontFamily` accepts a catalogued id (`source_code_pro`) or its
+  /// display label (`Source Code Pro`); unknown families fail actionably.
+  /// The resolved `.ttf` path lands in the op params as `font_file`
+  /// (app-generated, never model-provided).
+  Future<ManualCutResult> submitOverlayText({
+    required String clipId,
+    required String text,
+    String? fontFamily,
+    String position = 'center',
+    int fontSize = 48,
+    String color = '#FFFFFF',
+    String start = '0',
+    String end = '0',
+  }) async {
+    if (text.trim().isEmpty) {
+      return ManualCutResult.fail(
+        'Text must not be empty.',
+      );
+    }
+    final target = _resolveTarget(clipId);
+    if (target.failure != null) {
+      return ManualCutResult.fail(target.failure!);
+    }
+    final project = target.project!;
+
+    final params = <String, dynamic>{
+      'text': text,
+      'position': position,
+      'font_size': fontSize,
+      'color': color,
+      'start': start,
+      'end': end,
+    };
+    final familyRaw = fontFamily?.trim() ?? '';
+    if (familyRaw.isNotEmpty) {
+      // Same normalization as the agent-loop executor: display labels
+      // resolve like ids.
+      final family =
+          familyRaw.toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+      final fontFile =
+          await _ref.read(fontResolverProvider).resolve(family);
+      if (fontFile == null) {
+        return ManualCutResult.fail(
+          'Unknown font "$familyRaw" — pick one of the bundled fonts '
+          '(Inter, Montserrat, Roboto, Lato, Source Code Pro, EB Garamond), '
+          'or omit the font for the system default.',
+        );
+      }
+      params['font'] = family;
+      params['font_file'] = fontFile;
+    }
+
+    final clipPathMap = _clipPathMap(project);
+    final defaultPath = _defaultPath(project, clipPathMap);
+    if (defaultPath == null) {
+      return ManualCutResult.fail('No video file in project.');
+    }
+
+    final opId = _uuid.v4();
+    late final List<FfmpegJob> jobs;
+    try {
+      jobs = CommandMapper.mapOperations(
+        EditOperationSet(
+          operations: [
+            EditOperationRequest(
+              id: opId,
+              type: 'overlay_text',
+              targetClipId: clipId,
+              params: params,
+            ),
+          ],
+          summary: 'Manual text overlay',
+        ),
+        clipPathMap,
+        project.outputDir,
+        defaultPath: defaultPath,
+      );
+    } catch (e) {
+      return ManualCutResult.fail('Could not map the text overlay: $e');
+    }
+    if (jobs.length != 1) {
+      return ManualCutResult.fail(
+        'Overlay mapping produced ${jobs.length} jobs; expected 1.',
+      );
+    }
+
+    final engine = ExecutionEngine(_ref.read(ffmpegServiceProvider));
+    try {
+      final result = await engine.execute(jobs, '');
+      if (!result.success) {
+        return ManualCutResult.fail(
+          'FFmpeg failed: ${result.errorMessage ?? result.summary}',
+        );
+      }
+      final outputPath = result.outputPaths.isNotEmpty
+          ? result.outputPaths.first
+          : jobs.first.outputPath;
+      await _ref.read(agentEditApplierProvider).apply(
+            EditOperation(
+              id: opId,
+              type: EditOperationType.overlayText,
+              targetClipIds: [clipId],
+              params: Map<String, dynamic>.from(params),
+              createdAt: DateTime.now(),
+              ffmpegCommand: jobs.first.args.join(' '),
+            ),
+            outputPath,
+          );
+      return ManualCutResult.okWith(outputPath, 'Text overlay applied.');
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  /// Layer [soundSource] over [clipId]'s audio via the `add_sound` op.
+  ///
+  /// Sound-source convention (auto-detect, no extra flag needed): when
+  /// [soundSource] is a known procedural preset id
+  /// (`ProceduralSoundService.isKnownPreset`), it is rendered to a temp wav
+  /// first; otherwise it is treated as a local file path (the frontend
+  /// passes the file_picker result), which must exist — `..` traversal is
+  /// rejected. The clip is probed via `ffprobeService`: clips with audio
+  /// mix (`amix`), clips without map the sound as the only track.
+  Future<ManualCutResult> submitSound({
+    required String clipId,
+    required String soundSource,
+    double volume = 1.0,
+  }) async {
+    if (!volume.isFinite || volume < 0) {
+      return ManualCutResult.fail(
+        'Volume must be a non-negative number. Got "$volume".',
+      );
+    }
+    final target = _resolveTarget(clipId);
+    if (target.failure != null) {
+      return ManualCutResult.fail(target.failure!);
+    }
+    final project = target.project!;
+    final clip = target.clip!;
+
+    final String soundPath;
+    if (ProceduralSoundService.isKnownPreset(soundSource)) {
+      final generated = await _ref
+          .read(proceduralSoundServiceProvider)
+          .generate(soundSource);
+      if (generated == null) {
+        return ManualCutResult.fail(
+          'Could not generate sound "$soundSource". '
+          'Check the FFmpeg installation and retry.',
+        );
+      }
+      soundPath = generated;
+    } else {
+      if (soundSource.contains('..')) {
+        return ManualCutResult.fail(
+          'Invalid sound path (path traversal is not allowed).',
+        );
+      }
+      if (!File(soundSource).existsSync()) {
+        return ManualCutResult.fail(
+          'Sound file not found: "$soundSource". Pick an audio file or a '
+          'built-in preset '
+          '(${ProceduralSoundService.presets.map((p) => p.id).join(', ')}).',
+        );
+      }
+      soundPath = soundSource;
+    }
+
+    final clipPathMap = _clipPathMap(project);
+    final clipPath = clip.sourcePath.trim().isNotEmpty
+        ? clip.sourcePath
+        : _defaultPath(project, clipPathMap);
+    if (clipPath == null) {
+      return ManualCutResult.fail('No video file in project.');
+    }
+    // Unverified probe degrades to mixing (fail-loud) rather than the
+    // one-sided path, which would silently drop existing clip audio.
+    final metadata =
+        await _ref.read(ffprobeServiceProvider).extractMetadata(clipPath);
+    final hasClipAudio = metadata?.hasAudio ?? true;
+
+    final params = <String, dynamic>{
+      'sound_path': soundPath,
+      'volume': volume,
+      'has_clip_audio': hasClipAudio,
+    };
+    final opId = _uuid.v4();
+    late final List<FfmpegJob> jobs;
+    try {
+      jobs = CommandMapper.mapOperations(
+        EditOperationSet(
+          operations: [
+            EditOperationRequest(
+              id: opId,
+              type: 'add_sound',
+              targetClipId: clipId,
+              params: params,
+            ),
+          ],
+          summary: 'Manual sound layer',
+        ),
+        clipPathMap,
+        project.outputDir,
+        defaultPath: clipPath,
+      );
+    } catch (e) {
+      return ManualCutResult.fail('Could not map the sound layer: $e');
+    }
+    if (jobs.length != 1) {
+      return ManualCutResult.fail(
+        'Sound mapping produced ${jobs.length} jobs; expected 1.',
+      );
+    }
+
+    final engine = ExecutionEngine(_ref.read(ffmpegServiceProvider));
+    try {
+      final result = await engine.execute(jobs, '');
+      if (!result.success) {
+        return ManualCutResult.fail(
+          'FFmpeg failed: ${result.errorMessage ?? result.summary}',
+        );
+      }
+      final outputPath = result.outputPaths.isNotEmpty
+          ? result.outputPaths.first
+          : jobs.first.outputPath;
+      await _ref.read(agentEditApplierProvider).apply(
+            EditOperation(
+              id: opId,
+              type: EditOperationType.addSound,
+              targetClipIds: [clipId],
+              params: Map<String, dynamic>.from(params),
+              createdAt: DateTime.now(),
+              ffmpegCommand: jobs.first.args.join(' '),
+            ),
+            outputPath,
+          );
+      return ManualCutResult.okWith(outputPath, 'Sound added.');
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  /// Journal type for a recipe step op. Null when the recipe references an
+  /// op outside the preset contract (`apply_effect`/`adjust_brightness`).
+  static EditOperationType? _recipeJournalType(String opType) {
+    switch (opType) {
+      case 'apply_effect':
+        return EditOperationType.applyEffect;
+      case 'adjust_brightness':
+        return EditOperationType.adjustBrightness;
+      default:
+        return null;
+    }
+  }
+
+  /// Open-project + clip lookup shared by the panel submits.
+  ({Project? project, Clip? clip, String? failure}) _resolveTarget(
+    String clipId,
+  ) {
+    final project = _ref.read(projectProvider).valueOrNull;
+    if (project == null) {
+      return (
+        project: null,
+        clip: null,
+        failure: 'No project open. Open a project first.',
+      );
+    }
+    final clip = _findClip(project, clipId);
+    if (clip == null) {
+      return (
+        project: project,
+        clip: null,
+        failure: 'Unknown clip "$clipId". Select a timeline clip and retry.',
+      );
+    }
+    return (project: project, clip: clip, failure: null);
+  }
+
+  /// Clip-id → source-file map for `CommandMapper`.
+  static Map<String, String> _clipPathMap(Project project) {
+    final clipPathMap = <String, String>{};
+    for (final track in project.tracks) {
+      for (final clip in track.clips) {
+        if (clip.sourcePath.trim().isNotEmpty) {
+          clipPathMap[clip.id] = clip.sourcePath;
+        }
+      }
+    }
+    return clipPathMap;
+  }
+
+  /// Fallback input file for `CommandMapper` (project source, else any
+  /// clip path).
+  static String? _defaultPath(
+    Project project,
+    Map<String, String> clipPathMap,
+  ) {
+    if (project.sourceMediaPaths.isNotEmpty) {
+      return project.sourceMediaPaths.first;
+    }
+    return clipPathMap.values.isNotEmpty
+        ? clipPathMap.values.first
+        : null;
   }
 
   /// Clip lookup by id across all tracks.

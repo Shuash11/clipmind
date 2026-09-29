@@ -156,6 +156,16 @@ class ExecutionEngine {
     if (job.args.any((a) => a.contains('eq=saturation='))) {
       return 'apply_effect';
     }
+    // add_sound before the volume check: the amix leg carries its own
+    // `volume=` filter, so a volume-first order would mislabel mixed jobs
+    // as change_volume. The one-sided form has no amix graph — it is the
+    // only other two-input job mapping the sound track (`1:a`); merge and
+    // add_transition already returned above via concat/xfade.
+    if (job.args.any((a) => a.contains('amix'))) return 'add_sound';
+    if (job.args.where((a) => a == '-i').length >= 2 &&
+        job.args.contains('1:a')) {
+      return 'add_sound';
+    }
     if (job.args.any((a) => a.contains('volume='))) return 'change_volume';
     if (job.args.contains('-vn')) return 'extract_audio';
     if (job.args.contains('-vframes')) return 'generate_thumbnail';
@@ -183,6 +193,7 @@ class ExecutionEngine {
       case 'move_clip': return EditOperationType.moveClip;
       case 'generate_thumbnail': return EditOperationType.generateThumbnail;
       case 'adjust_brightness': return EditOperationType.adjustBrightness;
+      case 'add_sound': return EditOperationType.addSound;
       case 'change_volume': return EditOperationType.changeVolume;
       case 'overlay_watermark': return EditOperationType.overlayWatermark;
       default: return EditOperationType.changeFormat;

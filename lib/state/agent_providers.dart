@@ -3,6 +3,8 @@ import 'package:clipmind/core/results/result.dart';
 import 'package:clipmind/data/models/chat_step.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
+import 'package:clipmind/data/services/ffmpeg/procedural_sound_service.dart';
+import 'package:clipmind/data/services/fonts/font_resolver.dart';
 import 'package:clipmind/data/services/llm/provider_registry.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
@@ -20,6 +22,36 @@ final ffmpegServiceProvider = Provider<FfmpegService>((ref) {
 final ffprobeServiceProvider = Provider<FfprobeService>((ref) {
   return FfprobeService();
 });
+
+/// Bundled-font resolution for the CapCut-style text panel (Cycle 5
+/// Phase 3): `FontResolver` extracts `assets/fonts/` entries to the
+/// app-support directory on first use and caches the `.ttf` paths.
+/// Override in tests with an injected temp-dir + in-memory asset loader.
+final fontResolverProvider = Provider<FontResolver>((ref) {
+  return FontResolver();
+});
+
+/// Procedural sound generation for the CapCut-style sound panel:
+/// `ProceduralSoundService` renders the 6 lavfi presets to temp wavs that
+/// feed the `add_sound` op's `sound_path`. Override in tests via the
+/// `runProcess` seam (or by subclassing `generate`).
+final proceduralSoundServiceProvider = Provider<ProceduralSoundService>(
+  (ref) {
+    return ProceduralSoundService();
+  },
+);
+
+/// The `ToolExecutionContext.resolveFont` callback, wired to
+/// [fontResolverProvider] (mirrors the `readAnalysis`/`whisperConfig`
+/// wiring pattern: state owns the getter, domain consumes the callback).
+/// Pass this wherever a tool context is constructed so the agent loop's
+/// `overlay_text` `font` arg resolves exactly like the panel path.
+final resolveFontProvider = Provider<Future<String?> Function(String)>(
+  (ref) {
+    final resolver = ref.watch(fontResolverProvider);
+    return resolver.resolve;
+  },
+);
 
 /// Gen A registry wired to the live Gen B profile system.
 ///

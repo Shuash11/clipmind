@@ -54,6 +54,7 @@ RULES:
 7. burn_captions burns the cached transcript as timed captions — call get_transcript first. Use it for 'add captions/subtitles' commands; never invent subtitle files.
 8. add_transition merges two clips with a cross-fade (fade, dissolve, wipes, slides…). Clips must share resolution and frame rate — resize_clip first if they differ. Use for 'add a transition' commands.
 9. apply_effect applies creative looks: vignette, blur, grayscale, contrast or saturation. strength 0-1 drives vignette/blur; contrast/saturation are 0-3 multipliers (1.0 unchanged). For brightness use adjust_brightness.
+10. overlay_text font: pick a bundled font (Inter, Montserrat, Roboto, Lato, Source Code Pro, EB Garamond) — or omit for the system default.
 ''';
   }
 

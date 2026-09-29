@@ -6,6 +6,7 @@ import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/ffmpeg/filter_escaping.dart';
+import 'package:clipmind/data/services/transcription/whisper_service.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'agent_activity.dart';
@@ -85,6 +86,22 @@ class Nl2VecPipeline {
     CancellationToken? cancellation,
     ConfirmationGate? gate,
     bool dryRun = false,
+    // Tool-context wiring (all optional, default null = graceful
+    // degradation in the executors). The domain never imports the state
+    // layer — the state layer (AgentRunController.submit) must pass these:
+    //   readAnalysis / writeAnalysis: `agentAnalysisPortProvider(projectId)`
+    //     port's `read` / `write` (AgentAnalysisPort: sync read(kind) /
+    //     write(kind, payload); family keyed by projectId).
+    //   whisperConfig: `() => WhisperPaths(
+    //     binaryPath: settings.whisperBinaryPath,
+    //     modelPath: settings.whisperModelPath)` where `settings` is
+    //     `ref.read(settingsProvider).valueOrNull` (empty strings = unset).
+    //   resolveFont: `ref.read(resolveFontProvider)` (wired to
+    //     FontResolver via fontResolverProvider).
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) async {
     if (provider == null) {
       const result = SubmitResult(
@@ -123,6 +140,10 @@ class Nl2VecPipeline {
           cancellation: cancellation,
           gate: gate,
           dryRun: dryRun,
+          readAnalysis: readAnalysis,
+          writeAnalysis: writeAnalysis,
+          whisperConfig: whisperConfig,
+          resolveFont: resolveFont,
         );
       }
       if (dryRun) {
@@ -284,6 +305,14 @@ class Nl2VecPipeline {
     AgentEditApplier? applier,
     Project Function()? liveProject,
     CancellationToken? cancellation,
+    // Same tool-context wiring as [submitCommand] (see its doc comment
+    // for the state-side sources). Replay only runs edit tools, so
+    // `resolveFont` is the one that matters here (`overlay_text` `font`
+    // arg); the rest are threaded for symmetry.
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) {
     return _executeWithEvents(() async {
       _events.add(
@@ -295,6 +324,10 @@ class Nl2VecPipeline {
         liveProject: liveProject,
         cancellation: cancellation,
         dryRun: false,
+        readAnalysis: readAnalysis,
+        writeAnalysis: writeAnalysis,
+        whisperConfig: whisperConfig,
+        resolveFont: resolveFont,
       );
       final registry = createToolRegistry(ctx);
       final records = <AgentToolCallRecord>[];
@@ -375,6 +408,10 @@ class Nl2VecPipeline {
     required Project Function()? liveProject,
     required CancellationToken? cancellation,
     required bool dryRun,
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) {
     final Project Function() readLive = liveProject ?? () => project;
     final clipPathMap = _buildClipPathMap(project);
@@ -395,6 +432,10 @@ class Nl2VecPipeline {
       ffprobeService: ffprobeService,
       cancellation: cancellation,
       dryRun: dryRun,
+      readAnalysis: readAnalysis,
+      writeAnalysis: writeAnalysis,
+      whisperConfig: whisperConfig,
+      resolveFont: resolveFont,
     );
   }
 
@@ -408,6 +449,10 @@ class Nl2VecPipeline {
     required CancellationToken? cancellation,
     required ConfirmationGate? gate,
     bool dryRun = false,
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) async {
     _events.add(const PipelineEvent(PipelineStage.thinking, 'Planning with tools...'));
 
@@ -417,6 +462,10 @@ class Nl2VecPipeline {
       liveProject: liveProject,
       cancellation: cancellation,
       dryRun: dryRun,
+      readAnalysis: readAnalysis,
+      writeAnalysis: writeAnalysis,
+      whisperConfig: whisperConfig,
+      resolveFont: resolveFont,
     );
     final agent = ToolCallingAgent(provider: provider, context: ctx);
     final forward = agent.activityEvents.listen(_agentActivity.add);

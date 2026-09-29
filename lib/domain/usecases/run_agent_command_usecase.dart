@@ -2,6 +2,7 @@ import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
+import 'package:clipmind/data/services/transcription/whisper_service.dart';
 import 'package:clipmind/domain/agent/agent_confirmation.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
@@ -28,6 +29,13 @@ class RunAgentCommandUseCase {
     CancellationToken? cancellation,
     ConfirmationGate? gate,
     bool dryRun = false,
+    // Tool-context wiring — see [Nl2VecPipeline.submitCommand] for the
+    // state-side sources (agentAnalysisPortProvider / settingsProvider /
+    // resolveFontProvider). All optional (null = executor degradation).
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) {
     return _pipeline.submitCommand(
       command,
@@ -40,6 +48,10 @@ class RunAgentCommandUseCase {
       cancellation: cancellation,
       gate: gate,
       dryRun: dryRun,
+      readAnalysis: readAnalysis,
+      writeAnalysis: writeAnalysis,
+      whisperConfig: whisperConfig,
+      resolveFont: resolveFont,
     );
   }
 
@@ -54,6 +66,12 @@ class RunAgentCommandUseCase {
     AgentEditApplier? applier,
     Project Function()? liveProject,
     CancellationToken? cancellation,
+    // Same wiring as [execute]; replay only runs edit tools so
+    // `resolveFont` is the one that matters (`overlay_text` `font` arg).
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) {
     return _pipeline.executePlanned(
       planned,
@@ -61,6 +79,10 @@ class RunAgentCommandUseCase {
       applier: applier,
       liveProject: liveProject,
       cancellation: cancellation,
+      readAnalysis: readAnalysis,
+      writeAnalysis: writeAnalysis,
+      whisperConfig: whisperConfig,
+      resolveFont: resolveFont,
     );
   }
 }

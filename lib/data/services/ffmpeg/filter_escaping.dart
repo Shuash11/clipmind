@@ -57,6 +57,19 @@ class FilterEscaping {
         .replaceAll(':', r'\:');
   }
 
+  /// Escape an app-resolved font file path for `drawtext:fontfile=...`.
+  ///
+  /// Same Windows-safe treatment as [escapeSubtitlePath]: normalize `\`
+  /// to `/` (FFmpeg accepts forward slashes on Windows), then escape `'`
+  /// and `:` (the filter value separator). The path is app-resolved
+  /// (bundled-font extraction) — never model-provided.
+  static String escapeFontFilePath(String path) {
+    return path
+        .replaceAll(r'\', '/')
+        .replaceAll("'", r"\'")
+        .replaceAll(':', r'\:');
+  }
+
   /// Validate a watermark image path.
   ///
   /// Rejects path traversal (`..`) and, when [projectDir] is provided,

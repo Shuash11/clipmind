@@ -208,6 +208,358 @@ void main() {
     },
   );
 
+  testWidgets(
+    'auto-discovers models when the picker opens with an empty list',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'remote',
+        providerId: 'openai',
+        displayName: 'Remote',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      final adapter = CountingDiscoveryAdapter(<ModelDescriptor>[
+        ModelDescriptor(
+          id: 'meta/llama-3',
+          providerId: 'openai',
+          displayName: 'Llama 3',
+        ),
+        ModelDescriptor(
+          id: 'z-ai/glm-4',
+          providerId: 'openai',
+          displayName: 'GLM 4',
+        ),
+      ]);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_discoveringDefinition],
+                    adapter: adapter,
+                  ),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(adapter.discoveryCalls, 0);
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pumpAndSettle();
+      // Bring the lower groups into the build range before asserting.
+      final listScrollable = find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.text('GLM 4'),
+        100,
+        scrollable: listScrollable,
+      );
+      // The picker auto-fired discovery on open: models are listed without
+      // tapping the manual "Discover models" button.
+      expect(adapter.discoveryCalls, 1);
+      expect(find.text('Llama 3', skipOffstage: false), findsOneWidget);
+      expect(find.text('GLM 4', skipOffstage: false), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'does not refire discovery when the picker reopens with populated models',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'remote',
+        providerId: 'openai',
+        displayName: 'Remote',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      final adapter = CountingDiscoveryAdapter(<ModelDescriptor>[
+        ModelDescriptor(
+          id: 'meta/llama-3',
+          providerId: 'openai',
+          displayName: 'Llama 3',
+        ),
+      ]);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_discoveringDefinition],
+                    adapter: adapter,
+                  ),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pumpAndSettle();
+      expect(adapter.discoveryCalls, 1);
+      await tester.tap(find.byKey(const ValueKey('close-model-picker')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pumpAndSettle();
+      // The populated discovered state is the debounce: reopening the picker
+      // never refetches.
+      expect(adapter.discoveryCalls, 1);
+    },
+  );
+
+  testWidgets(
+    'shows an inline loading state while auto-discovering on open',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'remote',
+        providerId: 'openai',
+        displayName: 'Remote',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      final adapter = CountingDiscoveryAdapter(
+        <ModelDescriptor>[
+          ModelDescriptor(
+            id: 'meta/llama-3',
+            providerId: 'openai',
+            displayName: 'Llama 3',
+          ),
+        ],
+        holdDiscovery: true,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_discoveringDefinition],
+                    adapter: adapter,
+                  ),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Discovering models…'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      adapter.releaseDiscovery();
+      await tester.pumpAndSettle();
+      expect(find.text('Discovering models…'), findsNothing);
+      expect(find.text('Llama 3'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'renders discovered models under org group headers',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'remote',
+        providerId: 'openai',
+        displayName: 'Remote',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      // Models arrive via the on-open auto-discovery (D6b); bare IDs without
+      // an org prefix fall into a trailing OTHER group.
+      final adapter = CountingDiscoveryAdapter(<ModelDescriptor>[
+        ModelDescriptor(
+          id: 'meta/llama-3',
+          providerId: 'openai',
+          displayName: 'Llama 3',
+        ),
+        ModelDescriptor(
+          id: 'z-ai/glm-4',
+          providerId: 'openai',
+          displayName: 'GLM 4',
+        ),
+        ModelDescriptor(
+          id: 'nvidia/nemotron',
+          providerId: 'openai',
+          displayName: 'Nemotron',
+        ),
+        ModelDescriptor(
+          id: 'standalone-model',
+          providerId: 'openai',
+          displayName: 'Bare model',
+        ),
+      ]);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_discoveringDefinition],
+                    adapter: adapter,
+                  ),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pumpAndSettle();
+      // The first group renders under its own header.
+      expect(find.text('DISCOVERED'), findsOneWidget);
+      expect(find.text('META'), findsOneWidget);
+      expect(find.text('Llama 3'), findsOneWidget);
+      // Scrolling to the bottom disposes off-range groups in the lazy list,
+      // so the trailing OTHER group is asserted after the scroll.
+      final listScrollable = find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.text('Bare model'),
+        100,
+        scrollable: listScrollable,
+      );
+      // Scrolled-in list children stay built but offstage beyond the
+      // viewport, so assertions use skipOffstage: false.
+      expect(find.text('OTHER', skipOffstage: false), findsOneWidget);
+      expect(find.text('Bare model', skipOffstage: false), findsOneWidget);
+    },
+  );
+
+  test(
+    'groups discovered models by org prefix with OTHER trailing',
+    () {
+      final groups = groupDiscoveredByOrg(<ModelDescriptor>[
+        ModelDescriptor(
+          id: 'meta/llama-3',
+          providerId: 'openai',
+          displayName: 'Llama 3',
+        ),
+        ModelDescriptor(
+          id: 'z-ai/glm-4',
+          providerId: 'openai',
+          displayName: 'GLM 4',
+        ),
+        ModelDescriptor(
+          id: 'nvidia/nemotron',
+          providerId: 'openai',
+          displayName: 'Nemotron',
+        ),
+        ModelDescriptor(
+          id: 'standalone-model',
+          providerId: 'openai',
+          displayName: 'Bare model',
+        ),
+      ]);
+      expect(groups.keys.toList(), <String>['meta', 'nvidia', 'z-ai', 'other']);
+      expect(groups['meta']!.single.id, 'meta/llama-3');
+      expect(groups['nvidia']!.single.id, 'nvidia/nemotron');
+      expect(groups['z-ai']!.single.id, 'z-ai/glm-4');
+      expect(groups['other']!.single.id, 'standalone-model');
+    },
+  );
+
+  test(
+    'groups multiple models per org in discovery order, case-insensitively',
+    () {
+      final groups = groupDiscoveredByOrg(<ModelDescriptor>[
+        ModelDescriptor(
+          id: 'meta/llama-2',
+          providerId: 'openai',
+          displayName: 'Llama 2',
+        ),
+        ModelDescriptor(
+          id: 'Meta/llama-3',
+          providerId: 'openai',
+          displayName: 'Llama 3',
+        ),
+        ModelDescriptor(
+          id: 'z-ai/glm-4',
+          providerId: 'openai',
+          displayName: 'GLM 4',
+        ),
+      ]);
+      expect(groups.keys.toList(), <String>['meta', 'z-ai']);
+      expect(groups['meta']!.map((model) => model.id).toList(), <String>[
+        'meta/llama-2',
+        'Meta/llama-3',
+      ]);
+    },
+  );
+
   test(
     'deduplicates discovery and persists the selected discovered model',
     () async {

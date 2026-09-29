@@ -18,11 +18,13 @@ import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/repositories/settings_repository.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/data/services/llm/provider_registry.dart';
+import 'package:clipmind/data/services/transcription/whisper_service.dart';
 import 'package:clipmind/domain/agent/agent_confirmation.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/state/agent_providers.dart';
 import 'package:clipmind/state/agent_run_providers.dart';
 import 'package:clipmind/state/player_providers.dart';
@@ -92,6 +94,11 @@ class _FakeRegistry extends ProviderRegistry {
 class _CapturingPipeline extends Nl2VecPipeline {
   List<AgentRequest>? seenHistory;
   bool? seenDryRun;
+  Map<String, dynamic>? Function(String kind)? seenReadAnalysis;
+  void Function(String kind, Map<String, dynamic> payload)? seenWriteAnalysis;
+  WhisperPaths? Function()? seenWhisperConfig;
+  Future<String?> Function(String familyId)? seenResolveFont;
+  Future<String?> Function(String familyId)? seenPlannedResolveFont;
   SubmitResult result =
       const SubmitResult(status: SubmitStatus.success, message: 'ok');
 
@@ -109,9 +116,33 @@ class _CapturingPipeline extends Nl2VecPipeline {
     CancellationToken? cancellation,
     ConfirmationGate? gate,
     bool dryRun = false,
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) async {
     seenHistory = recentHistory;
     seenDryRun = dryRun;
+    seenReadAnalysis = readAnalysis;
+    seenWriteAnalysis = writeAnalysis;
+    seenWhisperConfig = whisperConfig;
+    seenResolveFont = resolveFont;
+    return result;
+  }
+
+  @override
+  Future<SubmitResult> executePlanned(
+    List<ToolCall> planned,
+    Project project, {
+    AgentEditApplier? applier,
+    Project Function()? liveProject,
+    CancellationToken? cancellation,
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
+  }) async {
+    seenPlannedResolveFont = resolveFont;
     return result;
   }
 }
@@ -243,6 +274,92 @@ void main() {
       final agentEntry =
           history.firstWhere((r) => r.systemPrompt == 'First reply');
       expect(agentEntry.userCommand, isEmpty);
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.idle));
+    });
+
+    test('submit wires tool-context callbacks into the pipeline', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final pipeline = _CapturingPipeline();
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
+          nl2vecPipelineProvider.overrideWithValue(pipeline),
+          providerRegistryProvider.overrideWithValue(_FakeRegistry(
+            _LegacyStub(
+              const EditOperationSet(operations: [], summary: 'noop'),
+            ),
+          )),
+          projectMetadataProvider.overrideWith((ref) async => null),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(projectProvider.notifier).setProject(
+            _project('/v/in.mp4', '/out'),
+          );
+
+      await container
+          .read(agentRunControllerProvider.notifier)
+          .submit('Detect scenes');
+
+      expect(pipeline.seenReadAnalysis, isNotNull,
+          reason: 'readAnalysis should reach the pipeline');
+      expect(pipeline.seenWriteAnalysis, isNotNull,
+          reason: 'writeAnalysis should reach the pipeline');
+      expect(pipeline.seenWhisperConfig, isNotNull,
+          reason: 'whisperConfig should reach the pipeline');
+      expect(pipeline.seenResolveFont, isNotNull,
+          reason: 'resolveFont should reach the pipeline');
+      // Default settings carry empty whisper paths (unset).
+      final paths = pipeline.seenWhisperConfig!();
+      expect(paths, isNotNull);
+      expect(paths!.binaryPath, isEmpty);
+      expect(paths.modelPath, isEmpty);
+      // The port callbacks are live: a write is readable back.
+      pipeline.seenWriteAnalysis!('scenes:clip_1', {'ok': true});
+      expect(
+        pipeline.seenReadAnalysis!('scenes:clip_1'),
+        equals({'ok': true}),
+      );
+    });
+
+    test('approvePlan passes resolveFont to the replay', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final pipeline = _CapturingPipeline();
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
+          nl2vecPipelineProvider.overrideWithValue(pipeline),
+          providerRegistryProvider.overrideWithValue(_FakeRegistry(
+            _LegacyStub(
+              const EditOperationSet(operations: [], summary: 'noop'),
+            ),
+          )),
+          projectMetadataProvider.overrideWith((ref) async => null),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(projectProvider.notifier).setProject(
+            _project('/v/in.mp4', '/out'),
+          );
+      container.read(pendingPlanProvider.notifier).set(const PendingPlan(
+            command: 'Add a title',
+            projectId: 'p1',
+            calls: [
+              ToolCall(id: 'c1', name: 'overlay_text', args: {'font': 'bold'}),
+            ],
+          ));
+      container.read(agentRunControllerProvider.notifier).state =
+          AgentRunState.planReady;
+
+      await container.read(agentRunControllerProvider.notifier).approvePlan();
+
+      expect(pipeline.seenPlannedResolveFont, isNotNull,
+          reason: 'resolveFont should reach the replay for overlay_text');
       expect(container.read(agentRunControllerProvider),
           equals(AgentRunState.idle));
     });

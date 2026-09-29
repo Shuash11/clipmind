@@ -6,6 +6,7 @@ import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/track.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
+import 'package:clipmind/data/services/transcription/whisper_service.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
@@ -402,6 +403,345 @@ void main() {
         expect(result.outputPath!.startsWith(outDir.path), isTrue);
         expect(applied, hasLength(1));
         expect(applied.single.targetClipIds, equals(['clip_1']));
+        pipeline.dispose();
+      } finally {
+        await tmp.delete(recursive: true);
+      }
+    });
+  });
+
+  group('Nl2VecPipeline tool-context wiring', () {
+    test('detect_scenes serves the readAnalysis cache (no recompute)',
+        () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('clipmind_pipe_cache_');
+      try {
+        final input = File('${tmp.path}/input.mp4');
+        await input.writeAsString('source');
+        final outDir = Directory('${tmp.path}/out');
+        await outDir.create();
+
+        final project = _projectWithClip(
+          clipId: 'clip_1',
+          sourcePath: input.path,
+          outputDir: outDir.path,
+        );
+        // Pre-seeded cache entry matching the executor's stamp check
+        // (source_path + threshold 0.3 + max_scenes >= 50 default).
+        final store = <String, Map<String, dynamic>>{
+          'scenes:clip_1': {
+            'clip_id': 'clip_1',
+            'source_path': input.path,
+            'threshold': 0.3,
+            'max_scenes': 50,
+            'scenes_ms': [1000, 3000],
+            'count': 2,
+            'truncated': false,
+          },
+        };
+        var reads = 0;
+        var writes = 0;
+        final script = _ScriptToolProvider([
+          const AgentTurnResult(
+            toolCalls: [
+              AgentToolCall(
+                id: 'call_1',
+                name: 'detect_scenes',
+                args: {'clip_id': 'clip_1'},
+              ),
+            ],
+            stopReason: AgentTurnStopReason.toolCalls,
+          ),
+          const AgentTurnResult(
+            text: 'Found scenes.',
+            stopReason: AgentTurnStopReason.stop,
+          ),
+        ]);
+
+        final pipeline = Nl2VecPipeline(ffmpegService: _FakeFfmpegService());
+        final result = await pipeline.submitCommand(
+          'Detect scenes in the clip',
+          project,
+          provider: script,
+          liveProject: () => project,
+          readAnalysis: (kind) {
+            reads++;
+            return store[kind];
+          },
+          writeAnalysis: (kind, payload) {
+            writes++;
+            store[kind] = payload;
+          },
+        );
+
+        expect(script.calls, equals(2));
+        expect(result.status, equals(SubmitStatus.success));
+        expect(result.message, equals('Found scenes.'));
+        expect(reads, greaterThan(0));
+        // Cache hit: served without recompute, nothing re-persisted.
+        expect(writes, equals(0));
+        expect(result.records, hasLength(1));
+        expect(result.records.single.name, equals('detect_scenes'));
+        expect(result.records.single.success, isTrue);
+        expect(result.records.single.summary, contains('cached'));
+        pipeline.dispose();
+      } finally {
+        await tmp.delete(recursive: true);
+      }
+    });
+
+    test('get_transcript serves the readAnalysis cache without whisper',
+        () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('clipmind_pipe_tr_');
+      try {
+        final input = File('${tmp.path}/input.mp4');
+        await input.writeAsString('source');
+        final outDir = Directory('${tmp.path}/out');
+        await outDir.create();
+
+        final project = _projectWithClip(
+          clipId: 'clip_1',
+          sourcePath: input.path,
+          outputDir: outDir.path,
+        );
+        final store = <String, Map<String, dynamic>>{
+          'transcript:clip_1': {
+            'clip_id': 'clip_1',
+            'source_path': input.path,
+            'text': 'hello world',
+            'chars': 11,
+            'segments': <Map<String, dynamic>>[],
+          },
+        };
+        var writes = 0;
+        final script = _ScriptToolProvider([
+          const AgentTurnResult(
+            toolCalls: [
+              AgentToolCall(
+                id: 'call_1',
+                name: 'get_transcript',
+                args: {'clip_id': 'clip_1'},
+              ),
+            ],
+            stopReason: AgentTurnStopReason.toolCalls,
+          ),
+          const AgentTurnResult(
+            text: 'Got transcript.',
+            stopReason: AgentTurnStopReason.stop,
+          ),
+        ]);
+
+        final pipeline = Nl2VecPipeline(ffmpegService: _FakeFfmpegService());
+        // No whisperConfig passed: the cache hit must avoid the binary
+        // lookup entirely (graceful degradation is only for cache miss).
+        final result = await pipeline.submitCommand(
+          'Transcribe the clip',
+          project,
+          provider: script,
+          liveProject: () => project,
+          readAnalysis: (kind) => store[kind],
+          writeAnalysis: (kind, payload) {
+            writes++;
+            store[kind] = payload;
+          },
+        );
+
+        expect(script.calls, equals(2));
+        expect(result.status, equals(SubmitStatus.success));
+        expect(writes, equals(0));
+        expect(result.records, hasLength(1));
+        expect(result.records.single.name, equals('get_transcript'));
+        expect(result.records.single.success, isTrue);
+        expect(result.records.single.summary, contains('cached'));
+        pipeline.dispose();
+      } finally {
+        await tmp.delete(recursive: true);
+      }
+    });
+
+    test('whisperConfig reaches the executor (missing model hint)',
+        () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('clipmind_pipe_wh_');
+      try {
+        final input = File('${tmp.path}/input.mp4');
+        await input.writeAsString('source');
+        final outDir = Directory('${tmp.path}/out');
+        await outDir.create();
+        final fakeBinary = File('${tmp.path}/whisper-cli');
+        await fakeBinary.writeAsString('fake');
+
+        final project = _projectWithClip(
+          clipId: 'clip_1',
+          sourcePath: input.path,
+          outputDir: outDir.path,
+        );
+        final script = _ScriptToolProvider([
+          const AgentTurnResult(
+            toolCalls: [
+              AgentToolCall(
+                id: 'call_1',
+                name: 'get_transcript',
+                args: {'clip_id': 'clip_1'},
+              ),
+            ],
+            stopReason: AgentTurnStopReason.toolCalls,
+          ),
+          const AgentTurnResult(
+            text: 'Tried transcript.',
+            stopReason: AgentTurnStopReason.stop,
+          ),
+        ]);
+
+        final pipeline = Nl2VecPipeline(ffmpegService: _FakeFfmpegService());
+        final result = await pipeline.submitCommand(
+          'Transcribe the clip',
+          project,
+          provider: script,
+          liveProject: () => project,
+          whisperConfig: () => WhisperPaths(
+            binaryPath: fakeBinary.path,
+            modelPath: '${tmp.path}/missing.bin',
+          ),
+        );
+
+        // Without the wired config the failure would be
+        // 'whisper.cpp not found'; with it, the executor gets as far as
+        // the model-file check — proving the callback threaded through.
+        expect(script.calls, equals(2));
+        expect(result.status, equals(SubmitStatus.success));
+        expect(result.records, hasLength(1));
+        expect(result.records.single.name, equals('get_transcript'));
+        expect(result.records.single.success, isFalse);
+        expect(result.records.single.summary, contains('model'));
+        pipeline.dispose();
+      } finally {
+        await tmp.delete(recursive: true);
+      }
+    });
+
+    test('overlay_text font resolves via the wired resolveFont callback',
+        () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('clipmind_pipe_font_');
+      try {
+        final input = File('${tmp.path}/input.mp4');
+        await input.writeAsString('source');
+        final outDir = Directory('${tmp.path}/out');
+        await outDir.create();
+
+        final project = _projectWithClip(
+          clipId: 'clip_1',
+          sourcePath: input.path,
+          outputDir: outDir.path,
+        );
+        const resolvedFont = '/tmp/Inter.ttf';
+        String? seenFamily;
+        final script = _ScriptToolProvider([
+          const AgentTurnResult(
+            toolCalls: [
+              AgentToolCall(
+                id: 'call_1',
+                name: 'overlay_text',
+                args: {
+                  'clip_id': 'clip_1',
+                  'text': 'Hello',
+                  'font': 'Inter',
+                },
+              ),
+            ],
+            stopReason: AgentTurnStopReason.toolCalls,
+          ),
+          const AgentTurnResult(
+            text: 'Added text.',
+            stopReason: AgentTurnStopReason.stop,
+          ),
+        ]);
+
+        final applied = <EditOperation>[];
+        final applier = AgentEditApplier(
+          onApply: (op, _, {removeClipIds = const []}) async {
+            applied.add(op);
+          },
+        );
+
+        final pipeline = Nl2VecPipeline(ffmpegService: _FakeFfmpegService());
+        final result = await pipeline.submitCommand(
+          'Add a title',
+          project,
+          provider: script,
+          applier: applier,
+          liveProject: () => project,
+          resolveFont: (familyId) async {
+            seenFamily = familyId;
+            return resolvedFont;
+          },
+        );
+
+        expect(script.calls, equals(2));
+        expect(result.status, equals(SubmitStatus.success));
+        expect(seenFamily, equals('inter'));
+        expect(applied, hasLength(1));
+        expect(applied.single.params['font_file'], equals(resolvedFont));
+        expect(result.records.single.success, isTrue);
+        pipeline.dispose();
+      } finally {
+        await tmp.delete(recursive: true);
+      }
+    });
+
+    test('overlay_text font without a resolver fails actionably', () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('clipmind_pipe_nofont_');
+      try {
+        final input = File('${tmp.path}/input.mp4');
+        await input.writeAsString('source');
+        final outDir = Directory('${tmp.path}/out');
+        await outDir.create();
+
+        final project = _projectWithClip(
+          clipId: 'clip_1',
+          sourcePath: input.path,
+          outputDir: outDir.path,
+        );
+        final script = _ScriptToolProvider([
+          const AgentTurnResult(
+            toolCalls: [
+              AgentToolCall(
+                id: 'call_1',
+                name: 'overlay_text',
+                args: {
+                  'clip_id': 'clip_1',
+                  'text': 'Hello',
+                  'font': 'Inter',
+                },
+              ),
+            ],
+            stopReason: AgentTurnStopReason.toolCalls,
+          ),
+          const AgentTurnResult(
+            text: 'Tried text.',
+            stopReason: AgentTurnStopReason.stop,
+          ),
+        ]);
+
+        final pipeline = Nl2VecPipeline(ffmpegService: _FakeFfmpegService());
+        // No resolveFont passed: the executor must fail actionably
+        // (default-null degradation, unchanged behavior).
+        final result = await pipeline.submitCommand(
+          'Add a title',
+          project,
+          provider: script,
+          liveProject: () => project,
+        );
+
+        expect(script.calls, equals(2));
+        expect(result.status, equals(SubmitStatus.success));
+        expect(result.records, hasLength(1));
+        expect(result.records.single.success, isFalse);
+        expect(result.records.single.summary, contains('not configured'));
+        expect(result.appliedOperations, isEmpty);
         pipeline.dispose();
       } finally {
         await tmp.delete(recursive: true);

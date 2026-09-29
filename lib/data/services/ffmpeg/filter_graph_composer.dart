@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 
 import 'command_builder.dart';
 import 'ffmpeg_service.dart';
+import 'filter_escaping.dart';
 import '../../models/edit_operation.dart';
 
 class FilterGraphComposer {
@@ -45,9 +46,10 @@ class FilterGraphComposer {
       } else if (op.type == EditOperationType.merge ||
           op.type == EditOperationType.extractAudio ||
           op.type == EditOperationType.generateThumbnail ||
-          op.type == EditOperationType.addTransition) {
-        // add_transition is a standalone two-input op like merge — never
-        // composable into a single-input filter chain.
+          op.type == EditOperationType.addTransition ||
+          op.type == EditOperationType.addSound) {
+        // add_transition / add_sound are standalone two-input ops like
+        // merge — never composable into a single-input filter chain.
         standalone.add(op);
       } else if (op.type == EditOperationType.deleteClip ||
           op.type == EditOperationType.copyClip ||
@@ -167,6 +169,12 @@ class FilterGraphComposer {
           final end = (_paramNum(p, 'end', 0)).toStringAsFixed(3);
           final fontSize = p['font_size']?.toString() ?? '48';
           final color = _paramString(p, 'color', '#FFFFFF');
+          // App-resolved bundled-font path (the srt_path pattern) — empty
+          // means the default FFmpeg font.
+          final fontFile = p['font_file']?.toString() ?? '';
+          final fontPart = fontFile.isNotEmpty
+              ? ':fontfile=${FilterEscaping.escapeFontFilePath(fontFile)}'
+              : '';
 
           String x, y;
           switch (position) {
@@ -199,6 +207,7 @@ class FilterGraphComposer {
             'fontsize=$fontSize:'
             'fontcolor=$color:'
             'x=$x:y=$y'
+            '$fontPart'
             '$enable',
           );
           break;
@@ -278,6 +287,7 @@ class FilterGraphComposer {
         }
 
       case EditOperationType.addTransition:
+      case EditOperationType.addSound:
         // Unreachable via routing (standalone-only, like merge) — the
         // switch stays total over the enum.
         break;
@@ -370,6 +380,10 @@ class FilterGraphComposer {
       case EditOperationType.mute:
         return CommandBuilder.mute(inputPath);
       case EditOperationType.overlayText:
+        // Replay uses the stored app-resolved font path (same stale-temp
+        // philosophy as burn_captions: fails loudly, never silently
+        // drops the font).
+        final replayFont = p['font_file']?.toString();
         return CommandBuilder.overlayText(
           inputPath,
           text: _paramString(p, 'text', ''),
@@ -378,6 +392,9 @@ class FilterGraphComposer {
           end: _paramString(p, 'end', '0'),
           fontSize: _paramInt(p, 'font_size', 48),
           color: _paramString(p, 'color', '#FFFFFF'),
+          fontFile: (replayFont != null && replayFont.isNotEmpty)
+              ? replayFont
+              : null,
         );
       case EditOperationType.resize:
         return CommandBuilder.resize(
@@ -438,6 +455,20 @@ class FilterGraphComposer {
         // tool path executes them directly via CommandMapper. Skip rather
         // than fabricate a broken job.
         return null;
+      case EditOperationType.addSound:
+        // Same two-input rule as add_transition: the stored app-generated
+        // sound path replays here (stale temp paths fail loudly in
+        // FFmpeg rather than mixing silence).
+        final soundPath = _paramString(p, 'sound_path', '');
+        if (soundPath.isEmpty || soundPath.contains('..')) return null;
+        final hasClipAudio =
+            p['has_clip_audio'] is bool ? p['has_clip_audio'] as bool : true;
+        return CommandBuilder.addAudio(
+          inputPath,
+          soundPath,
+          volume: _paramNum(p, 'volume', 1.0),
+          hasClipAudio: hasClipAudio,
+        );
       case EditOperationType.applyEffect:
         return CommandBuilder.effect(
           inputPath,

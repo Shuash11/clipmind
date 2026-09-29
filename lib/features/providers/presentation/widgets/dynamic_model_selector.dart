@@ -1,8 +1,10 @@
 import 'package:clipmind/core/router/app_router.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart';
+import 'package:clipmind/features/providers/domain/entities/model_descriptor.dart';
 import 'package:clipmind/features/providers/domain/provider_service_ids.dart';
 import 'package:clipmind/features/providers/presentation/providers/provider_profile_notifier.dart';
+import 'package:clipmind/features/providers/presentation/widgets/model_discovery_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -86,6 +88,37 @@ class _ModelPicker extends ConsumerStatefulWidget {
 
 class _ModelPickerState extends ConsumerState<_ModelPicker> {
   final _manual = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-discover on open when nothing has been discovered yet (paste a
+    // key, open the picker, and the available NIM models appear). The
+    // in-memory discovered state IS the debounce: it only fires when the
+    // list is empty, so reopening never refetches while results exist.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _discoverOnOpen());
+  }
+
+  void _discoverOnOpen() {
+    if (!mounted) return;
+    final state = ref.read(providerProfileNotifierProvider);
+    // Only usable profiles can run discovery; skipping avoids the notifier
+    // surfacing a validation notice inside a freshly opened picker.
+    if (!state.hasUsableActiveProfile) return;
+    final profile = state.activeProfile!;
+    if (profile.id != widget.profileId) return;
+    // Do not interrupt an in-flight request; its result will populate the
+    // list when it settles.
+    if (state.action != ProviderProfileAction.idle) return;
+    if ((state.discoveredModels[profile.id] ?? const []).isNotEmpty) return;
+    if (!modelDiscoverySupported(ref.read(providerRegistryProvider), profile)) {
+      return;
+    }
+    ref
+        .read(providerProfileNotifierProvider.notifier)
+        .discoverModels(profile.id);
+  }
+
   @override
   void dispose() {
     _manual.dispose();
@@ -103,12 +136,10 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
     final discovered = (state.discoveredModels[profile.id] ?? const [])
         .where((model) => !manualIds.contains(model.id))
         .toList(growable: false);
-    final definition = ref
-        .watch(providerRegistryProvider)
-        .definitionFor(profile.providerId);
-    final canDiscover =
-        profile.providerId == customOpenAiCompatibleProviderId ||
-        (definition?.modelDiscoveryIsAvailable ?? false);
+    final canDiscover = modelDiscoverySupported(
+      ref.watch(providerRegistryProvider),
+      profile,
+    );
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
@@ -198,29 +229,71 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
               Flexible(
                 child: ListView(
                   children: [
+                    if (state.action == ProviderProfileAction.discovering)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 8),
+                            Text('Discovering models…'),
+                          ],
+                        ),
+                      )
+                    else if (canDiscover &&
+                        discovered.isEmpty &&
+                        state.failureMessage == null)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'No models discovered yet. Use Discover or enter a model ID below.',
+                        ),
+                      ),
                     if (discovered.isNotEmpty) ...[
                       Text(
                         'DISCOVERED',
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
-                      ...discovered.map(
-                        (model) => ListTile(
-                          dense: true,
-                          title: Text(model.displayName),
-                          subtitle: Text(model.id),
-                          trailing: model.id == profile.selectedModelId
-                              ? const Icon(
-                                  Icons.check,
-                                  color: ClipMindColors.accentPrimary,
-                                )
-                              : null,
-                          onTap: () async {
-                            await ref
-                                .read(providerProfileNotifierProvider.notifier)
-                                .selectModel(profile.id, model.id);
-                            if (context.mounted) Navigator.pop(context);
-                          },
-                        ),
+                      ...groupDiscoveredByOrg(discovered).entries.expand(
+                        (group) => <Widget>[
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              group.key.toUpperCase(),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: ClipMindColors.textMuted,
+                                  ),
+                            ),
+                          ),
+                          ...group.value.map(
+                            (model) => ListTile(
+                              dense: true,
+                              title: Text(model.displayName),
+                              subtitle: Text(model.id),
+                              trailing: model.id == profile.selectedModelId
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: ClipMindColors.accentPrimary,
+                                    )
+                                  : null,
+                              onTap: () async {
+                                await ref
+                                    .read(
+                                      providerProfileNotifierProvider.notifier,
+                                    )
+                                    .selectModel(profile.id, model.id);
+                                if (context.mounted) Navigator.pop(context);
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                     if (profile.manualModelIds.isNotEmpty) ...[
@@ -280,4 +353,38 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
         .addManualModel(widget.profileId, value);
     if (mounted) Navigator.pop(context);
   }
+}
+
+const String otherOrgGroupKey = 'other';
+
+/// Groups discovered models by the organisation prefix of their ID
+/// (`meta/llama-3` -> META). Keys are normalized to lowercase so orgs group
+/// case-insensitively; models without a prefix fall into a trailing OTHER
+/// group. Keys are sorted alphabetically for a stable order; models keep
+/// their discovery order inside each group.
+Map<String, List<ModelDescriptor>> groupDiscoveredByOrg(
+  List<ModelDescriptor> models,
+) {
+  final named = <String, List<ModelDescriptor>>{};
+  final other = <ModelDescriptor>[];
+  for (final model in models) {
+    final split = model.id.indexOf('/');
+    if (split > 0) {
+      named
+          .putIfAbsent(
+            model.id.substring(0, split).toLowerCase(),
+            () => <ModelDescriptor>[],
+          )
+          .add(model);
+    } else {
+      other.add(model);
+    }
+  }
+  final keys = named.keys.toList()..sort();
+  return <String, List<ModelDescriptor>>{
+    for (final key in keys)
+      key: List<ModelDescriptor>.unmodifiable(named[key]!),
+    if (other.isNotEmpty)
+      otherOrgGroupKey: List<ModelDescriptor>.unmodifiable(other),
+  };
 }

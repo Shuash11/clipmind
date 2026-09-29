@@ -76,6 +76,7 @@ class CommandBuilder {
     required String end,
     int fontSize = 48,
     String color = '#FFFFFF',
+    String? fontFile,
   }) {
     final escaped = text
         .replaceAll('\\', '\\\\')
@@ -110,6 +111,12 @@ class CommandBuilder {
         ? ":enable='between(t,$start,$end)'"
         : '';
 
+    // `fontFile` is app-resolved (bundled-font extraction path) — never
+    // model-provided (the srt_path pattern).
+    final fontPart = (fontFile != null && fontFile.isNotEmpty)
+        ? ':fontfile=${FilterEscaping.escapeFontFilePath(fontFile)}'
+        : '';
+
     return [
       '-i',
       input,
@@ -119,6 +126,7 @@ class CommandBuilder {
           'fontcolor=$color:'
           'x=$x:'
           'y=$y'
+          '$fontPart'
           '$enable',
     ];
   }
@@ -402,5 +410,95 @@ class CommandBuilder {
       '-map',
       '0:a',
     ];
+  }
+
+  /// Layer a sound file over a clip's audio (`addSound` op).
+  ///
+  /// [soundPath] is app-generated (procedural temp wav or a bundled asset)
+  /// — never model-provided (the srt_path pattern). [volume] scales the
+  /// sound leg only via `volume=<v>` on the sound input chain.
+  ///
+  /// One-sided nuance (same rule as the `transition` acrossfade path,
+  /// live-verified in Cycle 3): `amix` requires BOTH inputs to carry audio.
+  /// When the clip has audio ([hasClipAudio]) the legs mix with
+  /// `amix=inputs=2:duration=first:dropout_transition=2`; otherwise the
+  /// sound becomes the ONLY audio track (`-map 1:a`, no amix graph).
+  static List<String> addAudio(
+    String clipPath,
+    String soundPath, {
+    double volume = 1.0,
+    bool hasClipAudio = true,
+  }) {
+    if (hasClipAudio) {
+      if (volume == 1.0) {
+        return [
+          '-i',
+          clipPath,
+          '-i',
+          soundPath,
+          '-filter_complex',
+          '[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[aout]',
+          '-map',
+          '0:v',
+          '-map',
+          '[aout]',
+        ];
+      }
+      return [
+        '-i',
+        clipPath,
+        '-i',
+        soundPath,
+        '-filter_complex',
+        '[1:a]volume=$volume[snd];'
+            '[0:a][snd]amix=inputs=2:duration=first:dropout_transition=2[aout]',
+        '-map',
+        '0:v',
+        '-map',
+        '[aout]',
+      ];
+    }
+    if (volume == 1.0) {
+      return ['-i', clipPath, '-i', soundPath, '-map', '0:v', '-map', '1:a'];
+    }
+    return [
+      '-i',
+      clipPath,
+      '-i',
+      soundPath,
+      '-filter_complex',
+      '[1:a]volume=$volume[aout]',
+      '-map',
+      '0:v',
+      '-map',
+      '[aout]',
+    ];
+  }
+
+  /// Lavfi source string for a procedural sound preset id, or null when
+  /// unknown. Pure mapping (mirrors [effectFilter]); the
+  /// [ProceduralSoundService] executes it via [lavfiToWav].
+  ///
+  /// The 6 presets follow the verified mcp-video pattern (no external
+  /// files): `sine` tones and `anoisesrc` noise. The chime layers two
+  /// sine tones (880 + 1320 Hz) via `aevalsrc` — a single lavfi source so
+  /// generation stays a one-input job.
+  static String? proceduralSoundSource(String presetId) {
+    return switch (presetId) {
+      'beep' => 'sine=frequency=880:duration=0.3',
+      'drone-low' => 'sine=frequency=80:duration=10',
+      'drone-mid' => 'sine=frequency=180:duration=10',
+      'hum' => 'sine=frequency=60:duration=10',
+      'static-noise' => 'anoisesrc=duration=10',
+      'alert-chime' =>
+        'aevalsrc=0.5*sin(2*PI*880*t)+0.5*sin(2*PI*1320*t):s=44100:d=0.6',
+      _ => null,
+    };
+  }
+
+  /// Args turning a lavfi [source] (see [proceduralSoundSource]) into a
+  /// wav file. The caller appends `-y <outputPath>`.
+  static List<String> lavfiToWav(String source) {
+    return ['-f', 'lavfi', '-i', source, '-c:a', 'pcm_s16le'];
   }
 }

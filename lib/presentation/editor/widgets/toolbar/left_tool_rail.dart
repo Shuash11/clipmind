@@ -1,9 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
-import 'package:clipmind/features/tagging/presentation/widgets/media_panel.dart';
+import 'package:clipmind/presentation/editor/providers/left_panel_provider.dart';
 import 'package:clipmind/presentation/shared_widgets/export_dialog.dart';
 import 'package:clipmind/state/project_providers.dart';
 
@@ -16,26 +14,27 @@ class LeftToolRail extends ConsumerStatefulWidget {
 
 class _LeftToolRailState extends ConsumerState<LeftToolRail> {
   static const _tools = [
-    _ToolItem(icon: Icons.movie_outlined, label: 'Media'),
-    _ToolItem(icon: Icons.text_fields_rounded, label: 'Text'),
-    _ToolItem(icon: Icons.graphic_eq_rounded, label: 'Audio'),
-    _ToolItem(icon: Icons.auto_fix_high_outlined, label: 'Effects'),
-    _ToolItem(icon: Icons.blur_on_outlined, label: 'Transitions'),
-    _ToolItem(icon: Icons.tune_rounded, label: 'Adjustments'),
+    _ToolItem(icon: Icons.movie_outlined, label: 'Media', tab: LeftPanelTab.media),
+    _ToolItem(icon: Icons.text_fields_rounded, label: 'Text', tab: LeftPanelTab.text),
+    _ToolItem(icon: Icons.graphic_eq_rounded, label: 'Audio', tab: LeftPanelTab.audio),
+    _ToolItem(icon: Icons.auto_fix_high_outlined, label: 'Effects', tab: LeftPanelTab.effects),
+    _ToolItem(icon: Icons.blur_on_outlined, label: 'Transitions', comingSoon: true),
+    _ToolItem(icon: Icons.tune_rounded, label: 'Adjustments', comingSoon: true),
     _ToolItem(icon: Icons.file_download_outlined, label: 'Export'),
   ];
 
   int _selectedIndex = 0;
-  bool _mediaSheetOpen = false;
 
   void _selectTool(int index) {
-    setState(() => _selectedIndex = index);
     final tool = _tools[index];
-    if (tool.label == 'Media') {
-      unawaited(_openMediaSheet());
+    if (tool.comingSoon) {
+      // Unwired this phase (the immediate next work): a coming-soon
+      // heads-up instead of a dead click.
+      _showMessage('${tool.label} are coming soon.');
       return;
     }
     if (tool.label == 'Export') {
+      // An action, not content: stays a dialog.
       final project = ref.read(projectProvider).valueOrNull;
       if (project == null) {
         _showMessage('Open a project before exporting.');
@@ -45,27 +44,12 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
         context: context,
         builder: (ctx) => ExportDialog(project: project),
       );
+      return;
     }
-  }
-
-  Future<void> _openMediaSheet() async {
-    if (_mediaSheetOpen || !mounted) return;
-    _mediaSheetOpen = true;
-    try {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => Dialog(
-          backgroundColor: ClipMindColors.bgSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: const BorderSide(color: ClipMindColors.borderColor),
-          ),
-          child: const SizedBox(width: 520, height: 560, child: MediaPanel()),
-        ),
-      );
-    } finally {
-      _mediaSheetOpen = false;
-    }
+    // Media/Text/Audio/Effects open the left panel on their tab; clicking
+    // the active tool again collapses it (CapCut behavior).
+    setState(() => _selectedIndex = index);
+    ref.read(leftPanelProvider.notifier).toggle(tool.tab!);
   }
 
   void _showMessage(String message) {
@@ -96,6 +80,7 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
             icon: tool.icon,
             label: tool.label,
             selected: index == _selectedIndex,
+            comingSoon: tool.comingSoon,
             onPressed: () => _selectTool(index),
           );
         },
@@ -108,26 +93,39 @@ class _ToolItem {
   final IconData icon;
   final String label;
 
-  const _ToolItem({required this.icon, required this.label});
+  /// The left-panel tab this tool opens; null for the action/unwired
+  /// tools (Export, Transitions, Adjustments).
+  final LeftPanelTab? tab;
+
+  final bool comingSoon;
+
+  const _ToolItem({
+    required this.icon,
+    required this.label,
+    this.tab,
+    this.comingSoon = false,
+  });
 }
 
 class _ToolButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
+  final bool comingSoon;
   final VoidCallback onPressed;
 
   const _ToolButton({
     required this.icon,
     required this.label,
     required this.selected,
+    required this.comingSoon,
     required this.onPressed,
   });
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: label,
+      message: comingSoon ? '$label — coming soon' : label,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 7),
         child: InkWell(
@@ -166,9 +164,11 @@ class _ToolButton extends StatelessWidget {
                 Icon(
                   icon,
                   size: 20,
-                  color: selected
-                      ? ClipMindColors.accentPrimary
-                      : ClipMindColors.textSecondary,
+                  color: comingSoon
+                      ? ClipMindColors.textMuted
+                      : selected
+                          ? ClipMindColors.accentPrimary
+                          : ClipMindColors.textSecondary,
                 ),
               ],
             ),

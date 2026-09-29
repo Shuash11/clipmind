@@ -18,6 +18,7 @@ import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/data/services/llm/provider_registry.dart';
+import 'package:clipmind/data/services/transcription/whisper_service.dart';
 import 'package:clipmind/domain/agent/agent_activity.dart';
 import 'package:clipmind/domain/agent/agent_confirmation.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
@@ -82,6 +83,10 @@ class _GatePipeline extends Nl2VecPipeline {
     CancellationToken? cancellation,
     ConfirmationGate? gate,
     bool dryRun = false,
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) async {
     calls++;
     await this.gate.future;
@@ -118,6 +123,10 @@ class _ConfirmingPipeline extends Nl2VecPipeline {
     CancellationToken? cancellation,
     ConfirmationGate? gate,
     bool dryRun = false,
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) async {
     calls++;
     final approved = await gate!.ask(request);
@@ -153,6 +162,10 @@ class _PlanningPipeline extends Nl2VecPipeline {
     CancellationToken? cancellation,
     ConfirmationGate? gate,
     bool dryRun = false,
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) async {
     return dryRunResult;
   }
@@ -164,6 +177,10 @@ class _PlanningPipeline extends Nl2VecPipeline {
     AgentEditApplier? applier,
     Project Function()? liveProject,
     CancellationToken? cancellation,
+    Map<String, dynamic>? Function(String kind)? readAnalysis,
+    void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
+    WhisperPaths? Function()? whisperConfig,
+    Future<String?> Function(String familyId)? resolveFont,
   }) async {
     planned++;
     return plannedResult;

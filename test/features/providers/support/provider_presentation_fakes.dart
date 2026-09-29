@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/core/results/result.dart';
 import 'package:clipmind/features/providers/domain/contracts/credential_store.dart';
@@ -9,6 +11,7 @@ import 'package:clipmind/features/providers/domain/entities/provider_connection_
 import 'package:clipmind/features/providers/domain/entities/provider_definition.dart';
 import 'package:clipmind/features/providers/domain/entities/provider_profiles_document.dart';
 import 'package:clipmind/features/providers/domain/entities/provider_profile.dart';
+import 'package:clipmind/features/providers/domain/provider_failures.dart';
 import 'package:clipmind/features/providers/domain/requests/model_request.dart';
 import 'package:clipmind/features/providers/domain/responses/model_response.dart';
 
@@ -102,6 +105,73 @@ final class DiscoveringAdapter implements ModelProviderAdapter {
     ProviderProfile profile,
     CancellationToken token,
   ) async => Success(models);
+  @override
+  Future<Result<ProviderConnectionResult>> testConnection(
+    ProviderProfile profile,
+    CancellationToken token,
+  ) async => const Success(ProviderConnectionResult(isConnected: true));
+  @override
+  Future<Result<ModelResponse>> complete(
+    ModelRequest request,
+    ProviderProfile profile,
+    CancellationToken token,
+  ) async => throw UnimplementedError();
+}
+
+/// Discovery adapter with a call counter for verifying auto-discovery. With
+/// [holdDiscovery] the futures stay pending until [releaseDiscovery] so tests
+/// can observe the inline loading state.
+final class CountingDiscoveryAdapter implements ModelProviderAdapter {
+  CountingDiscoveryAdapter(this.models, {this.holdDiscovery = false});
+  final List<ModelDescriptor> models;
+
+  /// When true, discovery futures stay pending until [releaseDiscovery].
+  final bool holdDiscovery;
+  int discoveryCalls = 0;
+  Completer<Result<List<ModelDescriptor>>>? _pending;
+
+  void releaseDiscovery() {
+    _pending?.complete(Success(models));
+    _pending = null;
+  }
+
+  @override
+  Future<Result<List<ModelDescriptor>>> discoverModels(
+    ProviderProfile profile,
+    CancellationToken token,
+  ) {
+    discoveryCalls++;
+    if (!holdDiscovery) {
+      return Future<Result<List<ModelDescriptor>>>.value(Success(models));
+    }
+    final completer = Completer<Result<List<ModelDescriptor>>>();
+    _pending = completer;
+    return completer.future;
+  }
+
+  @override
+  Future<Result<ProviderConnectionResult>> testConnection(
+    ProviderProfile profile,
+    CancellationToken token,
+  ) async => const Success(ProviderConnectionResult(isConnected: true));
+  @override
+  Future<Result<ModelResponse>> complete(
+    ModelRequest request,
+    ProviderProfile profile,
+    CancellationToken token,
+  ) async => throw UnimplementedError();
+}
+
+/// Discovery adapter whose catalog fetch always fails.
+final class FailingDiscoveryAdapter implements ModelProviderAdapter {
+  const FailingDiscoveryAdapter();
+  @override
+  Future<Result<List<ModelDescriptor>>> discoverModels(
+    ProviderProfile profile,
+    CancellationToken token,
+  ) async => const Failure<List<ModelDescriptor>>(
+    ProviderTransportFailure(message: 'NIM models are unavailable.'),
+  );
   @override
   Future<Result<ProviderConnectionResult>> testConnection(
     ProviderProfile profile,

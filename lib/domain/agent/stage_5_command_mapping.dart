@@ -23,7 +23,7 @@ class CommandMapper {
 
   static const _singlePassTypes = {
     'extract_audio', 'generate_thumbnail', 'change_format', 'merge',
-    'add_transition',
+    'add_transition', 'add_sound',
   };
 
   /// Manual structural ops: local transforms via the structural applier,
@@ -240,11 +240,21 @@ class CommandMapper {
           final end = _str(params, 'end', '0');
           final x = pos == 'center' ? '(w-text_w)/2' : '10';
           final y = pos == 'center' ? '(h-text_h)/2' : '10';
+          final fontFileRaw = params['font_file']?.toString() ?? '';
+          if (fontFileRaw.contains('..')) {
+            throw CommandMappingException(
+              'Operation "${op.id}": invalid font_file '
+              '(path traversal is not allowed).',
+            );
+          }
+          final fontPart = fontFileRaw.isNotEmpty
+              ? ':fontfile=${FilterEscaping.escapeFontFilePath(fontFileRaw)}'
+              : '';
           final enable = (start == '0' && end == '0')
               ? ''
               : ":enable='between(t,$start,$end)'";
           filters.add(
-            '[$prev]drawtext=text=\'$text\':fontsize=$fs:fontcolor=$color:x=$x:y=$y$enable[$next]',
+            '[$prev]drawtext=text=\'$text\':fontsize=$fs:fontcolor=$color:x=$x:y=$y$fontPart$enable[$next]',
           );
           break;
 
@@ -432,6 +442,18 @@ class CommandMapper {
         );
         break;
       case 'overlay_text':
+        // `font_file` is app-resolved (bundled-font extraction) — never
+        // model-provided. Defense-in-depth: reject traversal even on this
+        // internal param.
+        final fontFileRaw = params['font_file']?.toString();
+        final fontFile =
+            (fontFileRaw != null && fontFileRaw.isNotEmpty) ? fontFileRaw : null;
+        if (fontFile != null && fontFile.contains('..')) {
+          throw CommandMappingException(
+            'Operation "${op.id}": invalid font_file '
+            '(path traversal is not allowed).',
+          );
+        }
         args = CommandBuilder.overlayText(
           inputPath,
           text: _str(params, 'text', ''),
@@ -440,6 +462,28 @@ class CommandMapper {
           end: _str(params, 'end', '0'),
           fontSize: _int(params, 'font_size', 48),
           color: _validatedColor(_str(params, 'color', '#FFFFFF')),
+          fontFile: fontFile,
+        );
+        break;
+      case 'add_sound':
+        // The sound path is generated app-side (procedural temp wav or a
+        // bundled asset) and passed as a param — never model-provided.
+        // Defense-in-depth: reject traversal even on this internal param.
+        final soundPath = _str(params, 'sound_path', '');
+        if (soundPath.isEmpty || soundPath.contains('..')) {
+          throw CommandMappingException(
+            'Operation "${op.id}": invalid sound_path '
+            '(path traversal is not allowed).',
+          );
+        }
+        final hasClipAudio = params['has_clip_audio'] is bool
+            ? params['has_clip_audio'] as bool
+            : true;
+        args = CommandBuilder.addAudio(
+          inputPath,
+          soundPath,
+          volume: _num(params, 'volume', 1.0),
+          hasClipAudio: hasClipAudio,
         );
         break;
       case 'resize':

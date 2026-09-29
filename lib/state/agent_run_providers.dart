@@ -8,6 +8,7 @@ import 'package:clipmind/data/models/chat_message.dart';
 import 'package:clipmind/data/models/chat_step.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
+import 'package:clipmind/data/services/transcription/whisper_service.dart';
 import 'package:clipmind/domain/agent/agent_activity.dart';
 import 'package:clipmind/domain/agent/agent_confirmation.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
@@ -275,6 +276,8 @@ class AgentRunController extends StateNotifier<AgentRunState> {
       );
       _gate = gate;
       final planPreview = settings?.planEditsBeforeApply ?? false;
+      final analysisPort = _ref.read(agentAnalysisPortProvider(snapshot.id));
+      final resolveFont = _ref.read(resolveFontProvider);
       final result = await useCase.execute(
         text,
         snapshot,
@@ -287,6 +290,13 @@ class AgentRunController extends StateNotifier<AgentRunState> {
         cancellation: controller.token,
         gate: gate,
         dryRun: planPreview,
+        readAnalysis: analysisPort.read,
+        writeAnalysis: analysisPort.write,
+        whisperConfig: () => WhisperPaths(
+          binaryPath: settings?.whisperBinaryPath ?? '',
+          modelPath: settings?.whisperModelPath ?? '',
+        ),
+        resolveFont: resolveFont,
       );
 
       if (planPreview && result.status == SubmitStatus.success) {
@@ -429,6 +439,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
                 liveProject: () =>
                     _ref.read(projectProvider).valueOrNull ?? project,
                 cancellation: controller.token,
+                resolveFont: _ref.read(resolveFontProvider),
               );
       final steps = [
         for (final record in result.records) _toChatStep(record),

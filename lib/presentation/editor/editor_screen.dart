@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:clipmind/core/router/app_router.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/models/project.dart';
+import 'package:clipmind/presentation/editor/providers/left_panel_provider.dart';
 import 'package:clipmind/state/player_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'widgets/preview_player.dart';
 import 'widgets/timeline/timeline_view.dart';
 import 'widgets/agent_chat/agent_chat_panel.dart';
+import 'widgets/toolbar/left_panel.dart';
 import 'widgets/toolbar/left_tool_rail.dart';
 import 'widgets/toolbar/top_action_bar.dart';
 import 'widgets/status_bar.dart';
@@ -103,11 +105,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 }
 
-class _EditorShell extends StatelessWidget {
+class _EditorShell extends ConsumerWidget {
   const _EditorShell();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The CapCut-style left panel: the row includes it only while open,
+    // so the workspace shrinks accordingly (the last tab is remembered
+    // for the next open).
+    final panelOpen = ref.watch(leftPanelProvider).open;
     return Scaffold(
       backgroundColor: ClipMindColors.bgBase,
       body: Column(
@@ -123,6 +129,10 @@ class _EditorShell extends StatelessWidget {
                     children: [
                       const LeftToolRail(),
                       const SizedBox(width: 10),
+                      if (panelOpen) ...[
+                        const LeftPanel(),
+                        const SizedBox(width: 10),
+                      ],
                       const Expanded(child: _WorkspaceStack()),
                       if (showAssistant) ...[
                         const SizedBox(width: 10),

@@ -26,7 +26,11 @@ enum EditOperationType {
   // never FFmpeg jobs, never model tools.
   deleteClip,
   copyClip,
-  moveClip;
+  moveClip,
+  // Panel-driven sound op (append-only, same Drift rule). UI-driven like
+  // the structural ops above — journaled and undoable, but never a model
+  // tool (the 20-tool cap holds; `sound_path` is app-generated).
+  addSound;
 
   String get jsonValue => name;
 }

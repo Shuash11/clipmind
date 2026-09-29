@@ -7,6 +7,7 @@ import 'package:clipmind/features/providers/domain/entities/provider_definition.
 import 'package:clipmind/features/providers/domain/entities/provider_profile.dart';
 import 'package:clipmind/features/providers/domain/provider_service_ids.dart';
 import 'package:clipmind/features/providers/presentation/providers/provider_profile_notifier.dart';
+import 'package:clipmind/features/providers/presentation/widgets/model_discovery_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -408,6 +409,32 @@ class _ProviderProfileFormState extends ConsumerState<ProviderProfileForm> {
     for (final row in _secretRows) {
       row.value.clear();
     }
+    await _discoverAfterSave();
+  }
+
+  /// Auto-discovers models after a successful save so the picker is populated
+  /// without a manual "Discover models" tap (paste a key, save, and the
+  /// available NIM models appear). Reuses the notifier's guarded discovery —
+  /// request-epoch and cancellation already prevent races. Skipped when the
+  /// save did not fully succeed or the provider does not support discovery,
+  /// so saving a disabled or manual-only profile never surfaces a discovery
+  /// failure notice.
+  Future<void> _discoverAfterSave() async {
+    final state = ref.read(providerProfileNotifierProvider);
+    if (state.action != ProviderProfileAction.idle ||
+        state.failureMessage != null) {
+      return;
+    }
+    final profile = state.selectedProfile;
+    if (profile == null ||
+        !profile.enabled ||
+        profile.deletionPending ||
+        !modelDiscoverySupported(ref.read(providerRegistryProvider), profile)) {
+      return;
+    }
+    await ref
+        .read(providerProfileNotifierProvider.notifier)
+        .discoverModels(profile.id);
   }
 
   String _presetEndpoint(

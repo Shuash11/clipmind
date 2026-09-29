@@ -57,6 +57,7 @@ const _$EditOperationTypeEnumMap = {
   EditOperationType.deleteClip: 'deleteClip',
   EditOperationType.copyClip: 'copyClip',
   EditOperationType.moveClip: 'moveClip',
+  EditOperationType.addSound: 'addSound',
 };
 
 const _$OperationStatusEnumMap = {

@@ -54,4 +54,11 @@ const Map<String, List<String>> releaseNotes = {
     '* Manual timeline editing: delete, copy, reorder',
     '* Cut range selection on the timeline',
   ],
+  '1.24.0': [
+    '* CapCut-style panels: Effects, Text, Audio',
+    '* Font picker with bundled open fonts',
+    '* Add sound to clips (amix)',
+    '* NVIDIA model dropdown auto-populates after key entry',
+    '* Back button on the AI providers page',
+  ],
 };

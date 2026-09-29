@@ -437,4 +437,139 @@ void main() {
       }
     });
   });
+
+  group('CommandBuilder.addAudio', () {
+    test('mixes with amix when the clip has audio', () {
+      final args = CommandBuilder.addAudio('clip.mp4', 'sound.wav');
+      final joined = args.join(' ');
+      expect(
+        joined,
+        contains(
+          '[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[aout]',
+        ),
+      );
+      expect(args, containsAll(['-map', '0:v', '-map', '[aout]']));
+    });
+
+    test('volume scales the sound leg only', () {
+      final args = CommandBuilder.addAudio(
+        'clip.mp4',
+        'sound.wav',
+        volume: 0.8,
+      );
+      final joined = args.join(' ');
+      expect(joined, contains('[1:a]volume=0.8[snd]'));
+      expect(joined, contains('[0:a][snd]amix='));
+      expect(args, containsAll(['-map', '0:v', '-map', '[aout]']));
+    });
+
+    test('one-sided: sound is the only track without amix', () {
+      final args = CommandBuilder.addAudio(
+        'clip.mp4',
+        'sound.wav',
+        hasClipAudio: false,
+      );
+      expect(args.join(' '), isNot(contains('amix')));
+      expect(args, containsAll(['-map', '0:v', '-map', '1:a']));
+    });
+
+    test('one-sided with volume filters the sound input', () {
+      final args = CommandBuilder.addAudio(
+        'clip.mp4',
+        'sound.wav',
+        volume: 0.5,
+        hasClipAudio: false,
+      );
+      final joined = args.join(' ');
+      expect(joined, contains('[1:a]volume=0.5[aout]'));
+      expect(joined, isNot(contains('amix')));
+      expect(args, containsAll(['-map', '0:v', '-map', '[aout]']));
+    });
+  });
+
+  group('CommandBuilder.proceduralSoundSource', () {
+    test('all 6 presets map to lavfi sources', () {
+      expect(
+        CommandBuilder.proceduralSoundSource('beep'),
+        equals('sine=frequency=880:duration=0.3'),
+      );
+      expect(
+        CommandBuilder.proceduralSoundSource('drone-low'),
+        equals('sine=frequency=80:duration=10'),
+      );
+      expect(
+        CommandBuilder.proceduralSoundSource('drone-mid'),
+        equals('sine=frequency=180:duration=10'),
+      );
+      expect(
+        CommandBuilder.proceduralSoundSource('hum'),
+        equals('sine=frequency=60:duration=10'),
+      );
+      expect(
+        CommandBuilder.proceduralSoundSource('static-noise'),
+        contains('anoisesrc'),
+      );
+      final chime = CommandBuilder.proceduralSoundSource('alert-chime');
+      expect(chime, contains('880'));
+      expect(chime, contains('1320'));
+    });
+
+    test('unknown preset yields null', () {
+      expect(CommandBuilder.proceduralSoundSource('nope'), isNull);
+      expect(CommandBuilder.proceduralSoundSource(''), isNull);
+    });
+
+    test('lavfiToWav wraps a source as a wav job prefix', () {
+      final args = CommandBuilder.lavfiToWav('sine=frequency=880:duration=0.3');
+      expect(
+        args,
+        equals([
+          '-f',
+          'lavfi',
+          '-i',
+          'sine=frequency=880:duration=0.3',
+          '-c:a',
+          'pcm_s16le',
+        ]),
+      );
+    });
+  });
+
+  group('CommandBuilder.overlayText fontFile', () {
+    test('omitted by default (backwards compatible)', () {
+      final args = CommandBuilder.overlayText(
+        'input.mp4',
+        text: 'hello',
+        position: 'center',
+        start: '0',
+        end: '0',
+      );
+      expect(args.join(' '), isNot(contains('fontfile')));
+    });
+
+    test('emits fontfile for an app-resolved path', () {
+      final args = CommandBuilder.overlayText(
+        'input.mp4',
+        text: 'hello',
+        position: 'center',
+        start: '0',
+        end: '0',
+        fontFile: '/fonts/inter_regular.ttf',
+      );
+      expect(args.join(' '), contains('fontfile=/fonts/inter_regular.ttf'));
+    });
+
+    test('windows paths are normalized for the filter', () {
+      final args = CommandBuilder.overlayText(
+        'input.mp4',
+        text: 'hello',
+        position: 'center',
+        start: '0',
+        end: '0',
+        fontFile: r'C:\fonts\inter_regular.ttf',
+      );
+      final joined = args.join(' ');
+      expect(joined, contains(r'fontfile=C\:/fonts/inter_regular.ttf'));
+    });
+  });
 }

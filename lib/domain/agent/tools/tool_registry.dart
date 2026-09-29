@@ -323,6 +323,13 @@ class ToolRegistry {
             'type': ['string', 'null'],
             'description': 'Show-until time in seconds.',
           },
+          'font': {
+            'type': ['string', 'null'],
+            'description':
+                'Bundled font family: Inter, Montserrat, Roboto, Lato, '
+                'Source Code Pro or EB Garamond. Omit (null) for the '
+                'system default.',
+          },
         },
         'required': [
           'clip_id',
@@ -332,6 +339,7 @@ class ToolRegistry {
           'color',
           'start',
           'end',
+          'font',
         ],
         'additionalProperties': false,
       },

@@ -6,6 +6,7 @@ import 'package:clipmind/features/providers/domain/entities/provider_definition.
 import 'package:clipmind/features/providers/domain/entities/provider_capabilities.dart';
 import 'package:clipmind/features/providers/domain/entities/provider_profiles_document.dart';
 import 'package:clipmind/features/providers/domain/entities/provider_profile.dart';
+import 'package:clipmind/features/providers/domain/entities/model_descriptor.dart';
 import 'package:clipmind/features/providers/domain/provider_platform_bootstrap.dart';
 import 'package:clipmind/features/providers/domain/provider_credential_reference.dart';
 import 'package:clipmind/features/providers/domain/provider_failures.dart';
@@ -279,6 +280,204 @@ void main() {
       expect(credentials.deletes, contains(reference));
       expect(credentials.values, isEmpty);
       expect(notifier.state.failure, isA<ProviderPersistenceFailure>());
+    },
+  );
+
+  testWidgets('auto-discovers models after a successful save', (tester) async {
+    final repository = MemoryProfileRepository(
+      ProviderProfilesDocument(schemaVersion: 1, profiles: const []),
+    );
+    final adapter = CountingDiscoveryAdapter(<ModelDescriptor>[
+      ModelDescriptor(
+        id: 'meta/llama-3',
+        providerId: 'openai',
+        displayName: 'Llama 3',
+      ),
+      ModelDescriptor(
+        id: 'nvidia/nemotron',
+        providerId: 'openai',
+        displayName: 'Nemotron',
+      ),
+    ]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          providerPlatformBootstrapResultProvider.overrideWithValue(
+            Success(
+              ProviderPlatformBootstrapResult(
+                FakeProviderRegistry(definitions: [_definition], adapter: adapter),
+                repository: repository,
+                credentials: MemoryCredentialStore(),
+              ),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: ClipMindTheme.dark,
+          home: const Scaffold(body: ProviderProfileForm()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('provider-display-name')),
+      'NVIDIA NIM',
+    );
+    final saveButton = find.byKey(const ValueKey('save-provider-profile'));
+    final formScrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey('provider-profile-form')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      saveButton,
+      300,
+      scrollable: formScrollable,
+    );
+    expect(adapter.discoveryCalls, 0);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+    // Saving fires discovery once, so the model picker is populated without
+    // a manual "Discover models" tap.
+    expect(adapter.discoveryCalls, 1);
+    final formContext = tester.element(
+      find.byKey(const ValueKey('provider-profile-form')),
+    );
+    final state =
+        ProviderScope.containerOf(formContext).read(
+          providerProfileNotifierProvider,
+        );
+    expect(state.selectedProfileId, isNotNull);
+    expect(state.discoveredModels[state.selectedProfileId], isNotEmpty);
+  });
+
+  testWidgets(
+    'does not auto-discover after saving a provider without discovery',
+    (tester) async {
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(schemaVersion: 1, profiles: const []),
+      );
+      final adapter = CountingDiscoveryAdapter(const <ModelDescriptor>[]);
+      final manualOnly = ProviderDefinition(
+        id: 'openai',
+        displayName: 'OpenAI',
+        baseUri: Uri.parse('https://example.test/v1'),
+        protocol: ProviderProtocol.compatible,
+        capabilities: const ProviderCapabilities(),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [manualOnly],
+                    adapter: adapter,
+                  ),
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: ProviderProfileForm()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const ValueKey('provider-display-name')),
+        'Manual only',
+      );
+      final saveButton = find.byKey(const ValueKey('save-provider-profile'));
+      final formScrollable = find
+          .descendant(
+            of: find.byKey(const ValueKey('provider-profile-form')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        saveButton,
+        300,
+        scrollable: formScrollable,
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      expect(adapter.discoveryCalls, 0);
+      final formContext = tester.element(
+        find.byKey(const ValueKey('provider-profile-form')),
+      );
+      final state =
+          ProviderScope.containerOf(formContext).read(
+            providerProfileNotifierProvider,
+          );
+      // Saving a manual-only provider must not surface a discovery failure.
+      expect(state.failureMessage, isNull);
+    },
+  );
+
+  testWidgets(
+    'surfaces auto-discovery failures after a successful save',
+    (tester) async {
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(schemaVersion: 1, profiles: const []),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_definition],
+                    adapter: const FailingDiscoveryAdapter(),
+                  ),
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: ProviderProfileForm()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const ValueKey('provider-display-name')),
+        'Broken discovery',
+      );
+      final saveButton = find.byKey(const ValueKey('save-provider-profile'));
+      final formScrollable = find
+          .descendant(
+            of: find.byKey(const ValueKey('provider-profile-form')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        saveButton,
+        300,
+        scrollable: formScrollable,
+      );
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+      final formContext = tester.element(
+        find.byKey(const ValueKey('provider-profile-form')),
+      );
+      final state =
+          ProviderScope.containerOf(formContext).read(
+            providerProfileNotifierProvider,
+          );
+      expect(
+        state.failureMessage,
+        'Discovery unavailable; enter a model ID.',
+      );
     },
   );
 }

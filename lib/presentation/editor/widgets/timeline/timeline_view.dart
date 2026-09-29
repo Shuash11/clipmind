@@ -11,6 +11,7 @@ import 'package:clipmind/data/models/track.dart';
 import 'package:clipmind/features/projects/domain/entities/project_document.dart';
 import 'package:clipmind/features/tagging/presentation/providers/tagging_providers.dart';
 import 'package:clipmind/features/tagging/presentation/widgets/marker_ruler.dart';
+import 'package:clipmind/presentation/editor/providers/selected_clip_provider.dart';
 import 'package:clipmind/state/manual_edit_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/structural_edit_providers.dart';
@@ -79,6 +80,14 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         duration: const Duration(milliseconds: 1200),
       ),
     );
+  }
+
+  /// The clip selection's single write point: the local state drives the
+  /// track highlight, and [selectedClipIdProvider] shares the selection
+  /// with the CapCut-style left panel (effects/text/sound targets).
+  void _selectClip(String? clipId) {
+    setState(() => _selectedClipId = clipId);
+    ref.read(selectedClipIdProvider.notifier).state = clipId;
   }
 
   void _changeZoom(double delta) {
@@ -238,7 +247,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       location.track.copyWith(clips: updatedClips),
       'Clip deleted.',
     );
-    if (mounted) setState(() => _selectedClipId = null);
+    if (mounted) _selectClip(null);
   }
 
   Future<void> _copySelectedClip() async {
@@ -266,7 +275,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       location.track.copyWith(clips: updatedClips),
       'Clip copied.',
     );
-    if (mounted) setState(() => _selectedClipId = copy.id);
+    if (mounted) _selectClip(copy.id);
   }
 
   Future<void> _replaceTrack(
@@ -487,7 +496,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       clips: _clipsForType(project, type),
       zoom: _zoom,
       selectedClipId: _selectedClipId,
-      onClipSelected: (id) => setState(() => _selectedClipId = id),
+      onClipSelected: _selectClip,
       onMoveClip: _moveClip,
     );
   }

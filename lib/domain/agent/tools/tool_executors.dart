@@ -55,6 +55,14 @@ class ToolExecutionContext {
   /// Wired by the state layer; the middle-end agent owns the getters.
   final WhisperPaths? Function()? whisperConfig;
 
+  /// Bundled-font resolution for the `overlay_text` `font` arg
+  /// (`FontResolver.resolve`, wired by the state layer via
+  /// `fontResolverProvider` + `resolveFontProvider`). Maps a family id to
+  /// an app-resolved `.ttf` path, or null when the family is unknown or
+  /// its file is missing. The executor never trusts a model-provided
+  /// path — `font_file` is always app-generated (the srt_path pattern).
+  final Future<String?> Function(String familyId)? resolveFont;
+
   int jobsUsed = 0;
 
   /// Run journal: every successfully applied edit lands here so the agent
@@ -77,6 +85,7 @@ class ToolExecutionContext {
     this.readAnalysis,
     this.writeAnalysis,
     this.whisperConfig,
+    this.resolveFont,
   }) : sceneDetectionService =
            sceneDetectionService ?? SceneDetectionService(),
        whisperService = whisperService ?? WhisperTranscriptionService();
@@ -689,20 +698,55 @@ class EditToolExecutor implements ToolExecutor {
     } on FilterValidationException catch (e) {
       return ToolResult.fail('${e.message} Retry with e.g. "#FFFFFF".');
     }
+    // Bundled-font resolution (the srt_path pattern): the model names a
+    // family, the app resolves the file. `font_file` is never
+    // model-provided. Unknown families fail actionably; no `font` arg
+    // keeps the system-default behavior unchanged.
+    final rawFamily = _stringArg(call.args, 'font');
+    String? family;
+    String? fontFile;
+    if (rawFamily != null && rawFamily.trim().isNotEmpty) {
+      family = _normalizeFontFamily(rawFamily);
+      final resolver = _ctx.resolveFont;
+      if (resolver == null) {
+        return ToolResult.fail(
+          'overlay_text "font" needs app-side font resolution, which is '
+          'not configured. Omit "font" for the system default.',
+        );
+      }
+      fontFile = await resolver(family);
+      if (fontFile == null) {
+        return ToolResult.fail(
+          'Unknown font "$rawFamily" — pick one of the bundled fonts '
+          '(Inter, Montserrat, Roboto, Lato, Source Code Pro, EB Garamond), '
+          'or omit "font" for the system default.',
+        );
+      }
+    }
+    final params = <String, dynamic>{
+      'text': text,
+      'position': _stringArg(call.args, 'position') ?? 'center',
+      'font_size': _numArg(call.args, 'font_size') ?? 48,
+      'color': color,
+      'start': _stringArg(call.args, 'start') ?? '0',
+      'end': _stringArg(call.args, 'end') ?? '0',
+    };
+    if (family != null) params['font'] = family;
+    if (fontFile != null) params['font_file'] = fontFile;
     return _runSingleOp(
       callId: call.id,
       opType: 'overlay_text',
       clipId: clipId!,
-      params: {
-        'text': text,
-        'position': _stringArg(call.args, 'position') ?? 'center',
-        'font_size': _numArg(call.args, 'font_size') ?? 48,
-        'color': color,
-        'start': _stringArg(call.args, 'start') ?? '0',
-        'end': _stringArg(call.args, 'end') ?? '0',
-      },
+      params: params,
       summary: 'Added text overlay on "$clipId".',
     );
+  }
+
+  /// Normalize a model-provided font name to a catalogued family id so
+  /// display labels ("Source Code Pro") resolve like ids
+  /// ("source_code_pro"). Case-insensitive; spaces become underscores.
+  static String _normalizeFontFamily(String raw) {
+    return raw.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
   }
 
   Future<ToolResult> _resize(ToolCall call) async {

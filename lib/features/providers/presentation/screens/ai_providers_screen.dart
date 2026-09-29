@@ -1,3 +1,4 @@
+import 'package:clipmind/core/router/app_router.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart';
 import 'package:clipmind/features/providers/presentation/providers/provider_profile_notifier.dart';
@@ -5,6 +6,7 @@ import 'package:clipmind/features/providers/presentation/widgets/provider_profil
 import 'package:clipmind/features/providers/presentation/widgets/provider_profile_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class AiProvidersScreen extends ConsumerWidget {
   const AiProvidersScreen({super.key});
@@ -14,7 +16,15 @@ class AiProvidersScreen extends ConsumerWidget {
     final state = ref.watch(providerProfileNotifierProvider);
     return Scaffold(
       key: const ValueKey('ai-providers-screen'),
-      appBar: AppBar(title: const Text('AI Providers')),
+      appBar: AppBar(
+        title: const Text('AI Providers'),
+        leading: IconButton(
+          key: const ValueKey('ai-providers-back'),
+          tooltip: 'Back to settings',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => _navigateBackToSettings(context),
+        ),
+      ),
       body: state.isLoading && state.profiles.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : LayoutBuilder(
@@ -40,6 +50,19 @@ class AiProvidersScreen extends ConsumerWidget {
               },
             ),
     );
+  }
+}
+
+/// `/settings/providers` is a top-level [GoRoute] the app reaches via
+/// `context.go()`, which replaces the navigation stack — so there is nothing
+/// to pop and the AppBar's automatic back arrow never appears. The explicit
+/// back button navigates to the settings route, popping first whenever the
+/// route was pushed so the existing stack is preserved.
+void _navigateBackToSettings(BuildContext context) {
+  if (context.canPop()) {
+    context.pop();
+  } else {
+    context.go(settingsPath);
   }
 }
 
