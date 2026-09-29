@@ -93,6 +93,10 @@ final class LegacySecureCredentialSource
       : 'clipmind_${providerId}_api_key';
 }
 
+/// Legacy Gen A provider ids that predate the Gen B catalog, mapped to
+/// the catalog preset they activate.
+const legacyProviderIdAliases = {'nvidia_nim': 'nvidia'};
+
 /// Idempotently imports legacy settings and provider-name credentials into the
 /// profile platform. New metadata is durable before a legacy key is removed.
 final class LegacyProviderSettingsMigration {
@@ -152,7 +156,12 @@ final class LegacyProviderSettingsMigration {
       );
       if (legacyCredential is Failure<String?>) return _failure();
       final secret = (legacyCredential as Success<String?>).value;
-      final isActive = legacy.activeProviderId == definition.id;
+      // Legacy Gen A ids predate the catalog: 'nvidia_nim' activates the
+      // 'nvidia' preset profile.
+      final isActive =
+          legacy.activeProviderId == definition.id ||
+          legacyProviderIdAliases[legacy.activeProviderId] ==
+              definition.id;
       if (!isActive && (secret == null || secret.isEmpty)) continue;
 
       final profileId = 'legacy-${definition.id}';

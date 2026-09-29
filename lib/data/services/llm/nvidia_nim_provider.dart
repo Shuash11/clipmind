@@ -28,15 +28,73 @@ class NvidiaNimConfig {
 /// manual live test runs. Conservative extras only — `parallel_tool_calls`
 /// and `max_completion_tokens` are excluded as unverified, and NIM-specific
 /// `nvext` params are not used this phase.
+///
+/// Model discovery: the primary user-facing path is the Gen B selector's
+/// "Discover models" button (live `GET {endpoint}/models` via
+/// `OpenAiCompatibleAdapter.discoverModels` → the full live free catalog;
+/// the live list is authoritative and unfiltered). [availableModels] below
+/// mirrors that live list with a curated fallback.
 class NvidiaNimProvider extends OpenAiCompatibleLlmProvider {
   static const _baseUrl = 'https://integrate.api.nvidia.com';
+
+  /// Curated fallback (NIM LLM APIs reference, 2026-09-29): the ~40
+  /// generative chat models. EXCLUDED — guard/classifier models, not
+  /// editing agents: gliner-pii, llama-3.1-nemoguard-8b-content-safety,
+  /// llama-3.1-nemoguard-8b-topic-control,
+  /// llama-3.1-nemotron-safety-guard-8b-v3, nemoguard-jailbreak-detect,
+  /// nemotron-content-safety-reasoning-4b. The hyphenation of
+  /// `z-ai/glm4.7` / `z-ai/glm5.1` is inconsistent in the doc —
+  /// TO-VERIFY-LIVE (the live list is authoritative).
   static const _models = [
     'meta/llama-3.3-70b-instruct',
-    'nvidia/llama-3.3-nemotron-super-49b-v1.5',
-    'qwen/qwen3-next-80b-a3b-instruct',
-    'openai/gpt-oss-120b',
-    'moonshotai/kimi-k2-instruct',
+    'deepseek-ai/deepseek-v4-flash',
+    'deepseek-ai/deepseek-v4-flash-0731',
+    'deepseek-ai/deepseek-v4-pro',
+    'google/codegemma-7b',
+    'google/gemma-7b',
+    'meta/llama2-70b',
     'meta/llama-3.1-8b-instruct',
+    'meta/llama-3.1-70b-instruct',
+    'meta/llama-3.2-1b-instruct',
+    'meta/llama-3.2-3b-instruct',
+    'microsoft/phi-4-mini-instruct',
+    'microsoft/phi-4-mini-flash-reasoning',
+    'minimaxai/minimax-m2.5',
+    'minimaxai/minimax-m2.7',
+    'mistralai/mistral-nemotron',
+    'mistralai/mixtral-8x7b-instruct',
+    'mistralai/mixtral-8x22b-instruct',
+    'moonshotai/kimi-k2-instruct',
+    'moonshotai/kimi-k2-thinking',
+    'moonshotai/kimi-k3',
+    'nvidia/llama-3.3-nemotron-super-49b-v1',
+    'nvidia/llama-3.3-nemotron-super-49b-v1.5',
+    'nvidia/llama-3.1-nemotron-ultra-253b-v1',
+    'nvidia/nemotron-3-ultra-550b-a55b',
+    'nvidia/nemotron-3.5-lightning-30b-a3b',
+    'nvidia/nemotron-3-nano-30b-a3b',
+    'nvidia/nemotron-3-super-120b-a12b',
+    'nvidia/nvidia-nemotron-nano-9b-v2',
+    'nvidia/riva-translate-4b-instruct-v1.1',
+    'nvidia/riva-translate-4b-instruct-v2',
+    'nvidia/usdcode',
+    'openai/gpt-oss-20b',
+    'openai/gpt-oss-120b',
+    'qwen/qwen2.5-coder-32b-instruct',
+    'qwen/qwen3-next-80b-a3b-instruct',
+    'qwen/qwen3-next-80b-a3b-thinking',
+    'qwen/qwq-32b',
+    'poolside/laguna-xs-2-1',
+    'sarvamai/sarvam-m',
+    'stepfun-ai/step-3.5-flash',
+    'stockmark/stockmark-2-100b-instruct',
+    'thinkingmachines/inkling',
+    'upstage/solar-10.7b-instruct',
+    'z-ai/glm4.7',
+    'z-ai/glm5.1',
+    'z-ai/glm-5.2',
+    'z-ai/glm-5.3',
+    'z-ai/glm-5.3-flash',
   ];
 
   final NvidiaNimConfig config;
@@ -112,9 +170,42 @@ class NvidiaNimProvider extends OpenAiCompatibleLlmProvider {
   // [mapToolsModelError] intentionally left at the base default: NIM has
   // no documented tools-model error shape.
 
+  /// Live model list with a curated fallback: `GET /v1/models` (same
+  /// request shape as the health check), parsing the standard
+  /// `data[].id` shape and deduping in endpoint order. Falls back to
+  /// [_models] on ANY failure (no key, transport error, malformed body).
   @override
   Future<List<String>> availableModels() async {
+    try {
+      final apiKey = await resolveApiKey();
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/v1/models',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 5),
+          headers: authHeaders(apiKey),
+        ),
+      );
+      final live = _parseModelIds(response.data);
+      if (live.isNotEmpty) return live;
+    } catch (_) {
+      // Fall through to the curated list (graceful degradation).
+    }
     return _models;
+  }
+
+  /// Standard OpenAI-compatible list shape: `{data: [{id, ...}]}`.
+  /// Non-string ids are skipped; order is preserved, dupes dropped.
+  static List<String> _parseModelIds(Map<String, dynamic>? data) {
+    final entries = data?['data'];
+    if (entries is! List) return const [];
+    final seen = <String>[];
+    for (final entry in entries) {
+      if (entry is! Map<String, dynamic>) continue;
+      final id = entry['id'];
+      if (id is! String || id.isEmpty || seen.contains(id)) continue;
+      seen.add(id);
+    }
+    return seen;
   }
 
   @override

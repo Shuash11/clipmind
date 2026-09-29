@@ -162,7 +162,26 @@ class ProviderRegistry {
     return null;
   }
 
+  /// Gen B catalog preset ids that route through the Phase-2 custom
+  /// OpenAI-compatible adapter (profile endpoint includes the version
+  /// prefix; relative `chat/completions`; conservative `max_tokens`).
+  static const _customCompatProviderIds = {
+    'openrouter',
+    'groq',
+    'cerebras',
+    'deepseek',
+    'together',
+    'fireworks',
+    'xai',
+    'mistral',
+    'custom',
+  };
+
   /// Build the Gen A provider for a resolved profile config.
+  ///
+  /// The Gen B catalog preset ids are the source of truth; `'nvidia_nim'`
+  /// is a legacy alias for the same NIM service (defensive). The compat
+  /// presets route through the Phase-2 custom adapter.
   ///
   /// Named params with explicit null override Dart defaults, so the
   /// null-coalescing to each provider's class default is mandatory.
@@ -192,7 +211,10 @@ class ProviderRegistry {
           ),
           keyStore: _keyStore,
         );
+      case 'nvidia':
       case 'nvidia_nim':
+        // 'nvidia' is the Gen B catalog preset; 'nvidia_nim' is the
+        // legacy Gen A alias for the same service (defensive).
         return NvidiaNimProvider(
           config: NvidiaNimConfig(
             apiKey: apiKey,
@@ -212,20 +234,28 @@ class ProviderRegistry {
           keyStore: _keyStore,
         );
       case 'custom':
-        // A custom profile has no default model and no usable fallback:
-        // without a selected model or endpoint the run truthfully fails
-        // until the user completes the profile.
-        if (model == null || model.trim().isEmpty) return null;
-        if (config.endpoint == null) return null;
-        return CustomOpenAiCompatibleProvider(
-          config: CustomOpenAiConfig(
-            endpoint: config.endpoint!,
-            model: model,
-            apiKey: config.apiKey,
-          ),
-        );
+        return _customCompatProvider(config, model);
       default:
+        if (_customCompatProviderIds.contains(config.providerId)) {
+          return _customCompatProvider(config, model);
+        }
         return null;
     }
+  }
+
+  /// Shared construction for the compat presets: the profile endpoint
+  /// includes the version prefix and the model must be selected (a
+  /// compat profile has no usable default — the run truthfully fails
+  /// until the user completes the profile).
+  LlmProvider? _customCompatProvider(ActiveLlmConfig config, String? model) {
+    if (model == null || model.trim().isEmpty) return null;
+    if (config.endpoint == null) return null;
+    return CustomOpenAiCompatibleProvider(
+      config: CustomOpenAiConfig(
+        endpoint: config.endpoint!,
+        model: model,
+        apiKey: config.apiKey,
+      ),
+    );
   }
 }

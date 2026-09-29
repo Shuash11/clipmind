@@ -48,6 +48,41 @@ void main() {
     },
   );
 
+  test(
+    'legacy nvidia_nim id activates the nvidia preset profile',
+    () async {
+      final repository = ProviderProfileRepositoryImpl(storage: _Storage());
+      final legacyCredentials = _LegacyCredentials(<String, String>{
+        'nvidia': 'nim-secret',
+      });
+      final credentials = _Credentials();
+      final migration = LegacyProviderSettingsMigration(
+        repository: repository,
+        settings: _Settings(
+          const LegacyProviderSettings(
+            activeProviderId: 'nvidia_nim',
+            activeModel: '',
+            ollamaEndpoint: 'http://localhost:11434',
+          ),
+        ),
+        legacyCredentials: legacyCredentials,
+        credentials: credentials,
+      );
+
+      expect(await migration.migrate(), isA<Success<void>>());
+      final document =
+          (await repository.load() as Success<ProviderProfilesDocument>).value;
+      expect(document.activeProfileId, 'legacy-nvidia');
+      expect(
+        credentials.values,
+        containsPair(
+          'clipmind_provider_legacy-nvidia_api_key',
+          'nim-secret',
+        ),
+      );
+    },
+  );
+
   test('does not remove a legacy key when scoped copy fails', () async {
     final legacyCredentials = _LegacyCredentials(<String, String>{
       'openai': 'only-copy',

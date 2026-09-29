@@ -35,6 +35,9 @@ void main() {
     if (provider is AnthropicProvider) {
       return provider.id.split(':').last;
     }
+    if (provider is CustomOpenAiCompatibleProvider) {
+      return provider.modelName;
+    }
     return null;
   }
 
@@ -61,6 +64,11 @@ void main() {
           apiKey: 'k',
           model: 'openai/gpt-oss-120b',
         ),
+        'nvidia': const ActiveLlmConfig(
+          providerId: 'nvidia',
+          apiKey: 'k',
+          model: 'qwen/qwen3-next-80b-a3b-instruct',
+        ),
         'ollama': ActiveLlmConfig(
           providerId: 'ollama',
           endpoint: Uri.parse('http://nas:11434'),
@@ -74,6 +82,80 @@ void main() {
           reason: entry.key,
         );
       }
+    });
+
+    test('nvidia catalog id and nvidia_nim alias share one service',
+        () async {
+      for (final id in ['nvidia', 'nvidia_nim']) {
+        final provider = await registryWith(
+          () => ActiveLlmConfig(
+            providerId: id,
+            apiKey: 'k',
+            model: 'meta/llama-3.3-70b-instruct',
+          ),
+        ).getActiveProvider();
+
+        expect(provider, isA<NvidiaNimProvider>(), reason: id);
+        expect(
+          (provider as NvidiaNimProvider).modelName,
+          equals('meta/llama-3.3-70b-instruct'),
+          reason: id,
+        );
+      }
+    });
+
+    test('compat presets resolve through the custom adapter', () async {
+      const endpoints = {
+        'openrouter': 'https://openrouter.ai/api/v1',
+        'groq': 'https://api.groq.com/openai/v1',
+        'cerebras': 'https://api.cerebras.ai/v1',
+        'deepseek': 'https://api.deepseek.com',
+        'together': 'https://api.together.xyz/v1',
+        'fireworks': 'https://api.fireworks.ai/inference/v1',
+        'xai': 'https://api.x.ai/v1',
+        'mistral': 'https://api.mistral.ai/v1',
+      };
+      for (final entry in endpoints.entries) {
+        final provider = await registryWith(
+          () => ActiveLlmConfig(
+            providerId: entry.key,
+            endpoint: Uri.parse(entry.value),
+            apiKey: 'k',
+            model: 'some/model',
+          ),
+        ).getActiveProvider();
+
+        expect(
+          provider,
+          isA<CustomOpenAiCompatibleProvider>(),
+          reason: entry.key,
+        );
+        expect(
+          (provider as CustomOpenAiCompatibleProvider).modelName,
+          equals('some/model'),
+          reason: entry.key,
+        );
+        expect(provider.supportsToolCalling, isTrue, reason: entry.key);
+      }
+    });
+
+    test('compat preset without model or endpoint resolves to null',
+        () async {
+      final noModel = await registryWith(
+        () => ActiveLlmConfig(
+          providerId: 'groq',
+          endpoint: Uri.parse('https://api.groq.com/openai/v1'),
+        ),
+      ).getActiveProvider();
+      expect(noModel, isNull);
+
+      final noEndpoint = await registryWith(
+        () => const ActiveLlmConfig(
+          providerId: 'groq',
+          model: 'llama-3.3-70b-versatile',
+        ),
+      ).getActiveProvider();
+      expect(noEndpoint, isNull);
     });
 
     test('null model falls back to each provider default', () async {

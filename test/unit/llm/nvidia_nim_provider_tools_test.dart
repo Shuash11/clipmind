@@ -326,5 +326,106 @@ void main() {
         ]),
       );
     });
+
+    test('guard models are excluded from the fallback', () async {
+      final dio = _MockDio();
+      final models = await _provider(dio).availableModels();
+      for (final guard in [
+        'gliner-pii',
+        'llama-3.1-nemoguard-8b-content-safety',
+        'llama-3.1-nemoguard-8b-topic-control',
+        'llama-3.1-nemotron-safety-guard-8b-v3',
+        'nemoguard-jailbreak-detect',
+        'nemotron-content-safety-reasoning-4b',
+      ]) {
+        expect(models.any((m) => m.contains(guard)), isFalse,
+            reason: guard);
+      }
+    });
+
+    test('live list parses data ids with dedupe', () async {
+      final dio = _MockDio();
+      when(() => dio.get<Map<String, dynamic>>(
+            any(),
+            options: any(named: 'options'),
+          )).thenAnswer((_) async => Response<Map<String, dynamic>>(
+                requestOptions: RequestOptions(path: '/v1/models'),
+                statusCode: 200,
+                data: {
+                  'data': [
+                    {'id': 'live-a'},
+                    {'id': 'live-b'},
+                    {'id': 'live-a'},
+                    {'id': 42},
+                    'junk',
+                  ],
+                },
+              ));
+
+      final models = await _provider(dio).availableModels();
+
+      expect(models, equals(['live-a', 'live-b']));
+    });
+
+    test('transport failure falls back to the curated list', () async {
+      final dio = _MockDio();
+      when(() => dio.get<Map<String, dynamic>>(
+            any(),
+            options: any(named: 'options'),
+          )).thenThrow(DioException(
+            requestOptions: RequestOptions(path: '/v1/models'),
+            type: DioExceptionType.connectionError,
+          ));
+
+      final models = await _provider(dio).availableModels();
+
+      expect(models, contains('meta/llama-3.3-70b-instruct'));
+    });
+
+    test('missing key falls back without a request', () async {
+      final dio = _MockDio();
+      final keys = _MockKeyStore();
+      when(() => keys.readApiKey(any())).thenAnswer((_) async => null);
+      final provider = NvidiaNimProvider(
+        config: const NvidiaNimConfig(),
+        keyStore: keys,
+        dio: dio,
+      );
+
+      final models = await provider.availableModels();
+
+      expect(models, contains('meta/llama-3.3-70b-instruct'));
+      verifyNever(() => dio.get<Map<String, dynamic>>(
+            any(),
+            options: any(named: 'options'),
+          ));
+    });
+
+    test('malformed live body falls back', () async {
+      for (final body in [
+        <String, dynamic>{},
+        <String, dynamic>{
+          'data': 'not-a-list',
+        },
+        <String, dynamic>{
+          'data': <dynamic>[],
+        },
+      ]) {
+        final dio = _MockDio();
+        when(() => dio.get<Map<String, dynamic>>(
+              any(),
+              options: any(named: 'options'),
+            )).thenAnswer((_) async => Response<Map<String, dynamic>>(
+                  requestOptions: RequestOptions(path: '/v1/models'),
+                  statusCode: 200,
+                  data: body,
+                ));
+
+        final models = await _provider(dio).availableModels();
+
+        expect(models, contains('meta/llama-3.3-70b-instruct'),
+            reason: '$body');
+      }
+    });
   });
 }
