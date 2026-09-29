@@ -54,6 +54,9 @@ const _$EditOperationTypeEnumMap = {
   EditOperationType.burnCaptions: 'burnCaptions',
   EditOperationType.addTransition: 'addTransition',
   EditOperationType.applyEffect: 'applyEffect',
+  EditOperationType.deleteClip: 'deleteClip',
+  EditOperationType.copyClip: 'copyClip',
+  EditOperationType.moveClip: 'moveClip',
 };
 
 const _$OperationStatusEnumMap = {

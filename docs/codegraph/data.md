@@ -1,0 +1,149 @@
+# Code Graph — lib/data (38 files, 5,933 lines; generated 2026-09-29T15:29; DO NOT EDIT)
+_Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
+
+## lib/data/local/database/app_database.dart (368 lines)
+- L15  class Projects extends Table — id L16, name L17, projectPath L18, thumbnailPath L19, durationMs L20, createdAt L21, updatedAt L22, sourceMediaPaths L23, documentSchemaVersion L24, documentRevision L25, primaryKey L28
+- L32  class ChatMessages extends Table — id L33, projectId L34, role L35, content L36, timestamp L37, status L38, stepsJson L39, resultingOperationIds L40, primaryKey L43
+- L46  class EditHistory extends Table — id L47, projectId L48, operationType L49, params L50, createdAt L51, primaryKey L54
+- L65  class MediaAnalysis extends Table — id L66, projectId L67, kind L68, sourcePath L69, payload L70, createdAt L71, primaryKey L74
+- L78  class AppDatabase — AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection()) L79, schemaVersion L82, migration L85, upsertProject(…) L107, getProject(String id) L125, listRecentProjects(…) L133, deleteProject(String id) L147, getProjectPath(String id) L151, saveChatMessage(…) L160, getChatMessages(…) L181, deleteChatMessages(String projectId) L197, saveEditOperation(…) L205, getEditHistory(…) L220, deleteEditHistory(String projectId) L236, saveAnalysis(…) L245, getAnalysis(String projectId, String kind) L264, getAnalysisPayload(…) L271, deleteAnalysis(String projectId) L285, _projectRowToModel(ProjectRow row) L293, _chatMessageRowToModel(ChatMessageRow row) L307, _decodeOperationIds(String? raw) L321, _decodeSteps(String? raw) L330, _editHistoryRowToModel(EditHistoryData row) L347
+- L361  function _openConnection
+
+## lib/data/local/project_file_store.dart (74 lines)
+- L6  class ProjectFileStore — write(Project project, String directory) L7, read(String filePath) L20, list(String directory) L32, export(Project project, String path, String format) L52
+
+## lib/data/local/secure_key_store.dart (34 lines)
+- L3  class SecureKeyStore (_storage, _keyPrefix) — SecureKeyStore() : _storage = const FlutterSecureStorage() L8, _keyFor(String provider) L11, saveApiKey(String provider, String key) L13, readApiKey(String provider) L17, deleteApiKey(String provider) L21, hasApiKey(String provider) L25, clearAll() L30
+
+## lib/data/models/app_settings.dart (30 lines)
+- L6  enum ThemeModePreference
+- L9  class AppSettings — AppSettings(…) L10, AppSettings L27
+
+## lib/data/models/chat_message.dart (28 lines)
+- L8  enum ChatRole
+- L11  class ChatMessage — ChatMessage(…) L13, ChatMessage L23
+- L27  enum MessageStatus
+
+## lib/data/models/chat_step.dart (29 lines)
+- L7  enum ChatStepKind
+- L14  class ChatStep — ChatStep(…) L15, ChatStep L26
+
+## lib/data/models/clip.dart (22 lines)
+- L7  class Clip — Clip(…) L8, Clip L20
+
+## lib/data/models/edit_operation.dart (52 lines)
+- L6  enum EditOperationType (moveClip) — trim L7, cut L8, merge L9, changeSpeed L10, mute L11, overlayText L12, resize L13, rotate L14, extractAudio L15, generateThumbnail L16, changeFormat L17, adjustBrightness L18, changeVolume L19, overlayWatermark L20, burnCaptions L21, addTransition L22, applyEffect L23, deleteClip L27, copyClip L28, jsonValue L31
+- L34  enum OperationStatus
+- L37  class EditOperation — EditOperation(…) L38, EditOperation L49
+
+## lib/data/models/export_options.dart (71 lines)
+- L1  class ExportOptions (format, resolution, quality, crf, outputPath, formats, qualities) — ExportOptions(…) L8, Map L16, qualityCrfMap L24, resolutions L32, crfForQuality(String quality) L41, ExportOptions L45, copyWith(…) L55
+
+## lib/data/models/project.dart (28 lines)
+- L10  class Project — Project(…) L11, Project L25
+
+## lib/data/models/track.dart (20 lines)
+- L7  enum TrackType
+- L10  class Track — Track(…) L11, Track L18
+
+## lib/data/repositories/chat_repository.dart (49 lines)
+- L5  class ChatRepository (_db, _messages, _controller) — ChatRepository(this._db) L10, messages L12, stream L13, add(ChatMessage message,…) L15, getHistory(String projectId) L23, recent(int count) L31, clear(…) L37, dispose() L45
+
+## lib/data/repositories/project_repository.dart (112 lines)
+- L10  class ProjectRepository (_db, _fileStore, _uuid) — ProjectRepository(this._db) : _fileStore = ProjectFileStore() L15, createNew(…) L17, save(Project project) L38, load(String path) L45, loadFromId(String id) L49, listRecent() L58, delete(String id) L62, _getProjectsDir() L71, _buildInitialTracks(…) L78, _fileNameFromPath(String path) L106
+
+## lib/data/repositories/settings_repository.dart (54 lines)
+- L8  class SettingsRepository (_cached, _controller, _disposed) — stream L13, load() L15, save(AppSettings settings) L32, getActiveProviderId() L44, dispose() L49
+
+## lib/data/services/ffmpeg/command_builder.dart (407 lines)
+- L5  class CommandBuilder — trim(String input, String start, String end) L6, cut(String input, String removeStart, String removeEnd) L10, merge(List<String> inputs) L23, changeSpeed(String input, double factor) L41, mute(String input) L67, overlayText(…) L71, resize(String input, int width, int height, String fit) L126, rotate(String input, double degrees) L147, burnCaptions(…) L167, burnCaptionsFilter(…) L189, transition(…) L220, effectFilter(…) L278, effect(…) L303, extractAudio(String input, String outputFormat) L322, generateThumbnail(String input, String timestamp) L334, changeFormat(…) L338, adjustBrightness(String input, double value) L358, changeVolume(String input, double factor) L363, overlayWatermark(…) L367
+
+## lib/data/services/ffmpeg/ffmpeg_binary_resolver.dart (62 lines)
+- L3  class FfmpegBinaryResolver (_cachedFfmpeg, _cachedFfprobe) — resolveFfmpeg(…) L7, resolveFfprobe(…) L13, _resolve(String binary,…) L19, _bundledPath(String binary) L29, _executablePlatform() L35, _which(String binary) L42, invalidateCache() L57
+
+## lib/data/services/ffmpeg/ffmpeg_service.dart (214 lines)
+- L10  class FfmpegProgress (percent, outTimeMs, speed, status) — FfmpegProgress(…) L16
+- L24  class FfmpegJob (id, args, expectedDurationMs, inputPath, outputPath, label) — FfmpegJob(…) L32
+- L42  class FfmpegResult (success, outputPath, exitCode, stderr, error) — FfmpegResult(…) L49
+- L58  class FfmpegService (_resolver, _tempDir, _uuid, _process) — FfmpegService(…) L65, tempDir L69, createTempPath(…) L71, run(FfmpegJob job) async* L77, runSync(FfmpegJob job) L143, cancel() L191, dispose() L196
+- L207  class FfmpegBinaryNotFoundException (message) — FfmpegBinaryNotFoundException(this.message) L209, toString() L212
+
+## lib/data/services/ffmpeg/ffprobe_service.dart (145 lines)
+- L7  class VideoMetadata (durationMs, width, height, fps, codec, hasAudio, bitrate, audioSampleRate) — VideoMetadata(…) L17
+- L29  class FfprobeService (_resolver) — FfprobeService(…) L32, extractMetadata(String filePath) L35, _parseMetadata(Map<String, dynamic> data) L63, generateThumbnail(…) L110
+
+## lib/data/services/ffmpeg/filter_escaping.dart (98 lines)
+- L5  class FilterEscaping (_hexColor) — escapeDrawtext(String text) L13, validateColor(String color) L23, assColorFromHex(String color) L37, escapeSubtitlePath(String path) L53, validateImagePath(String imagePath,…) L65
+- L91  class FilterValidationException (message) — FilterValidationException(this.message) L93, toString() L96
+
+## lib/data/services/ffmpeg/filter_graph_composer.dart (503 lines)
+- L7  class FilterGraphComposer (_uuid) — compose(…) L10, _composeClip(…) L33, _buildFilterJob(…) L78, _accumulateFilter(…) L136, _atempoChain(double factor) L314, _buildStandaloneJob(EditOperation op, String inputPath) L329, _buildOpArgs(EditOperation op, String inputPath) L346, _outputExtension(EditOperation op) L458, _paramString(Map<String, dynamic> p, String key, String fallback) L475, _paramNum(Map<String, dynamic> p, String key, double fallback) L482, _paramInt(Map<String, dynamic> p, String key, int fallback) L489, _paramDoubleOrNull(Map<String, dynamic> p, String key) L497
+
+## lib/data/services/ffmpeg/scene_detection_service.dart (95 lines)
+- L8  typedef SceneTimestampMs
+- L11  class SceneDetection (scenesMs, truncated) — SceneDetection(…) L18, count L20
+- L34  class SceneDetectionService (_resolver, thresholdDefault, maxScenesDefault) — Function(String exe, List<String> args) _run L38, SceneDetectionService(…) L43, detectScenes(…) L53, parseSceneTimestampsMs(String stderr) L90
+
+## lib/data/services/ffmpeg/srt_builder.dart (41 lines)
+- L10  class SrtBuilder — buildSrt(List<TranscriptSegment> segments) L12, formatTimestamp(int ms) L30
+
+## lib/data/services/import/gdrive_import_service.dart (127 lines)
+- L9  class GoogleAuthClient (_inner, _headers) — GoogleAuthClient(this._headers) L13, send(http.BaseRequest request) L16, close() L22
+- L25  class GDriveImportService (_dio, _progress, _errorStream) — progress L30, errors L31, GDriveImportService() : _dio = Dio() L33, _extractFileId(String url) L35, import(String fileUrl, String outputPath) L48, _downloadDirect(String fileUrl, String outputPath) L69, _downloadViaApi(String fileId, String outputPath) L80, cancel() L123
+
+## lib/data/services/import/youtube_import_service.dart (79 lines)
+- L5  class YouTubeImportService (_progress, _errorStream, _process) — progress L10, errors L11, import(String url, String outputDir) L13, cancel() L75
+
+## lib/data/services/llm/anthropic_provider.dart (444 lines)
+- L10  class AnthropicConfig (model, apiKey) — AnthropicConfig(…) L14
+- L20  class AnthropicProvider extends LlmProvider (_baseUrl, _apiVersion, config, _keyStore, _dio, _healthTimer, _status) — _models L23, _connectionCtrl L32, id L38, AnthropicProvider(…) L40, _resolveApiKey() L59, availableModels() L69, parseCommand(AgentRequest request) L74, supportsToolCalling L164, chatWithTools(AgentTurnRequest request) L173, _toWireMessages(AgentTurnRequest request) L217, _turnToWire(AgentTurnMessage turn) L234, _parseTurnResponse(Map<String, dynamic>? data) L272, _buildSchema(String schemaJson) L315, _cleanJsonResponse(String raw) L350, _isTransientError(DioException e) L363, _formatDioError(DioException e) L378, watchConnection() L398, _checkHealth() L408, dispose() L438
+
+## lib/data/services/llm/custom_openai_compatible_provider.dart (204 lines)
+- L11  class CustomOpenAiConfig (endpoint, model, apiKey) — CustomOpenAiConfig(…) L21
+- L40  class CustomOpenAiCompatibleProvider extends OpenAiCompatibleLlmProvider (config, _dio, _healthTimer, _status) — _connectionCtrl L43, id L49, baseUrl L52, _normalizedEndpoint L58, modelName L64, dio L67, chatCompletionsPath L73, usesMaxCompletionTokens L78, supportsToolCalling L81, suggestedRoundTimeoutSeconds L85, CustomOpenAiCompatibleProvider(…) L87, resolveApiKey() L104, availableModels() L113, parseCommand(AgentRequest request) L122, chatWithTools(AgentTurnRequest request) L135, connectionErrorText() L139, watchConnection() L146, _checkHealth() L160, _setConnected() L185, _setDisconnected() L192, dispose() L199
+
+## lib/data/services/llm/gemini_provider.dart (487 lines)
+- L10  class GeminiConfig (model, apiKey) — GeminiConfig(…) L14
+- L28  class GeminiProvider extends LlmProvider (_baseUrl, config, _keyStore, _dio, _healthTimer, _status, _toolCallTurns) — _models L30, _connectionCtrl L42, id L48, GeminiProvider(…) L54, _resolveApiKey() L69, availableModels() L79, parseCommand(AgentRequest request) L84, supportsToolCalling L161, chatWithTools(AgentTurnRequest request) L173, _toContents(AgentTurnRequest request) L233, _turnToContent(AgentTurnMessage turn) L252, _decodeResultPayload(String? content) L298, _parseTurnResponse(Map<String, dynamic>? data) L309, _buildResponseSchema(String schemaJson) L357, _cleanJsonResponse(String raw) L391, _isTransientError(DioException e) L404, _formatDioError(DioException e) L419, watchConnection() L439, _checkHealth() L449, dispose() L481
+
+## lib/data/services/llm/llm_provider.dart (33 lines)
+- L4  enum ConnectionStatus
+- L6  class LlmProvider (id) — availableModels() L8, parseCommand(AgentRequest request) L9, watchConnection() L10, supportsToolCalling L17, suggestedRoundTimeoutSeconds L24, chatWithTools(AgentTurnRequest request) L29
+
+## lib/data/services/llm/nvidia_nim_provider.dart (395 lines)
+- L11  class NvidiaNimConfig (model, apiKey) — NvidiaNimConfig(…) L15
+- L37  class NvidiaNimProvider extends OpenAiCompatibleLlmProvider (_baseUrl, config, _keyStore, _dio, _healthTimer, _status) — _models L48, _connectionCtrl L103, id L109, baseUrl L112, modelName L115, dio L118, usesMaxCompletionTokens L124, toolRequestExtras() L129, NvidiaNimProvider(…) L131, resolveApiKey() L153, supportsToolCalling L165, connectionErrorText() L168, availableModels() L178, _parseModelIds(Map<String, dynamic>? data) L198, parseCommand(AgentRequest request) L212, chatWithTools(AgentTurnRequest request) L286, _buildStructuredOutputSchema(String schemaJson) L289, _cleanJsonResponse(String raw) L328, _isTransientError(DioException e) L341, watchConnection() L357, _checkHealth() L367, dispose() L390
+
+## lib/data/services/llm/ollama_provider.dart (247 lines)
+- L10  class OllamaConfig (host, port, model, apiKey) — OllamaConfig(…) L16, baseUrl L23, compatBaseUrl L25
+- L28  class OllamaProvider extends OpenAiCompatibleLlmProvider (config, _keyStore, _dio, _healthTimer, _status) — _connectionCtrl L32, id L38, baseUrl L41, modelName L44, dio L47, usesMaxCompletionTokens L53, OllamaProvider(…) L55, resolveApiKey() L75, supportsToolCalling L94, suggestedRoundTimeoutSeconds L98, connectionErrorText() L101, mapToolsModelError(Object? data) L105, availableModels() L115, parseCommand(AgentRequest request) L133, _cleanJsonResponse(String raw) L178, _jsonSchemaToOllamaFormat(String schemaJson) L191, watchConnection() L213, _checkHealth() L223, dispose() L242
+
+## lib/data/services/llm/openai_compatible_provider.dart (291 lines)
+- L40  class OpenAiCompatibleLlmProvider extends LlmProvider (baseUrl, modelName, dio) — chatCompletionsPath L58, resolveApiKey() L64, usesMaxCompletionTokens L69, toolRequestExtras() L74, authHeaders(String? apiKey) L83, connectionErrorText() L89, mapToolsModelError(Object? data) L94, supportsToolCalling L97, chatWithTools(AgentTurnRequest request) L106, _toWireMessages(AgentTurnRequest request) L160, _turnToWire(AgentTurnMessage turn) L176, _parseTurnResponse(Map<String, dynamic>? data) L208, _isTransientError(DioException e) L256, formatDioError(DioException e) L271
+
+## lib/data/services/llm/openai_provider.dart (265 lines)
+- L11  class OpenAiConfig (model, apiKey) — OpenAiConfig(…) L15
+- L18  class OpenAiProvider extends OpenAiCompatibleLlmProvider (_base, config, _keyStore, _dio, _healthTimer, _status) — _models L20, _connectionCtrl L32, id L38, baseUrl L41, modelName L44, dio L47, OpenAiProvider(…) L49, resolveApiKey() L68, availableModels() L78, parseCommand(AgentRequest request) L83, chatWithTools(AgentTurnRequest request) L156, _buildStructuredOutputSchema(String schemaJson) L159, _cleanJsonResponse(String raw) L198, _isTransientError(DioException e) L211, watchConnection() L227, _checkHealth() L237, dispose() L260
+
+## lib/data/services/llm/provider_registry.dart (262 lines)
+- L13  class ActiveLlmConfig (providerId, endpoint, apiKey, model) — ActiveLlmConfig(…) L26
+- L36  typedef ActiveProfileResolver
+- L38  class ProviderRegistry (_providers, _keyStore, _settingsRepository, activeProfileResolver, _cachedActive) — ProviderRegistry(…) L46, register(LlmProvider provider) L53, get(String id) L58, all L60, providerIds L62, unregister(String id) L64, dispose() L69, initializeAll() L76, invalidateActive() L117, getActiveProvider() L130, _customCompatProviderIds L168, _providerFromConfig(ActiveLlmConfig config) L189, _customCompatProvider(ActiveLlmConfig config, String? model) L250
+
+## lib/data/services/thumbnail_service.dart (49 lines)
+- L4  class ThumbnailService (_ffprobeService, _cache) — ThumbnailService(this._ffprobeService) L8, generate(String videoPath,…) L10, delete(String thumbnailPath) L29, getCached(String videoPath) L43, clearCache() L45
+
+## lib/data/services/transcription/whisper_service.dart (221 lines)
+- L6  class WhisperPaths (binaryPath, modelPath) — WhisperPaths(…) L10
+- L14  class TranscriptSegment (startMs, endMs, text) — TranscriptSegment(…) L19, toJson() L25, fromJson(Map<String, dynamic> json) L31
+- L41  class WhisperTranscript (text, segments) — WhisperTranscript(…) L45, charCount L47, isEmpty L48
+- L69  class WhisperTranscriptionService — Function(String exe, List<String> args) _run L71, WhisperTranscriptionService(…) L73, findBinary(…) L79, isAvailable(…) L90, transcribe(…) L98, parseTranscriptSegments(String stdout) L134, _toMs(String hh, String mm, String ss, String ms) L166, parseTranscriptText(String stdout) L175, isSafeConfiguredPath(String path) L191, _isAbsolute(String path) L197, _which(String binary) L205
+
+## lib/data/services/updates/github_release_checker.dart (119 lines)
+- L6  class GithubReleaseChecker (_repo, _apiUrl, _userAgent, _cachedRelease) — checkForUpdate() L13, isNewer(ReleaseInfo latest, String currentVersion) L102, clearCache() L115
+
+## lib/data/services/updates/release_info.dart (22 lines)
+- L1  class ReleaseInfo (tagName, major, minor, patch, releaseNotes, downloadUrl, assetType, publishedAt) — ReleaseInfo(…) L11
+
+## lib/data/services/updates/update_downloader.dart (152 lines)
+- L5  class UpdateDownloader (downloadUrl, assetType) — Function(double? progress, String status)? onProgress L8, UpdateDownloader(…) L10, downloadAndInstall() L16, _downloadFile(…) L45, _formatSize(int bytes) L94, _extractAndInstallZip(String zipPath, String tempPath) L100, _runInstaller(String exePath) L142

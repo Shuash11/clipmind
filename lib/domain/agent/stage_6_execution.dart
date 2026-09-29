@@ -178,6 +178,9 @@ class ExecutionEngine {
       case 'burn_captions': return EditOperationType.burnCaptions;
       case 'add_transition': return EditOperationType.addTransition;
       case 'apply_effect': return EditOperationType.applyEffect;
+      case 'delete_clip': return EditOperationType.deleteClip;
+      case 'copy_clip': return EditOperationType.copyClip;
+      case 'move_clip': return EditOperationType.moveClip;
       case 'generate_thumbnail': return EditOperationType.generateThumbnail;
       case 'adjust_brightness': return EditOperationType.adjustBrightness;
       case 'change_volume': return EditOperationType.changeVolume;

@@ -21,6 +21,7 @@ class AppSettings with _$AppSettings {
     @Default(false) bool planEditsBeforeApply,
     @Default('') String whisperBinaryPath,
     @Default('') String whisperModelPath,
+    @Default('') String lastSeenVersion,
   }) = _AppSettings;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) =>

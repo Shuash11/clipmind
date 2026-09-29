@@ -36,6 +36,7 @@ mixin _$AppSettings {
   bool get planEditsBeforeApply => throw _privateConstructorUsedError;
   String get whisperBinaryPath => throw _privateConstructorUsedError;
   String get whisperModelPath => throw _privateConstructorUsedError;
+  String get lastSeenVersion => throw _privateConstructorUsedError;
 
   /// Serializes this AppSettings to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -69,6 +70,7 @@ abstract class $AppSettingsCopyWith<$Res> {
     bool planEditsBeforeApply,
     String whisperBinaryPath,
     String whisperModelPath,
+    String lastSeenVersion,
   });
 }
 
@@ -96,6 +98,7 @@ class _$AppSettingsCopyWithImpl<$Res, $Val extends AppSettings>
     Object? planEditsBeforeApply = null,
     Object? whisperBinaryPath = null,
     Object? whisperModelPath = null,
+    Object? lastSeenVersion = null,
   }) {
     return _then(
       _value.copyWith(
@@ -135,6 +138,10 @@ class _$AppSettingsCopyWithImpl<$Res, $Val extends AppSettings>
                 ? _value.whisperModelPath
                 : whisperModelPath // ignore: cast_nullable_to_non_nullable
                       as String,
+            lastSeenVersion: null == lastSeenVersion
+                ? _value.lastSeenVersion
+                : lastSeenVersion // ignore: cast_nullable_to_non_nullable
+                      as String,
           )
           as $Val,
     );
@@ -165,6 +172,7 @@ abstract class _$$AppSettingsImplCopyWith<$Res>
     bool planEditsBeforeApply,
     String whisperBinaryPath,
     String whisperModelPath,
+    String lastSeenVersion,
   });
 }
 
@@ -191,6 +199,7 @@ class __$$AppSettingsImplCopyWithImpl<$Res>
     Object? planEditsBeforeApply = null,
     Object? whisperBinaryPath = null,
     Object? whisperModelPath = null,
+    Object? lastSeenVersion = null,
   }) {
     return _then(
       _$AppSettingsImpl(
@@ -230,6 +239,10 @@ class __$$AppSettingsImplCopyWithImpl<$Res>
             ? _value.whisperModelPath
             : whisperModelPath // ignore: cast_nullable_to_non_nullable
                   as String,
+        lastSeenVersion: null == lastSeenVersion
+            ? _value.lastSeenVersion
+            : lastSeenVersion // ignore: cast_nullable_to_non_nullable
+                  as String,
       ),
     );
   }
@@ -253,6 +266,7 @@ class _$AppSettingsImpl implements _AppSettings {
     this.planEditsBeforeApply = false,
     this.whisperBinaryPath = '',
     this.whisperModelPath = '',
+    this.lastSeenVersion = '',
   }) : _outputFormatDefaults = outputFormatDefaults;
 
   factory _$AppSettingsImpl.fromJson(Map<String, dynamic> json) =>
@@ -297,10 +311,13 @@ class _$AppSettingsImpl implements _AppSettings {
   @override
   @JsonKey()
   final String whisperModelPath;
+  @override
+  @JsonKey()
+  final String lastSeenVersion;
 
   @override
   String toString() {
-    return 'AppSettings(activeProviderId: $activeProviderId, activeModel: $activeModel, ollamaEndpoint: $ollamaEndpoint, theme: $theme, outputFormatDefaults: $outputFormatDefaults, confirmAgentEdits: $confirmAgentEdits, planEditsBeforeApply: $planEditsBeforeApply, whisperBinaryPath: $whisperBinaryPath, whisperModelPath: $whisperModelPath)';
+    return 'AppSettings(activeProviderId: $activeProviderId, activeModel: $activeModel, ollamaEndpoint: $ollamaEndpoint, theme: $theme, outputFormatDefaults: $outputFormatDefaults, confirmAgentEdits: $confirmAgentEdits, planEditsBeforeApply: $planEditsBeforeApply, whisperBinaryPath: $whisperBinaryPath, whisperModelPath: $whisperModelPath, lastSeenVersion: $lastSeenVersion)';
   }
 
   @override
@@ -326,7 +343,9 @@ class _$AppSettingsImpl implements _AppSettings {
             (identical(other.whisperBinaryPath, whisperBinaryPath) ||
                 other.whisperBinaryPath == whisperBinaryPath) &&
             (identical(other.whisperModelPath, whisperModelPath) ||
-                other.whisperModelPath == whisperModelPath));
+                other.whisperModelPath == whisperModelPath) &&
+            (identical(other.lastSeenVersion, lastSeenVersion) ||
+                other.lastSeenVersion == lastSeenVersion));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -342,6 +361,7 @@ class _$AppSettingsImpl implements _AppSettings {
     planEditsBeforeApply,
     whisperBinaryPath,
     whisperModelPath,
+    lastSeenVersion,
   );
 
   /// Create a copy of AppSettings
@@ -374,6 +394,7 @@ abstract class _AppSettings implements AppSettings {
     final bool planEditsBeforeApply,
     final String whisperBinaryPath,
     final String whisperModelPath,
+    final String lastSeenVersion,
   }) = _$AppSettingsImpl;
 
   factory _AppSettings.fromJson(Map<String, dynamic> json) =
@@ -402,6 +423,8 @@ abstract class _AppSettings implements AppSettings {
   String get whisperBinaryPath;
   @override
   String get whisperModelPath;
+  @override
+  String get lastSeenVersion;
 
   /// Create a copy of AppSettings
   /// with the given fields replaced by the non-null parameter values.

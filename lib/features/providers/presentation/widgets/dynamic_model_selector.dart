@@ -118,6 +118,43 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              SizedBox(
+                height: 24,
+                child: Stack(
+                  children: [
+                    const Center(
+                      child: SizedBox(
+                        width: 36,
+                        height: 4,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: ClipMindColors.borderColor,
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(999),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        key: const ValueKey('close-model-picker'),
+                        tooltip: 'Close',
+                        icon: const Icon(Icons.close_rounded, size: 16),
+                        onPressed: () => Navigator.of(context).pop(),
+                        constraints: const BoxConstraints(
+                          minWidth: 24,
+                          minHeight: 24,
+                        ),
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
               Text(
                 'SELECT MODEL',
                 style: Theme.of(context).textTheme.labelSmall,

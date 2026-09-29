@@ -24,6 +24,7 @@ _$AppSettingsImpl _$$AppSettingsImplFromJson(Map<String, dynamic> json) =>
       planEditsBeforeApply: json['planEditsBeforeApply'] as bool? ?? false,
       whisperBinaryPath: json['whisperBinaryPath'] as String? ?? '',
       whisperModelPath: json['whisperModelPath'] as String? ?? '',
+      lastSeenVersion: json['lastSeenVersion'] as String? ?? '',
     );
 
 Map<String, dynamic> _$$AppSettingsImplToJson(_$AppSettingsImpl instance) =>
@@ -37,6 +38,7 @@ Map<String, dynamic> _$$AppSettingsImplToJson(_$AppSettingsImpl instance) =>
       'planEditsBeforeApply': instance.planEditsBeforeApply,
       'whisperBinaryPath': instance.whisperBinaryPath,
       'whisperModelPath': instance.whisperModelPath,
+      'lastSeenVersion': instance.lastSeenVersion,
     };
 
 const _$ThemeModePreferenceEnumMap = {

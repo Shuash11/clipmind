@@ -1,0 +1,57 @@
+/// What's-new release notes, keyed by version.
+///
+/// Each entry is a full line INCLUDING the `* ` prefix — the user's exact
+/// requested format (`* api fixed` newline, `* features added`). Filled
+/// from the cycle commit summaries; the dialog renders the lines as-is.
+const Map<String, List<String>> releaseNotes = {
+  '1.8.0': [
+    '* Transparent activity UI: live step pipeline, persisted steps, confirmation gates',
+  ],
+  '1.9.0': [
+    '* Modern dark theme redesign with ProjectHub refresh',
+  ],
+  '1.10.0': [
+    '* Project-read tools, plan preview mode, analysis persistence',
+  ],
+  '1.11.0': [
+    '* Ollama tool calling via OpenAI-compatible transport',
+  ],
+  '1.12.0': [
+    '* NVIDIA NIM tool calling',
+  ],
+  '1.13.0': [
+    '* Gemini tool calling via native generateContent',
+  ],
+  '1.14.0': [
+    '* Real status bar, provider-aware round timeouts',
+  ],
+  '1.15.0': [
+    '* Timed transcript segments in get_transcript',
+  ],
+  '1.16.0': [
+    '* Burn captions: timed transcript SRT burning',
+  ],
+  '1.17.0': [
+    '* Transitions: xfade cross-fades with clip-pair replacement',
+  ],
+  '1.18.0': [
+    '* Effects library: vignette, blur, grayscale, contrast, saturation',
+    '* Audio-aware transitions',
+  ],
+  '1.19.0': [
+    '* Fixed runtime provider wiring: profile-driven resolution',
+  ],
+  '1.20.0': [
+    '* Custom OpenAI-compatible profiles',
+    '* Status bar shows the resolved model',
+  ],
+  '1.21.0': [
+    '* Provider conformance suite',
+    '* NIM live model discovery with a 49-model catalog',
+  ],
+  '1.22.0': [
+    '* Working undo and redo',
+    '* Manual timeline editing: delete, copy, reorder',
+    '* Cut range selection on the timeline',
+  ],
+};

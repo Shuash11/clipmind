@@ -1,14 +1,19 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/models/clip.dart';
+import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/track.dart';
 import 'package:clipmind/features/projects/domain/entities/project_document.dart';
 import 'package:clipmind/features/tagging/presentation/providers/tagging_providers.dart';
 import 'package:clipmind/features/tagging/presentation/widgets/marker_ruler.dart';
+import 'package:clipmind/state/manual_edit_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
+import 'package:clipmind/state/structural_edit_providers.dart';
 import 'package:clipmind/state/undo_redo_providers.dart';
 import 'track_row.dart';
 
@@ -23,6 +28,10 @@ final class TimelineClipRange {
   final int startMs;
   final int endMs;
 }
+
+/// The ruler drag-select range (timeline ruler times); null = none.
+/// Drag again to re-select; cleared when a cut consumes it.
+final timelineRangeProvider = StateProvider<TimelineClipRange?>((ref) => null);
 
 class TimelineView extends ConsumerStatefulWidget {
   const TimelineView({
@@ -51,6 +60,7 @@ class TimelineView extends ConsumerStatefulWidget {
 
 class _TimelineViewState extends ConsumerState<TimelineView> {
   final _uuid = const Uuid();
+  final _rulerKey = GlobalKey();
   double _zoom = 1.0;
   String? _selectedClipId;
   bool _isEditing = false;
@@ -75,6 +85,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     setState(() => _zoom = (_zoom + delta).clamp(0.5, 2.0));
   }
 
+  /// The tested transaction-bridge remove-range flow (dev/test harnesses
+  /// provide [onRemoveRange]; production wires the live range cut below).
   Future<void> _removeSelectedRange() async {
     if (_isEditing) return;
     final range = widget.selectedRange;
@@ -98,6 +110,113 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       if (mounted) _showTimelineMessage('Range removed.');
     } catch (_) {
       if (mounted) _showTimelineMessage('Range removal failed. Try again.');
+    } finally {
+      if (mounted) setState(() => _isEditing = false);
+    }
+  }
+
+  // Ruler drag-select (timeline ruler times); null = no selection.
+  double? _rangeDragStartPx;
+  double? _rangeDragCurrentPx;
+
+  RenderBox? get _rulerBox =>
+      _rulerKey.currentContext?.findRenderObject() as RenderBox?;
+
+  void _onRangeDragStart(DragStartDetails details) {
+    final box = _rulerBox;
+    if (box == null) return;
+    setState(() {
+      _rangeDragStartPx = box.globalToLocal(details.globalPosition).dx;
+      _rangeDragCurrentPx = _rangeDragStartPx;
+    });
+  }
+
+  void _onRangeDragUpdate(DragUpdateDetails details) {
+    final box = _rulerBox;
+    if (box == null || _rangeDragStartPx == null) return;
+    setState(() {
+      _rangeDragCurrentPx = box.globalToLocal(details.globalPosition).dx;
+    });
+  }
+
+  void _onRangeDragEnd(DragEndDetails details) {
+    final box = _rulerBox;
+    final startPx = _rangeDragStartPx;
+    final currentPx = _rangeDragCurrentPx;
+    _clearRangeDrag();
+    if (box == null || startPx == null || currentPx == null) return;
+    final width = box.size.width;
+    if (width <= 0) return;
+    final leftPx = math.min(startPx, currentPx);
+    final rightPx = math.max(startPx, currentPx);
+    // The ruler's x→time mapping is linear (no clamps).
+    final durationMs = _rulerRangeDurationMs();
+    final startMs = (leftPx / width * durationMs).round();
+    final endMs = (rightPx / width * durationMs).round();
+    if (endMs - startMs < 50) {
+      // Too small to be a deliberate selection.
+      ref.read(timelineRangeProvider.notifier).state = null;
+      return;
+    }
+    ref.read(timelineRangeProvider.notifier).state = TimelineClipRange(
+      clipId: _clipAt(startMs)?.id ?? '',
+      startMs: startMs,
+      endMs: endMs,
+    );
+  }
+
+  void _clearRangeDrag() {
+    setState(() {
+      _rangeDragStartPx = null;
+      _rangeDragCurrentPx = null;
+    });
+  }
+
+  /// The clip whose span contains [timeMs] (timeline ruler times), or null.
+  Clip? _clipAt(int timeMs) {
+    final project =
+        widget.project ?? ref.read(projectProvider).valueOrNull;
+    if (project == null) return null;
+    for (final track in project.tracks) {
+      for (final clip in track.clips) {
+        final spanEnd = clip.positionMs + (clip.endMs - clip.startMs);
+        if (timeMs >= clip.positionMs && timeMs < spanEnd) return clip;
+      }
+    }
+    return null;
+  }
+
+  /// The ruler's duration for the range math (fresh read; 0 without one).
+  int _rulerRangeDurationMs() {
+    final document =
+        widget.projectDocument ?? ref.read(taggingProvidersProvider)?.document;
+    return _rulerDuration(document) ?? 0;
+  }
+
+  /// Live range cut through the manual-edit controller: raw ruler times —
+  /// the controller owns clip lookup, span validation and conversion, so
+  /// the cut is repointed, undoable and journaled like an agent edit.
+  Future<void> _cutRange() async {
+    if (_isEditing) return;
+    final range = ref.read(timelineRangeProvider);
+    if (range == null) {
+      _showTimelineMessage('Drag a range on the ruler first.');
+      return;
+    }
+    setState(() => _isEditing = true);
+    try {
+      final result = await ref
+          .read(manualEditControllerProvider)
+          .submitCut(
+            clipId: range.clipId,
+            startMs: range.startMs,
+            endMs: range.endMs,
+          );
+      if (!mounted) return;
+      if (result.success) {
+        ref.read(timelineRangeProvider.notifier).state = null;
+      }
+      _showTimelineMessage(result.message);
     } finally {
       if (mounted) setState(() => _isEditing = false);
     }
@@ -206,6 +325,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         widget.projectDocument ?? ref.watch(taggingProvidersProvider)?.document;
     final rulerDuration = _rulerDuration(taggingDocument);
     _scheduleRendered(project);
+    final range = ref.watch(timelineRangeProvider);
 
     return Container(
       decoration: const BoxDecoration(
@@ -235,9 +355,18 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                     ),
                   ),
                 const Spacer(),
+                // The cut button: the transaction-bridge remove-range flow
+                // when [onRemoveRange] is provided (test harnesses); the
+                // live range cut through the manual-edit controller in
+                // production, enabled when a ruler range is selected.
                 IconButton(
+                  key: const ValueKey('timeline-cut-range'),
                   icon: const Icon(Icons.content_cut, size: 16),
-                  onPressed: _isEditing ? null : _removeSelectedRange,
+                  onPressed: _isEditing
+                      ? null
+                      : (widget.onRemoveRange != null
+                          ? _removeSelectedRange
+                          : (range != null ? _cutRange : null)),
                   tooltip: 'Remove selected range',
                   constraints: const BoxConstraints(
                     minWidth: 30,
@@ -314,10 +443,24 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                         height: double.infinity,
                         child: ColoredBox(color: ClipMindColors.borderColor),
                       ),
-                      MarkerRuler(
-                        durationMs: rulerDuration,
-                        width: rulerWidth,
-                        document: taggingDocument,
+                      Expanded(
+                        child: GestureDetector(
+                          key: _rulerKey,
+                          behavior: HitTestBehavior.opaque,
+                          onHorizontalDragStart: _onRangeDragStart,
+                          onHorizontalDragUpdate: _onRangeDragUpdate,
+                          onHorizontalDragEnd: _onRangeDragEnd,
+                          child: Stack(
+                            children: [
+                              MarkerRuler(
+                                durationMs: rulerDuration,
+                                width: rulerWidth,
+                                document: taggingDocument,
+                              ),
+                              _rangeHighlight(rulerDuration),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   );
@@ -345,6 +488,68 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       zoom: _zoom,
       selectedClipId: _selectedClipId,
       onClipSelected: (id) => setState(() => _selectedClipId = id),
+      onMoveClip: _moveClip,
+    );
+  }
+
+  /// Drag-reorder through the structural applier (a `moveClip` op with
+  /// `after_clip_id`; front = null/empty) — the op-less undo entry, DB
+  /// journal and file persist all flow through the expose-point. A
+  /// cross-track drop is a graceful no-op (the applier returns false).
+  Future<void> _moveClip(String clipId, String? afterClipId) async {
+    if (_isEditing) return;
+    final applied = await ref
+        .read(structuralEditApplierProvider)
+        .apply(
+          EditOperation(
+            id: _uuid.v4(),
+            type: EditOperationType.moveClip,
+            targetClipIds: [clipId],
+            params: {
+              'clip_id': clipId,
+              if (afterClipId != null && afterClipId.isNotEmpty)
+                'after_clip_id': afterClipId,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+    if (!mounted) return;
+    if (applied) {
+      _showTimelineMessage('Clip moved.');
+    }
+  }
+
+  /// Highlight overlay: the live drag selection while dragging, then the
+  /// committed range from [timelineRangeProvider] until re-selected.
+  Widget _rangeHighlight(int rulerDuration) {
+    if (_rangeDragStartPx != null && _rangeDragCurrentPx != null) {
+      final left = math.min(_rangeDragStartPx!, _rangeDragCurrentPx!);
+      final width = math.max(_rangeDragStartPx!, _rangeDragCurrentPx!) - left;
+      return Positioned(
+        left: left,
+        width: width,
+        top: 0,
+        bottom: 0,
+        child: Container(
+          color: ClipMindColors.accentPrimary.withValues(alpha: 0.25),
+        ),
+      );
+    }
+    final range = ref.watch(timelineRangeProvider);
+    if (range == null || rulerDuration <= 0) return const SizedBox.shrink();
+    final width = _rulerBox?.size.width ?? 0;
+    if (width <= 0) return const SizedBox.shrink();
+    final left = range.startMs / rulerDuration * width;
+    final highlightWidth =
+        (range.endMs - range.startMs) / rulerDuration * width;
+    return Positioned(
+      left: left,
+      width: highlightWidth,
+      top: 0,
+      bottom: 0,
+      child: Container(
+        color: ClipMindColors.accentPrimary.withValues(alpha: 0.25),
+      ),
     );
   }
 

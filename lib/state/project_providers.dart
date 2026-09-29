@@ -3,6 +3,7 @@ import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/repositories/project_repository.dart';
+import 'package:clipmind/domain/usecases/structural_edit_usecase.dart';
 import 'package:clipmind/state/settings_providers.dart';
 
 final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
@@ -72,6 +73,27 @@ class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
       editHistory: [...project.editHistory, operation],
       updatedAt: DateTime.now(),
     ));
+  }
+
+  /// Local structural mutation (delete/copy/move): no FFmpeg, no repoint.
+  ///
+  /// Runs the pure [StructuralEditUseCase] transform, replaces the project
+  /// state and appends [operation] to [Project.editHistory]. Returns false
+  /// (graceful no-op, state untouched) for unknown clips or non-structural
+  /// op types. Mirrors [applyEdit]'s state update + timestamp.
+  bool applyStructuralEdit(EditOperation operation) {
+    final project = state.valueOrNull;
+    if (project == null) return false;
+
+    final updated =
+        const StructuralEditUseCase().apply(operation, project);
+    if (updated == null) return false;
+
+    state = AsyncValue.data(updated.copyWith(
+      editHistory: [...updated.editHistory, operation],
+      updatedAt: DateTime.now(),
+    ));
+    return true;
   }
 
   bool _isFirstClip(Project project, String clipId) {

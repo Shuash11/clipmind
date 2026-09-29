@@ -1,0 +1,643 @@
+# Code Graph — test (123 files, 25,452 lines; generated 2026-09-29T15:29; DO NOT EDIT)
+_Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
+
+## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
+- L8  function main
+- L232  function _strictBodyWithNestedArrays
+
+## test/features/agent/domain/editor_tool_registry_test.dart (312 lines)
+- L4  function main
+- L234  function _names
+- L237  function _properties
+- L240  function _required
+- L243  function _property
+- L251  function _expectNumber
+- L258  function _assertClosedObjects
+- L273  function _assertCamelCasePropertyNames
+- L291  function _propertyNames
+
+## test/features/agent/domain/legacy_operation_normalizer_test.dart (140 lines)
+- L4  function main
+
+## test/features/agent/domain/malformed_output_repair_policy_test.dart (542 lines)
+- L23  function main
+- L423  function _finding
+- L429  function _request
+- L440  function _validResponse
+- L452  function _service
+- L466  function _submission
+- L480  function _success
+- L482  function _expectSafeProviderJson
+- L517  function _expectSafeRepairJson
+
+## test/features/agent/domain/malicious_tool_call_test.dart (81 lines)
+- L11  function main
+
+## test/features/agent/domain/sanitized_project_snapshot_test.dart (210 lines)
+- L14  function main
+- L103  function _sensitiveDocument
+- L183  function _allKeys
+- L196  function _allText
+
+## test/features/agent/domain/tool_argument_shape_test.dart (393 lines)
+- L17  function main
+- L293  function _argumentErrorText
+- L311  function _with
+
+## test/features/agent/domain/tool_call_validator_test.dart (355 lines)
+- L12  function main
+
+## test/features/agent/domain/validated_plan_payload_test.dart (297 lines)
+- L15  function main
+- L271  function _argumentErrorText
+- L280  function _payload
+- L295  function _finding
+
+## test/features/agent/presentation/edit_plan_card_test.dart (205 lines)
+- L14  function main
+- L188  function _preview
+
+## test/features/agent/presentation/edit_plan_notifier_test.dart (683 lines)
+- L21  function main
+- L584  function _notifier
+- L592  function _payload
+- L604  function _plan
+- L613  class _Gateway (document, transaction, applyCalls, coherentOutcome) — _Gateway(this.document) L614, currentDocument L621, apply(…) L624
+- L640  class _NullableGateway (applyCalls) — currentDocument L643, apply(…) L645
+- L654  class _BlockingGateway (document, _result, applyCalls, transaction) — _BlockingGateway(this.document) L655, currentDocument L661, apply(…) L663, complete() L672
+
+## test/features/agent/presentation/edit_plan_payload_integrity_test.dart (146 lines)
+- L17  function main
+- L99  function _notifier
+- L108  function _payload
+- L120  class _CapturingGateway (document, preflightDocument, transaction, applyCalls) — _CapturingGateway(this.document) L121, currentDocument L127, apply(…) L129
+
+## test/features/agent/regression/canonical_schema_case_test.dart (82 lines)
+- L4  function main
+- L62  function _expectClosedCamelCaseObjects
+
+## test/features/agent/regression/deferred_tools_test.dart (89 lines)
+- L14  function main
+
+## test/features/agent/regression/preview_transaction_history_test.dart (99 lines)
+- L16  function main
+- L71  function _notifier
+- L79  function _plan
+- L88  function _payload
+
+## test/features/integration/foundation_composition_test.dart (157 lines)
+- L14  function main
+- L110  class _RecordingProviderInitializer (result, networkEnabled) — _RecordingProviderInitializer(…) L111, initialize(…) L123
+- L131  class _EmptyProviderRegistry — adapterFor(String providerId) L133, definitionFor(String providerId) L136, definitions L139
+- L142  function _unusedSystemTempFile
+- L154  function _deleteIfPresent
+
+## test/features/integration/inspected_defects_regression_test.dart (156 lines)
+- L16  function main
+- L132  function _expectCamelCasePropertyNames
+
+## test/features/integration/local_smoke_coordinator_test.dart (64 lines)
+- L5  function main
+- L56  class _MemoryLocalSmokeReporter (reports) — write(Map<String, Object?> report) L60
+
+## test/features/integration/local_smoke_launch_configuration_test.dart (214 lines)
+- L11  function main
+- L193  function _unusedSystemTempFile
+- L204  function _tempStem
+- L207  function _deleteIfPresent
+- L211  function _deleteDirectoryIfPresent
+
+## test/features/integration/local_smoke_screen_test.dart (245 lines)
+- L28  function main
+- L151  function _offlineProviderInitialization
+- L171  class _FakeSmokeFixtureLoader (_FakeSmokeFixtureLoader, _document, _failure) — _FakeSmokeFixtureLoader(this._document) : _failure = false L172, load(File fixture) L179
+- L184  class _MemoryLocalSmokeReporter (reports) — write(Map<String, Object?> report) L188
+- L193  class _LocalSmokeFiles (fixture, report, configuration) — _LocalSmokeFiles(…) L194, create() L204, delete() L222
+- L228  function _unusedSystemTempFile
+- L240  function _pumpSmokeFrames
+
+## test/features/integration/suggested_prompt_scope_test.dart (102 lines)
+- L5  function main
+
+## test/features/integration/windows_release_smoke_harness_test.dart (67 lines)
+- L5  function main
+- L61  function _successfulReport
+
+## test/features/projects/compatibility/legacy_public_import_test.dart (42 lines)
+- L6  function main
+
+## test/features/projects/data/app_database_migration_test.dart (53 lines)
+- L7  function main
+
+## test/features/projects/data/atomic_project_file_store_test.dart (174 lines)
+- L9  function main
+
+## test/features/projects/data/import_export_asset_resolution_test.dart (47 lines)
+- L9  function main
+
+## test/features/projects/data/project_document_migrator_test.dart (83 lines)
+- L10  function fixture
+- L13  function main
+
+## test/features/projects/data/project_index_repair_test.dart (66 lines)
+- L6  function main
+
+## test/features/projects/data/project_repository_impl_test.dart (98 lines)
+- L11  function main
+
+## test/features/projects/data/project_repository_migration_test.dart (64 lines)
+- L12  function fixtureJson
+- L15  function main
+
+## test/features/projects/domain/cancellation_token_test.dart (27 lines)
+- L4  function main
+
+## test/features/projects/domain/command_invariants_regression_test.dart (116 lines)
+- L11  function main
+
+## test/features/projects/domain/id_generator_test.dart (65 lines)
+- L5  function main
+
+## test/features/projects/domain/project_command_executor_test.dart (55 lines)
+- L8  function main
+
+## test/features/projects/domain/project_command_factory_test.dart (110 lines)
+- L7  function main
+
+## test/features/projects/domain/project_document_test.dart (64 lines)
+- L9  function main
+
+## test/features/projects/domain/project_immutability_test.dart (60 lines)
+- L9  function main
+
+## test/features/projects/domain/project_transaction_service_test.dart (195 lines)
+- L13  function brightnessTransaction
+- L38  function multiCommandTransaction
+- L61  function main
+
+## test/features/projects/domain/remove_clip_range_test.dart (161 lines)
+- L12  function main
+
+## test/features/projects/domain/result_contract_test.dart (23 lines)
+- L4  class ExternalProjectFailure extends AppFailure — ExternalProjectFailure() L5
+- L9  function main
+
+## test/features/projects/presentation/timeline_transaction_bridge_test.dart (27 lines)
+- L8  function main
+
+## test/features/projects/support/legacy_v1_database.dart (107 lines)
+- L10  class LegacyV1ProjectIndexFixture (executor, _directory) — LegacyV1ProjectIndexFixture(…) L11, dispose() L19
+- L23  function legacyV1ProjectIndexFixture
+- L46  class _LegacyV1Seeder — schemaVersion L48, beforeOpen(QueryExecutor executor, OpeningDetails _) L51
+
+## test/features/projects/support/project_fakes.dart (174 lines)
+- L13  class SequenceIdGenerator (_values) — SequenceIdGenerator(Iterable<String> values) : _values = values.iterator L14, next() L19
+- L25  enum FileIoFailure
+- L27  class MemoryProjectFileIo (files, failurePoints, operations) — MemoryProjectFileIo([Map<String, String>? initial]) : files = L28, exists(String path) L34, read(String path) L37, writeAndFlush(String path, String content) L40, copy(String from, String to) L49, rename(String from, String to) L58, delete(String path) L77
+- L86  class FakeProjectIndex (failUpsert, upsertCalls, documents) — upsert(ProjectDocument document) L91, clear() L98, projectPaths() L101
+- L104  class RecordingProjectRepository (document, failSave, nextWarnings, saveCalls) — RecordingProjectRepository(this.document) L105, save(ProjectDocument candidate) L111, load(String path) L123
+- L127  class RecordingProjectDocumentPublisher (document, warnings, publishCalls) — publish(…) L133
+- L143  class FakeProjectDocumentLocator (documentsByPath) — FakeProjectDocumentLocator(this.documentsByPath) L144, listProjectPaths() L147, readDocument(String path) L151
+- L155  class RecordingRenderGateway (inputPaths, renderCalls) — render(List<String> paths) L159
+- L165  class RecordingProjectTransactionGateway (transactions, directRepositorySaves) — apply(EditTransaction transaction) L170
+
+## test/features/projects/support/project_test_data.dart (120 lines)
+- L14  function stateWithOneClip
+- L70  function documentWithOneClip
+- L90  function recordFor
+- L111  function textOverlayFixture
+
+## test/features/providers/data/adapters/anthropic_adapter_test.dart (108 lines)
+- L13  function main
+
+## test/features/providers/data/adapters/gemini_adapter_test.dart (127 lines)
+- L13  function main
+
+## test/features/providers/data/adapters/ollama_adapter_test.dart (109 lines)
+- L12  function main
+
+## test/features/providers/data/adapters/openai_compatible_adapter_test.dart (215 lines)
+- L15  function main
+
+## test/features/providers/data/legacy_provider_settings_migration_test.dart (263 lines)
+- L10  function main
+- L185  function _migration
+- L202  class _Storage (value, failAtWrite, writes) — read() L207, write(String contents) L209
+- L216  class _Settings (value) — _Settings(this.value) L217, load() L220
+- L224  class _LegacyCredentials (values, failDelete) — _LegacyCredentials(this.values) L225, deleteApiKey(String providerId) L229, readApiKey(String providerId) L236
+- L240  class _Credentials (values, writes, failWrite) — delete(String credentialId) L245, read(String credentialId) L251, write(String credentialId, String secret) L254
+
+## test/features/providers/data/provider_catalog_test.dart (52 lines)
+- L5  function main
+
+## test/features/providers/data/provider_endpoint_resolver_test.dart (32 lines)
+- L4  function main
+
+## test/features/providers/data/provider_http_transport_test.dart (249 lines)
+- L10  function main
+- L232  class _FakeClient (_results, attempts) — _FakeClient(this._results) L233, send(ProviderHttpRequest request) L239
+
+## test/features/providers/data/provider_platform_bootstrap_test.dart (223 lines)
+- L17  function main
+- L152  class _Profiles (events, document, resumeFailure) — _Profiles(this.events) L153, deleteProfile(…) L159, load() L165, resumePendingDeletions(…) L171, save(ProviderProfilesDocument document) L180
+- L184  function _document
+- L200  class _Credentials — delete(String credentialId) L202, read(String credentialId) L205, write(String credentialId, String secret) L208
+- L212  class _Transport (calls) — send(…) L215
+
+## test/features/providers/data/provider_profile_deletion_test.dart (208 lines)
+- L11  function main
+- L142  function _document
+- L166  class _Storage (value, failWrite, failAtWrite, writes) — read() L172, write(String contents) L174
+- L183  class _Credentials (values, failDelete, failAtDelete, deleted) — _Credentials(this.values) L184, delete(String credentialId) L190, read(String credentialId) L200, write(String credentialId, String secret) L203
+
+## test/features/providers/data/provider_profile_repository_test.dart (256 lines)
+- L12  function main
+- L212  function _metadataProfile
+- L223  function _profileJson
+- L244  class _MemoryStorage (value, writes) — _MemoryStorage([this.value]) L245, read() L249, write(String contents) L251
+
+## test/features/providers/data/provider_redactor_test.dart (64 lines)
+- L6  function main
+- L53  class _FailingBackend — delete(…) L55, read(…) L58, write(…) L61
+
+## test/features/providers/data/provider_url_policy_test.dart (55 lines)
+- L5  function main
+
+## test/features/providers/domain/provider_contract_test.dart (281 lines)
+- L21  function main
+- L218  function _payload
+- L224  class _ProfileScopedAdapter — complete(…) L226, discoverModels(…) L237, testConnection(…) L245
+- L255  class _NetworkAwareBootstrap (networkEnabled) — initialize(…) L259
+- L271  class _EmptyRegistry — adapterFor(String providerId) L273, definitionFor(String providerId) L276, definitions L279
+
+## test/features/providers/presentation/ai_providers_screen_test.dart (94 lines)
+- L13  function main
+
+## test/features/providers/presentation/dynamic_model_selector_test.dart (310 lines)
+- L19  function main
+
+## test/features/providers/presentation/model_selector_dropdown_test.dart (27 lines)
+- L7  function main
+
+## test/features/providers/presentation/provider_profile_form_test.dart (311 lines)
+- L19  function main
+- L295  function _draft
+
+## test/features/providers/support/provider_adapter_fakes.dart (54 lines)
+- L7  class RecordingTransport (responses, requests) — RecordingTransport(this.responses) L8, send(…) L13
+- L22  class MemoryCredentials (values) — MemoryCredentials([Map<String, String> values = const <String, String>…) L23, delete(String credentialId) L28, read(String credentialId) L34, write(String credentialId, String secret) L38
+- L44  function testProfile
+
+## test/features/providers/support/provider_presentation_fakes.dart (117 lines)
+- L15  class MemoryProfileRepository (document, saveFailure, deleteFailure) — MemoryProfileRepository(this.document) L16, load() L21, save(ProviderProfilesDocument value) L23, deleteProfile(…) L30, resumePendingDeletions(…) L42
+- L47  class MemoryCredentialStore (values, writeFailure, deleteFailure, writes, deletes) — delete(String credentialId) L54, read(String credentialId) L62, write(String credentialId, String secret) L65
+- L73  class FakeProviderRegistry (_definitions, adapter, _adapters) — FakeProviderRegistry(…) L74, definitions L84, adapterFor(String providerId) L86, definitionFor(String providerId) L89
+- L97  class DiscoveringAdapter (models) — DiscoveringAdapter(this.models) L98, discoverModels(…) L101, testConnection(…) L106, complete(…) L111
+
+## test/features/tagging/domain/marker_layout_test.dart (186 lines)
+- L6  function main
+- L175  function _point
+- L178  function _range
+
+## test/features/tagging/domain/tag_marker_command_invariants_test.dart (239 lines)
+- L14  function main
+- L237  function _factory
+
+## test/features/tagging/domain/tag_query_test.dart (89 lines)
+- L5  function main
+- L77  function _asset
+
+## test/features/tagging/domain/tagging_controller_test.dart (96 lines)
+- L9  function main
+
+## test/features/tagging/integration/ai_tag_marker_plan_test.dart (82 lines)
+- L16  function main
+
+## test/features/tagging/integration/tag_marker_reopen_test.dart (78 lines)
+- L9  function _fixtureJson
+- L13  function main
+- L68  function _containsKey
+
+## test/features/tagging/presentation/clip_tag_inspector_test.dart (116 lines)
+- L11  function main
+- L107  function _stateWithClipTags
+
+## test/features/tagging/presentation/marker_editor_dialog_test.dart (98 lines)
+- L5  function main
+- L82  function _dialogHost
+
+## test/features/tagging/presentation/marker_ruler_test.dart (190 lines)
+- L13  function main
+- L162  function _markerHarness
+
+## test/features/tagging/presentation/media_panel_test.dart (140 lines)
+- L14  function main
+- L103  function _mediaDocument
+
+## test/features/tagging/presentation/tag_editor_dialog_test.dart (92 lines)
+- L5  function main
+- L74  function _dialogHost
+
+## test/features/tagging/presentation/timeline_bridge_test.dart (107 lines)
+- L15  function main
+
+## test/features/tagging/presentation/tool_rail_tagging_test.dart (32 lines)
+- L8  function main
+
+## test/features/tagging/regression/no_automatic_analysis_test.dart (61 lines)
+- L5  function main
+
+## test/features/tagging/support/tagging_widget_harness.dart (82 lines)
+- L14  class TaggingWidgetHarness (document, repository, publisher, transactions, controller, providers) — TaggingWidgetHarness(…) L15
+- L58  function taggingTestApp
+- L66  class UpdatingProjectDocumentPublisher (publishCalls) — UpdatingProjectDocumentPublisher(this._onPublish) L68, Function(ProjectDocument document) _onPublish L70, publish(…) L74
+
+## test/integration/integration_test.dart (68 lines)
+- L8  function _testApp
+- L21  function main
+
+## test/tool/grapify_test.dart (125 lines)
+- L8  class ActiveLlmConfig (providerId, model) — ActiveLlmConfig(…) L12, describe() L14, label L15
+- L18  typedef ActiveProfileResolver
+- L20  class Base extends Super with Mixin implements Face — run() L21
+- L24  function topLevelFn
+- L29  function main
+- L77  function real
+
+## test/unit/agent/agent_confirmation_test.dart (418 lines)
+- L20  class _ScriptProvider extends LlmProvider (script, calls) — _ScriptProvider(this.script) L24, id L27, supportsToolCalling L30, chatWithTools(AgentTurnRequest request) L33, availableModels() L38, parseCommand(AgentRequest request) L41, watchConnection() L45
+- L49  class _CountingExecutor (calls, seenIds) — execute(ToolCall call) L54
+- L61  class _BulkGate (approve, calls, seen) — _BulkGate(…) L66, requiresPerEditApproval L69, ask(ConfirmationRequest request) L72
+- L79  class _PerEditGate (approve, calls, seen) — _PerEditGate(…) L84, requiresPerEditApproval L87, ask(ConfirmationRequest request) L90
+- L97  class _CancelGate (controller, calls) — _CancelGate(this.controller) L101, requiresPerEditApproval L104, ask(ConfirmationRequest request) L107
+- L117  function _registryWith
+- L124  function _validated
+- L142  function _context
+- L179  function _edit
+- L185  function main
+
+## test/unit/agent/filter_escaping_test.dart (124 lines)
+- L4  function main
+
+## test/unit/agent/nl2vec_pipeline_test.dart (412 lines)
+- L15  class _StubProvider extends LlmProvider (response) — _StubProvider(this.response) L17, id L20, availableModels() L23, parseCommand(AgentRequest request) L26, watchConnection() L29
+- L34  class _ScriptToolProvider extends LlmProvider (script, calls) — _ScriptToolProvider(this.script) L38, id L41, supportsToolCalling L44, chatWithTools(AgentTurnRequest request) L47, availableModels() L51, parseCommand(AgentRequest request) L54, watchConnection() L58
+- L62  class _FakeFfmpegService extends FfmpegService — _FakeFfmpegService() : super(tempDir: Directory.systemTemp.path) L63, runSync(FfmpegJob job) L66
+- L74  function _projectWithClip
+- L107  function main
+
+## test/unit/agent/ollama_tool_calling_smoke_test.dart (172 lines)
+- L22  class _MockDio extends Mock implements Dio
+- L24  class _MockKeyStore extends Mock implements SecureKeyStore
+- L26  class _OkExecutor — execute(ToolCall call) L28
+- L34  function main
+
+## test/unit/agent/timecode_utils_test.dart (106 lines)
+- L4  function main
+- L103  function _tc
+
+## test/unit/agent/tool_calling_agent_test.dart (703 lines)
+- L22  class _ScriptProvider extends LlmProvider (script, seen, calls) — _ScriptProvider(this.script) L27, id L30, supportsToolCalling L33, chatWithTools(AgentTurnRequest request) L36, availableModels() L42, parseCommand(AgentRequest request) L45, watchConnection() L49
+- L55  class _NimScriptProvider extends _ScriptProvider — _NimScriptProvider(super.script) L56, id L59
+- L66  class _GeminiScriptProvider extends _ScriptProvider — _GeminiScriptProvider(super.script) L67, id L70
+- L75  class _SlowLocalScriptProvider extends _ScriptProvider — _SlowLocalScriptProvider(super.script) L76, id L79, suggestedRoundTimeoutSeconds L82
+- L85  class _OkExecutor — execute(ToolCall call) L87
+- L93  class _FailExecutor — execute(ToolCall call) L95
+- L101  class _JournalAndCancel (ctx, controller) — _JournalAndCancel(this.ctx, this.controller) L102, execute(ToolCall call) L108
+- L121  function _registryWith
+- L130  function _validated
+- L152  function _context
+- L190  function main
+
+## test/unit/agent/tools/add_transition_test.dart (589 lines)
+- L20  class _MockFfprobe extends Mock implements FfprobeService
+- L22  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L23, runSync(FfmpegJob job) L28
+- L41  class _Applied (op, path, removeClipIds) — _Applied(this.op, this.path, this.removeClipIds) L45
+- L68  function _project
+- L103  function main
+
+## test/unit/agent/tools/apply_effect_test.dart (352 lines)
+- L19  class _MockFfprobe extends Mock implements FfprobeService
+- L21  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L22, runSync(FfmpegJob job) L27
+- L40  function _project
+- L68  function main
+
+## test/unit/agent/tools/burn_captions_test.dart (467 lines)
+- L22  class _MockFfprobe extends Mock implements FfprobeService
+- L24  class _FakeFfmpeg extends FfmpegService (_failStderr, jobs) — _FakeFfmpeg(…) L25, runSync(FfmpegJob job) L31
+- L52  function _project
+- L80  function main
+
+## test/unit/agent/tools/edit_tool_executor_test.dart (316 lines)
+- L15  class _MockFfprobe extends Mock implements FfprobeService
+- L17  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L20, runSync(FfmpegJob job) L23
+- L32  class _Applied (op, path) — _Applied(this.op, this.path) L35
+- L38  function _project
+- L73  function main
+
+## test/unit/agent/tools/read_tool_executor_test.dart (146 lines)
+- L13  class _MockFfprobe extends Mock implements FfprobeService
+- L15  function _project
+- L59  function _ctx
+- L71  function main
+
+## test/unit/agent/tools/read_tools_phase6_test.dart (529 lines)
+- L18  class _MockFfprobe extends Mock implements FfprobeService
+- L24  class _FakeResolver extends FfmpegBinaryResolver — resolveFfmpeg(…) L26
+- L29  class _NoWhisper extends WhisperTranscriptionService — findBinary(…) L31
+- L34  class _FakeFfmpeg extends FfmpegService (wavExtracts) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L37, runSync(FfmpegJob job) L40
+- L53  function _project
+- L88  function main
+
+## test/unit/agent/tools/tool_registry_test.dart (136 lines)
+- L10  class _StubExecutor — execute(ToolCall call) L12
+- L16  function main
+
+## test/unit/data/chat_step_test.dart (100 lines)
+- L5  function main
+
+## test/unit/data/media_analysis_dao_test.dart (146 lines)
+- L5  function main
+
+## test/unit/domain/usecases/structural_edit_usecase_test.dart (246 lines)
+- L8  function _clip
+- L19  function _project
+- L39  function _op
+- L51  function _ids
+- L54  function _positions
+- L57  function main
+
+## test/unit/domain/usecases/undo_redo_usecase_test.dart (187 lines)
+- L6  function _project
+- L19  function _op
+- L27  function main
+
+## test/unit/ffmpeg/command_builder_test.dart (441 lines)
+- L4  function main
+
+## test/unit/ffmpeg/scene_detection_service_test.dart (176 lines)
+- L7  class _NoFfmpeg extends FfmpegBinaryResolver — resolveFfmpeg(…) L9
+- L16  class _FakeResolver extends FfmpegBinaryResolver — resolveFfmpeg(…) L18
+- L29  function main
+
+## test/unit/llm/anthropic_provider_tools_test.dart (278 lines)
+- L8  class _MockDio extends Mock implements Dio
+- L10  function _request
+- L33  function main
+
+## test/unit/llm/custom_openai_compatible_provider_test.dart (329 lines)
+- L17  function _interceptingDio
+- L35  function _toolCallsResponse
+- L63  function _request
+- L85  function main
+
+## test/unit/llm/gemini_provider_tools_test.dart (456 lines)
+- L11  class _MockDio extends Mock implements Dio
+- L13  class _MockKeyStore extends Mock implements SecureKeyStore
+- L24  function _request
+- L40  function _provider
+- L50  function _partsResponse
+- L67  function main
+
+## test/unit/llm/nvidia_nim_provider_tools_test.dart (432 lines)
+- L13  class _MockDio extends Mock implements Dio
+- L15  class _MockKeyStore extends Mock implements SecureKeyStore
+- L17  function _request
+- L40  function _provider
+- L50  function _textResponse
+- L65  function main
+
+## test/unit/llm/ollama_provider_tools_test.dart (359 lines)
+- L13  class _MockDio extends Mock implements Dio
+- L15  class _MockKeyStore extends Mock implements SecureKeyStore
+- L17  function _request
+- L40  function _provider
+- L55  function _textResponse
+- L70  function main
+
+## test/unit/llm/openai_provider_tools_test.dart (283 lines)
+- L10  class _MockDio extends Mock implements Dio
+- L12  function _request
+- L35  function main
+
+## test/unit/llm/provider_conformance_test.dart (330 lines)
+- L24  class _MockDio extends Mock implements Dio
+- L26  class _MockKeyStore extends Mock implements SecureKeyStore
+- L28  class _Captured (path, body, headers)
+- L34  function _nullKeys
+- L40  function _scriptedDio
+- L61  function _answer
+- L79  function _request
+- L101  function _openAiToolResponse
+- L123  function _anthropicToolResponse
+- L136  function _geminiToolResponse
+- L155  class _TransportSpec (path, auth, extras, absent) — _TransportSpec(…) L156
+- L169  function main
+
+## test/unit/state/agent_analysis_port_test.dart (91 lines)
+- L8  function main
+
+## test/unit/state/agent_run_controller_test.dart (1051 lines)
+- L32  class _LegacyStub extends LlmProvider (response) — _LegacyStub(this.response) L34, id L37, availableModels() L40, parseCommand(AgentRequest request) L43, watchConnection() L47
+- L51  class _ScriptTools extends LlmProvider (script, gate, calls) — _ScriptTools(this.script, [Completer<void>? gate]) L56, id L60, supportsToolCalling L63, chatWithTools(AgentTurnRequest request) L66, availableModels() L73, parseCommand(AgentRequest request) L76, watchConnection() L80
+- L84  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L86, getActiveProvider() L89
+- L92  class _CapturingPipeline extends Nl2VecPipeline (seenHistory, seenDryRun) — result L95, _CapturingPipeline() : super(ffmpegService: FfmpegService()) L98, submitCommand(…) L101
+- L119  class _GatedSettingsRepo extends SettingsRepository (gate) — _GatedSettingsRepo(this.gate) L121, load() L124
+- L135  class _TestSettingsRepository extends SettingsRepository (saved) — load() L139, save(AppSettings settings) L142
+- L147  class _FakeFfmpeg extends FfmpegService (cancelCalls) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L150, runSync(FfmpegJob job) L153, cancel() L161
+- L167  function _project
+- L195  function main
+
+## test/unit/state/project_providers_test.dart (121 lines)
+- L9  function _project
+- L58  function _op
+- L65  function main
+
+## test/unit/state/provider_registry_profile_resolution_test.dart (293 lines)
+- L15  function main
+
+## test/unit/state/runtime_provider_wiring_test.dart (296 lines)
+- L32  class _FakeGenBRegistry — definitions L34, definitionFor(String providerId) L37, adapterFor(String providerId) L40
+- L43  class _FakeRepository (document) — _FakeRepository(this.document) L44, load() L49, save(ProviderProfilesDocument document) L53, deleteProfile(…) L57, resumePendingDeletions(…) L63
+- L68  class _FakeCredentials — read(String credentialId) L70, write(String credentialId, String secret) L74, delete(String credentialId) L78
+- L82  function main
+- L281  class _WritingFfmpeg extends FfmpegService — _WritingFfmpeg() : super(tempDir: Directory.systemTemp.path) L282, runSync(FfmpegJob job) L285
+
+## test/unit/state/status_providers_test.dart (301 lines)
+- L25  class _ScriptProvider extends LlmProvider — health L26, id L30, availableModels() L33, parseCommand(AgentRequest request) L36, watchConnection() L40
+- L43  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L45, getActiveProvider() L48
+- L51  class _FakeGenBRegistry — definitions L53, definitionFor(String providerId) L56, adapterFor(String providerId) L59
+- L62  class _FakeProfileRepository (document) — _FakeProfileRepository(this.document) L63, load() L68, save(ProviderProfilesDocument document) L72, deleteProfile(…) L76, resumePendingDeletions(…) L82
+- L87  class _FakeCredentials — read(String credentialId) L89, write(String credentialId, String secret) L93, delete(String credentialId) L97
+- L101  class _StubResolver extends FfmpegBinaryResolver (value, throws) — _StubResolver(…) L104, resolveFfmpeg(…) L107
+- L113  function main
+
+## test/unit/state/structural_edit_flow_test.dart (326 lines)
+- L20  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L23, save(Project project) L26
+- L31  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L34, runSync(FfmpegJob job) L37
+- L46  function _project
+- L83  function _op
+- L96  function _clipIds
+- L107  function main
+
+## test/unit/state/undo_redo_flow_test.dart (179 lines)
+- L15  class _RecordingRepository extends ProjectRepository (saves, lastSaved) — _RecordingRepository(super.db) L19, save(Project project) L22
+- L28  function _project
+- L56  function _trimOp
+- L64  function _sourceOf
+- L74  function main
+- L172  function _sourceOfProject
+
+## test/widget/agent_chat_panel_test.dart (1039 lines)
+- L38  class _StubProvider extends LlmProvider — id L40, availableModels() L43, parseCommand(AgentRequest request) L46, watchConnection() L50
+- L54  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L56, getActiveProvider() L59
+- L64  class _GatePipeline extends Nl2VecPipeline (gate, result, calls) — _GatePipeline(…) L69, submitCommand(…) L74
+- L101  class _ConfirmingPipeline extends Nl2VecPipeline (request, result, calls) — _ConfirmingPipeline(…) L106, submitCommand(…) L110
+- L136  class _PlanningPipeline extends Nl2VecPipeline (dryRunResult, plannedResult, planned) — _PlanningPipeline(…) L141, submitCommand(…) L145, executePlanned(…) L161
+- L175  class _FakeSettingsRepository extends SettingsRepository (saves, settings) — _FakeSettingsRepository(…) L180, load() L183, save(AppSettings settings) L186
+- L189  function _project
+- L219  function _settle
+- L225  function main
+
+## test/widget/agent_steps_view_test.dart (482 lines)
+- L12  function started
+- L27  function completed
+- L46  function failed
+- L63  function liveStep
+- L75  function main
+
+## test/widget/project_hub_test.dart (325 lines)
+- L19  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L20, createNew(…) L28, save(Project project) L45, listRecent() L48
+- L51  function _project
+- L63  function _testRouter
+- L79  function _useDesktopViewport
+- L88  function _pumpHub
+- L102  function main
+
+## test/widget/settings_screen_test.dart (187 lines)
+- L13  class _RecordingSettingsRepository extends SettingsRepository (saves, lastSaved) — load() L18, save(AppSettings settings) L21
+- L28  function _mockPackageInfo
+- L48  function _pumpSettings
+- L57  function _settle
+- L63  function main
+
+## test/widget/status_bar_test.dart (204 lines)
+- L14  class _StubResolver extends FfmpegBinaryResolver (path) — _StubResolver(this.path) L15, resolveFfmpeg(…) L20
+- L23  function _container
+- L47  function _pump
+- L56  function main
+
+## test/widget/timeline_view_test.dart (224 lines)
+- L19  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L20, save(Project project) L23
+- L26  function _project
+- L54  function main
+
+## test/widget/whats_new_dialog_test.dart (231 lines)
+- L19  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(super.db) L20, save(Project project) L23
+- L27  class _RecordingSettingsRepository extends SettingsRepository (initial, lastSaved) — _RecordingSettingsRepository(this.initial) L28, load() L34, save(AppSettings settings) L37
+- L42  function _mockPackageInfo
+- L63  function _testRouter
+- L76  function main
+
+## test/widget_test.dart (26 lines)
+- L9  function main

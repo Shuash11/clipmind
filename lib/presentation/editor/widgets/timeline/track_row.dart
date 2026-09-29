@@ -6,12 +6,13 @@ import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/presentation/editor/widgets/timeline/clip_block.dart';
 import 'timeline_view.dart';
 
-class TrackRow extends StatelessWidget {
+class TrackRow extends StatefulWidget {
   final TrackTypeDisplay trackType;
   final List<Clip> clips;
   final double zoom;
   final String? selectedClipId;
   final ValueChanged<String>? onClipSelected;
+  final void Function(String clipId, String? afterClipId)? onMoveClip;
 
   const TrackRow({
     super.key,
@@ -20,10 +21,24 @@ class TrackRow extends StatelessWidget {
     this.zoom = 1.0,
     this.selectedClipId,
     this.onClipSelected,
+    this.onMoveClip,
   });
 
+  @override
+  State<TrackRow> createState() => _TrackRowState();
+}
+
+class _TrackRowState extends State<TrackRow> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Color get _trackColor {
-    switch (trackType) {
+    switch (widget.trackType) {
       case TrackTypeDisplay.video:
         return ClipMindColors.trackVideo;
       case TrackTypeDisplay.audio:
@@ -36,7 +51,7 @@ class TrackRow extends StatelessWidget {
   }
 
   IconData get _icon {
-    switch (trackType) {
+    switch (widget.trackType) {
       case TrackTypeDisplay.video:
         return Icons.movie_outlined;
       case TrackTypeDisplay.audio:
@@ -49,7 +64,7 @@ class TrackRow extends StatelessWidget {
   }
 
   String get _label {
-    switch (trackType) {
+    switch (widget.trackType) {
       case TrackTypeDisplay.video:
         return 'Video';
       case TrackTypeDisplay.audio:
@@ -64,6 +79,7 @@ class TrackRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final clips = widget.clips;
     return Container(
       color: ClipMindColors.bgSurface,
       child: Row(
@@ -104,9 +120,30 @@ class TrackRow extends StatelessWidget {
                       child: Text('No clips', style: theme.textTheme.bodySmall),
                     ),
                   )
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(children: _buildClipWidgets()),
+                : DragTarget<String>(
+                    onAcceptWithDetails: widget.onMoveClip == null
+                        ? null
+                        : (details) {
+                            final box =
+                                context.findRenderObject() as RenderBox;
+                            final localX =
+                                box.globalToLocal(details.offset).dx;
+                            widget.onMoveClip!(
+                              details.data,
+                              _afterClipIdFor(localX),
+                            );
+                          },
+                    builder: (context, candidateData, rejectedData) {
+                      return Scrollbar(
+                        controller: _scrollController,
+                        thumbVisibility: false,
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          scrollDirection: Axis.horizontal,
+                          child: Row(children: _buildClipWidgets()),
+                        ),
+                      );
+                    },
                   ),
           ),
         ],
@@ -115,8 +152,7 @@ class TrackRow extends StatelessWidget {
   }
 
   List<Widget> _buildClipWidgets() {
-    final sorted = [...clips]
-      ..sort((a, b) => a.positionMs.compareTo(b.positionMs));
+    final sorted = _sorted;
     final widgets = <Widget>[const SizedBox(width: 16)];
     var cursorMs = 0;
 
@@ -134,8 +170,9 @@ class TrackRow extends StatelessWidget {
           durationLabel: _durationLabel(clip),
           width: _clipWidth(durationMs),
           muted: clip.muted,
-          selected: selectedClipId == clip.id,
-          onTap: () => onClipSelected?.call(clip.id),
+          selected: widget.selectedClipId == clip.id,
+          clipId: clip.id,
+          onTap: () => widget.onClipSelected?.call(clip.id),
         ),
       );
       cursorMs = math.max(cursorMs, clip.positionMs + durationMs);
@@ -145,18 +182,55 @@ class TrackRow extends StatelessWidget {
     return widgets;
   }
 
+  List<Clip> get _sorted {
+    final sorted = [...widget.clips]
+      ..sort((a, b) => a.positionMs.compareTo(b.positionMs));
+    return sorted;
+  }
+
+  /// Pure insert-index math for a drag-reorder: the drop's local x within
+  /// the track's clip area -> the clip id to anchor after (null = track
+  /// front). Reuses the same cursor/width math as the block layout
+  /// (clamps included), splitting each block at its midpoint.
+  String? _afterClipIdFor(double localX) {
+    final sorted = _sorted;
+    if (sorted.isEmpty) return null;
+
+    var cursorMs = 0;
+    var cursorPx = 16.0; // the leading SizedBox(16)
+    String? previousId;
+
+    for (final clip in sorted) {
+      final gapMs = math.max(0, clip.positionMs - cursorMs);
+      if (gapMs > 0) cursorPx += _gapWidth(gapMs);
+      final width = _clipWidth(_clipDurationMs(clip));
+      if (localX <= cursorPx + width / 2) {
+        // Left half: insert before this clip (front when it is the first).
+        return previousId;
+      }
+      if (localX <= cursorPx + width) {
+        // Right half: insert after this clip.
+        return clip.id;
+      }
+      cursorPx += width;
+      cursorMs = math.max(cursorMs, clip.positionMs + _clipDurationMs(clip));
+      previousId = clip.id;
+    }
+    return previousId; // beyond the last block
+  }
+
   int _clipDurationMs(Clip clip) {
     final duration = clip.endMs - clip.startMs;
     return duration > 0 ? duration : 30000;
   }
 
   double _clipWidth(int durationMs) {
-    final raw = (durationMs / 1000) * 12 * zoom;
+    final raw = (durationMs / 1000) * 12 * widget.zoom;
     return raw.clamp(96, 720).toDouble();
   }
 
   double _gapWidth(int durationMs) {
-    final raw = (durationMs / 1000) * 12 * zoom;
+    final raw = (durationMs / 1000) * 12 * widget.zoom;
     return raw.clamp(10, 360).toDouble();
   }
 

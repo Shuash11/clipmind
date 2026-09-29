@@ -20,7 +20,13 @@ enum EditOperationType {
   overlayWatermark,
   burnCaptions,
   addTransition,
-  applyEffect;
+  applyEffect,
+  // Manual structural ops (append-only: Drift stores enums as int index,
+  // so new values go last to keep existing DB rows valid). Local ops —
+  // never FFmpeg jobs, never model tools.
+  deleteClip,
+  copyClip,
+  moveClip;
 
   String get jsonValue => name;
 }

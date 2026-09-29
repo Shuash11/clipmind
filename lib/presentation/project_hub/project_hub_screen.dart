@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,16 +7,20 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:clipmind/core/constants/release_notes.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/core/router/app_router.dart';
 import 'package:clipmind/state/ffmpeg_providers.dart';
 import 'package:clipmind/state/player_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
+import 'package:clipmind/state/settings_providers.dart';
 import 'package:clipmind/state/update_providers.dart';
 import 'package:clipmind/presentation/settings/widgets/update_dialog.dart';
+import 'package:clipmind/presentation/shared_widgets/whats_new_dialog.dart';
 
 import 'package:clipmind/data/services/import/youtube_import_service.dart';
 import 'package:clipmind/data/services/import/gdrive_import_service.dart';
+import 'package:clipmind/data/models/app_settings.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'widgets/upload_dropzone.dart';
 import 'widgets/import_source_card.dart';
@@ -41,6 +46,7 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
     super.initState();
     _urlController.addListener(_handleUrlChanged);
     _initUpdateCheck();
+    _checkWhatsNew();
   }
 
   @override
@@ -65,6 +71,64 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
     } catch (_) {
       // Update checks should never block the hub from loading.
     }
+  }
+
+  /// "What's new" after an update: gated on a version change with notes
+  /// for the current version. First run persists silently — no dialog.
+  Future<void> _checkWhatsNew() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      final current = info.version;
+      // Wait for the persisted settings: a stale read would silently
+      // overwrite lastSeenVersion and skip the dialog.
+      final settings = await _awaitLoadedSettings();
+      final lastSeen = settings?.lastSeenVersion ?? '';
+      if (lastSeen == '') {
+        await _updateSettings((s) => s.copyWith(lastSeenVersion: current));
+        return;
+      }
+      if (lastSeen == current) return;
+      final notes = releaseNotes[current];
+      if (notes == null) return;
+      if (!mounted) return;
+      await WhatsNewDialog.show(
+        context,
+        version: current,
+        notes: notes,
+      );
+      if (!mounted) return;
+      await _updateSettings((s) => s.copyWith(lastSeenVersion: current));
+    } catch (_) {
+      // What's-new should never block the hub from loading.
+    }
+  }
+
+  /// Wait for [settingsProvider] to leave loading (the hub opens before
+  /// the settings have resolved; one-shot listen with fireImmediately).
+  Future<AppSettings?> _awaitLoadedSettings() {
+    final completer = Completer<AppSettings?>();
+    final sub = ref.listenManual<AsyncValue<AppSettings>>(
+      settingsProvider,
+      (_, next) {
+        if (!next.isLoading && !completer.isCompleted) {
+          completer.complete(next.valueOrNull);
+        }
+      },
+      fireImmediately: true,
+    );
+    unawaited(completer.future.whenComplete(sub.close));
+    return completer.future;
+  }
+
+  /// Read + update through [settingsProvider]; persists via
+  /// `SettingsRepository.save`. No-op when settings have not loaded yet.
+  Future<void> _updateSettings(AppSettings Function(AppSettings) mutate) async {
+    try {
+      final current = ref.read(settingsProvider).valueOrNull;
+      if (current == null) return;
+      await ref.read(settingsProvider.notifier).update(mutate(current));
+    } catch (_) {}
   }
 
   Future<void> _handleBrowse() async {

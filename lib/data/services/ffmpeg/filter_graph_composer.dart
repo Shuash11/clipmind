@@ -49,6 +49,12 @@ class FilterGraphComposer {
         // add_transition is a standalone two-input op like merge — never
         // composable into a single-input filter chain.
         standalone.add(op);
+      } else if (op.type == EditOperationType.deleteClip ||
+          op.type == EditOperationType.copyClip ||
+          op.type == EditOperationType.moveClip) {
+        // Manual structural ops never produce FFmpeg jobs (defensive:
+        // they would otherwise fall into the filterable bucket).
+        continue;
       } else {
         filterable.add(op);
       }
@@ -276,6 +282,13 @@ class FilterGraphComposer {
         // switch stays total over the enum.
         break;
 
+      case EditOperationType.deleteClip:
+      case EditOperationType.copyClip:
+      case EditOperationType.moveClip:
+        // Unreachable via routing (skipped in _composeClip) — the switch
+        // stays total over the enum.
+        break;
+
       case EditOperationType.applyEffect:
         videoFilters.add(
           CommandBuilder.effectFilter(
@@ -433,6 +446,12 @@ class FilterGraphComposer {
           contrast: _paramDoubleOrNull(p, 'contrast'),
           saturation: _paramDoubleOrNull(p, 'saturation'),
         );
+      case EditOperationType.deleteClip:
+      case EditOperationType.copyClip:
+      case EditOperationType.moveClip:
+        // Structural ops execute through the structural applier, never
+        // FFmpeg. Skip rather than fabricate a broken job.
+        return null;
     }
   }
 

@@ -26,6 +26,15 @@ class CommandMapper {
     'add_transition',
   };
 
+  /// Manual structural ops: local transforms via the structural applier,
+  /// never FFmpeg jobs and never model tools. Skipped defensively here —
+  /// without this they would fall into `_buildSingleJob`'s copy default.
+  static const _structuralTypes = {
+    'delete_clip',
+    'copy_clip',
+    'move_clip',
+  };
+
   /// Map an LLM operation set to FFmpeg jobs using real file paths.
   ///
   /// [clipPathMap] maps clip ID -> absolute source file path.
@@ -62,7 +71,9 @@ class CommandMapper {
     final standaloneOps = <EditOperationRequest>[];
 
     for (final op in operationSet.operations) {
-      if (_singlePassTypes.contains(op.type) || op.type == 'merge') {
+      if (_structuralTypes.contains(op.type)) {
+        continue;
+      } else if (_singlePassTypes.contains(op.type) || op.type == 'merge') {
         standaloneOps.add(op);
       } else {
         final clipId = op.targetClipId?.toString() ?? '_default';
