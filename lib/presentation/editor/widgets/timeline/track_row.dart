@@ -13,6 +13,13 @@ class TrackRow extends StatefulWidget {
   final String? selectedClipId;
   final ValueChanged<String>? onClipSelected;
   final void Function(String clipId, String? afterClipId)? onMoveClip;
+  final void Function(String clipId, bool isStart, int newLocalMs)? onTrimEdge;
+
+  /// Optional shared scroll controller: when provided, the row hosts its
+  /// scroll position on it (the timeline syncs all 4 tracks through one
+  /// controller); null = the row's own controller — behavior-preserving
+  /// for standalone usage and tests.
+  final ScrollController? scrollController;
 
   const TrackRow({
     super.key,
@@ -22,6 +29,8 @@ class TrackRow extends StatefulWidget {
     this.selectedClipId,
     this.onClipSelected,
     this.onMoveClip,
+    this.onTrimEdge,
+    this.scrollController,
   });
 
   @override
@@ -29,11 +38,18 @@ class TrackRow extends StatefulWidget {
 }
 
 class _TrackRowState extends State<TrackRow> {
-  final _scrollController = ScrollController();
+  // The row's own scroll controller, used when no shared controller is
+  // provided (standalone usage and tests).
+  final _ownScrollController = ScrollController();
+
+  ScrollController get _scrollController =>
+      widget.scrollController ?? _ownScrollController;
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    // Only the row's own controller is disposed; a shared controller is
+    // owned by the timeline.
+    if (widget.scrollController == null) _ownScrollController.dispose();
     super.dispose();
   }
 
@@ -173,6 +189,10 @@ class _TrackRowState extends State<TrackRow> {
           selected: widget.selectedClipId == clip.id,
           clipId: clip.id,
           onTap: () => widget.onClipSelected?.call(clip.id),
+          startMs: clip.startMs,
+          endMs: clip.endMs,
+          zoom: widget.zoom,
+          onTrimEdge: widget.onTrimEdge,
         ),
       );
       cursorMs = math.max(cursorMs, clip.positionMs + durationMs);
@@ -190,8 +210,8 @@ class _TrackRowState extends State<TrackRow> {
 
   /// Pure insert-index math for a drag-reorder: the drop's local x within
   /// the track's clip area -> the clip id to anchor after (null = track
-  /// front). Reuses the same cursor/width math as the block layout
-  /// (clamps included), splitting each block at its midpoint.
+  /// front). Reuses the same cursor/width math as the block layout (the
+  /// exact unclamped linear scale), splitting each block at its midpoint.
   String? _afterClipIdFor(double localX) {
     final sorted = _sorted;
     if (sorted.isEmpty) return null;
@@ -224,14 +244,15 @@ class _TrackRowState extends State<TrackRow> {
     return duration > 0 ? duration : 30000;
   }
 
+  /// The exact linear scale (no clamps): 1 second = 12 * zoom px, so the
+  /// block layout, the drop math and the trim handles' px→ms share one
+  /// unclamped mapping.
   double _clipWidth(int durationMs) {
-    final raw = (durationMs / 1000) * 12 * widget.zoom;
-    return raw.clamp(96, 720).toDouble();
+    return (durationMs / 1000) * 12 * widget.zoom;
   }
 
   double _gapWidth(int durationMs) {
-    final raw = (durationMs / 1000) * 12 * widget.zoom;
-    return raw.clamp(10, 360).toDouble();
+    return (durationMs / 1000) * 12 * widget.zoom;
   }
 
   String _durationLabel(Clip clip) {

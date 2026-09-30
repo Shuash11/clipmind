@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
@@ -13,6 +15,7 @@ import 'package:clipmind/features/tagging/presentation/providers/tagging_provide
 import 'package:clipmind/features/tagging/presentation/widgets/marker_ruler.dart';
 import 'package:clipmind/presentation/editor/providers/selected_clip_provider.dart';
 import 'package:clipmind/state/manual_edit_providers.dart';
+import 'package:clipmind/state/player_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/structural_edit_providers.dart';
 import 'package:clipmind/state/undo_redo_providers.dart';
@@ -60,12 +63,35 @@ class TimelineView extends ConsumerStatefulWidget {
 }
 
 class _TimelineViewState extends ConsumerState<TimelineView> {
+  static const double _minZoom = 0.5;
+  static const double _maxZoom = 4.0;
+
   final _uuid = const Uuid();
   final _rulerKey = GlobalKey();
   double _zoom = 1.0;
   String? _selectedClipId;
   bool _isEditing = false;
   bool _rendered = false;
+
+  // One shared scroll: all 4 track rows host their positions on this
+  // controller; scrolling any row moves the others with it (synced below).
+  final _trackScrollController = ScrollController();
+  bool _syncingTrackScroll = false;
+  double _lastSyncedOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _trackScrollController.addListener(_syncTrackScrolls);
+  }
+
+  @override
+  void dispose() {
+    _trackScrollController
+      ..removeListener(_syncTrackScrolls)
+      ..dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant TimelineView oldWidget) {
@@ -91,7 +117,55 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   }
 
   void _changeZoom(double delta) {
-    setState(() => _zoom = (_zoom + delta).clamp(0.5, 2.0));
+    setState(() => _zoom = (_zoom + delta).clamp(_minZoom, _maxZoom));
+  }
+
+  /// Ctrl+wheel zoom: a [Listener.onPointerSignal] handler on the canvas —
+  /// wheel down zooms out, wheel up zooms in (the browser convention).
+  /// Without Ctrl the wheel scrolls the track under the cursor as usual.
+  void _onCanvasPointerSignal(PointerSignalEvent event) {
+    if (event is PointerScrollEvent &&
+        HardwareKeyboard.instance.isControlPressed) {
+      _changeZoom(event.scrollDelta.dy > 0 ? -0.25 : 0.25);
+    }
+  }
+
+  /// The scrolled track row (the one off the last-synced offset) is the
+  /// source of truth; the other rows jump to it. Re-entrant notifications
+  /// from the jumps are gated by the flag.
+  void _syncTrackScrolls() {
+    if (_syncingTrackScroll) return;
+    final positions =
+        _trackScrollController.positions.toList(growable: false);
+    if (positions.isEmpty) return;
+    if (positions.length == 1) {
+      _lastSyncedOffset = positions.first.pixels;
+      return;
+    }
+    ScrollPosition? source;
+    for (final position in positions) {
+      if ((position.pixels - _lastSyncedOffset).abs() > 0.01) {
+        source = position;
+      }
+    }
+    if (source == null) {
+      _lastSyncedOffset = positions.first.pixels;
+      return;
+    }
+    _syncingTrackScroll = true;
+    try {
+      final target = source.pixels;
+      for (final position in positions) {
+        if (identical(position, source) || !position.hasContentDimensions) {
+          continue;
+        }
+        if ((position.pixels - target).abs() <= 0.01) continue;
+        position.jumpTo(math.min(target, position.maxScrollExtent));
+      }
+      _lastSyncedOffset = target;
+    } finally {
+      _syncingTrackScroll = false;
+    }
   }
 
   /// The tested transaction-bridge remove-range flow (dev/test harnesses
@@ -229,6 +303,124 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     } finally {
       if (mounted) setState(() => _isEditing = false);
     }
+  }
+
+  /// Trim-handle edge commit through the manual-edit controller: the
+  /// dragged edge's new LOCAL source time; the other edge comes from the
+  /// clip's current range. The controller's validation (in/out, the
+  /// original-range outward limits) clamps the values — failures are
+  /// actionable strings with zero side effects. Undoable + journaled.
+  Future<void> _onTrimEdge(String clipId, bool isStart, int newLocalMs) async {
+    if (_isEditing) return;
+    final project = ref.read(projectProvider).valueOrNull;
+    final clip = resolveSelectedClip(project, clipId);
+    if (clip == null) {
+      _showTimelineMessage('Select a clip before trimming.');
+      return;
+    }
+    final startMs = isStart ? newLocalMs : clip.startMs;
+    final endMs = isStart ? clip.endMs : newLocalMs;
+    setState(() => _isEditing = true);
+    try {
+      final result = await ref
+          .read(manualEditControllerProvider)
+          .submitTrim(clipId: clipId, startMs: startMs, endMs: endMs);
+      if (mounted) _showTimelineMessage(result.message);
+    } finally {
+      if (mounted) setState(() => _isEditing = false);
+    }
+  }
+
+  /// Split at the playhead through the manual-edit controller: the
+  /// playhead's position maps linearly onto the ruler's fit-to-width
+  /// space, so it passes straight through as the PROJECT time; the
+  /// controller owns the clip lookup (the clip whose range contains the
+  /// playhead time) and the source conversion. Undoable + journaled.
+  Future<void> _splitAtPlayhead() async {
+    if (_isEditing) return;
+    final durationMs = _rulerRangeDurationMs();
+    if (durationMs <= 0) {
+      _showTimelineMessage('Import a video before splitting.');
+      return;
+    }
+    final positionMs = ref.read(playbackPositionProvider).inMilliseconds;
+    final atProjectMs = positionMs.clamp(0, durationMs);
+    final clip = _clipAt(atProjectMs);
+    if (clip == null) {
+      _showTimelineMessage('Move the playhead over a clip before splitting.');
+      return;
+    }
+    setState(() => _isEditing = true);
+    try {
+      final result = await ref
+          .read(manualEditControllerProvider)
+          .submitSplit(clipId: clip.id, atProjectMs: atProjectMs);
+      if (mounted) _showTimelineMessage(result.message);
+    } finally {
+      if (mounted) setState(() => _isEditing = false);
+    }
+  }
+
+  // Scrub state: the last update's area px + the throttle gate's last seek.
+  double? _lastScrubPx;
+  DateTime? _lastScrubSeek;
+
+  void _onScrubStart(DragStartDetails details) {
+    final px = _scrubAreaPx(details.globalPosition.dx);
+    _lastScrubPx = px;
+    _lastScrubSeek = null;
+    // Grab: the playhead jumps to the grab point immediately.
+    if (px != null) _seekToAreaPx(px);
+  }
+
+  void _onScrubUpdate(DragUpdateDetails details) {
+    final px = _scrubAreaPx(details.globalPosition.dx);
+    if (px == null) return;
+    _lastScrubPx = px;
+    // Throttle: at most one seek per ~80ms during the drag (mpv-backed
+    // seeks are async); the final seek on release lands the exact spot.
+    final now = DateTime.now();
+    final last = _lastScrubSeek;
+    if (last != null && now.difference(last).inMilliseconds < 80) return;
+    _lastScrubSeek = now;
+    _seekToAreaPx(px);
+  }
+
+  void _onScrubEnd(DragEndDetails details) {
+    // Final seek: land exactly where the scrub released.
+    final px = _lastScrubPx;
+    _lastScrubPx = null;
+    _lastScrubSeek = null;
+    if (px != null) _seekToAreaPx(px);
+  }
+
+  /// The area-relative px for a global x (the ruler's fit-to-width space).
+  double? _scrubAreaPx(double globalDx) {
+    final box = _rulerBox;
+    if (box == null) return null;
+    final width = box.size.width;
+    if (width <= 0) return null;
+    return box.globalToLocal(Offset(globalDx, 0)).dx;
+  }
+
+  /// Seek the shared player to the area px's time (the ruler's linear
+  /// x→time mapping), clamped to the ruler duration.
+  void _seekToAreaPx(double areaPx) {
+    final box = _rulerBox;
+    if (box == null) return;
+    final width = box.size.width;
+    if (width <= 0) return;
+    final durationMs = _rulerRangeDurationMs();
+    if (durationMs <= 0) return;
+    final targetMs =
+        (areaPx / width * durationMs).round().clamp(0, durationMs);
+    ref.read(playerProvider).seek(Duration(milliseconds: targetMs));
+  }
+
+  /// A ruler click also seeks: tap = no movement → the drag never starts
+  /// → the tap fires naturally on the ruler's GestureDetector.
+  void _onRulerTapUp(TapUpDetails details) {
+    _seekToAreaPx(details.localPosition.dx);
   }
 
   Future<void> _deleteSelectedClip() async {
@@ -405,6 +597,17 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                   ),
                   padding: EdgeInsets.zero,
                 ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.call_split, size: 16),
+                  onPressed: _isEditing ? null : _splitAtPlayhead,
+                  tooltip: 'Split at playhead',
+                  constraints: const BoxConstraints(
+                    minWidth: 30,
+                    minHeight: 30,
+                  ),
+                  padding: EdgeInsets.zero,
+                ),
                 const SizedBox(width: 14),
                 Text(
                   '${(_zoom * 100).round()}%',
@@ -413,7 +616,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                 const SizedBox(width: 6),
                 IconButton(
                   icon: const Icon(Icons.zoom_out, size: 16),
-                  onPressed: _zoom > 0.5 ? () => _changeZoom(-0.25) : null,
+                  onPressed: _zoom > _minZoom ? () => _changeZoom(-0.25) : null,
                   tooltip: 'Zoom out',
                   constraints: const BoxConstraints(
                     minWidth: 30,
@@ -424,7 +627,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                 const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.zoom_in, size: 16),
-                  onPressed: _zoom < 2.0 ? () => _changeZoom(0.25) : null,
+                  onPressed: _zoom < _maxZoom ? () => _changeZoom(0.25) : null,
                   tooltip: 'Zoom in',
                   constraints: const BoxConstraints(
                     minWidth: 30,
@@ -436,57 +639,169 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
             ),
           ),
           const Divider(height: 1, color: ClipMindColors.borderColor),
-          if (rulerDuration != null) ...[
-            SizedBox(
-              height: 44,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final rulerWidth = constraints.maxWidth > 93
-                      ? constraints.maxWidth - 93
-                      : 0.0;
-                  return Row(
-                    children: [
-                      const SizedBox(width: 92),
-                      const SizedBox(
-                        width: 1,
-                        height: double.infinity,
-                        child: ColoredBox(color: ClipMindColors.borderColor),
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          key: _rulerKey,
-                          behavior: HitTestBehavior.opaque,
-                          onHorizontalDragStart: _onRangeDragStart,
-                          onHorizontalDragUpdate: _onRangeDragUpdate,
-                          onHorizontalDragEnd: _onRangeDragEnd,
-                          child: Stack(
+          Expanded(
+            child: Listener(
+              onPointerSignal: _onCanvasPointerSignal,
+              child: Column(
+                children: [
+                  if (rulerDuration != null) ...[
+                    SizedBox(
+                      height: 59, // 44 ruler + 1 divider + 14 seek strip
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final areaWidth = constraints.maxWidth > 93
+                              ? constraints.maxWidth - 93
+                              : 0.0;
+                          return Stack(
                             children: [
-                              MarkerRuler(
-                                durationMs: rulerDuration,
-                                width: rulerWidth,
-                                document: taggingDocument,
+                              Column(
+                                children: [
+                                  _buildRulerRow(
+                                    rulerDuration,
+                                    areaWidth,
+                                    taggingDocument,
+                                  ),
+                                  const Divider(
+                                    height: 1,
+                                    color: ClipMindColors.borderColor,
+                                  ),
+                                  _buildSeekStrip(),
+                                ],
                               ),
-                              _rangeHighlight(rulerDuration),
+                              _playheadOverlay(rulerDuration, areaWidth),
                             ],
-                          ),
-                        ),
+                          );
+                        },
                       ),
-                    ],
-                  );
-                },
+                    ),
+                    const Divider(height: 1, color: ClipMindColors.borderColor),
+                  ],
+                  Expanded(child: _buildTrack(TrackTypeDisplay.video, project)),
+                  const Divider(height: 1, color: ClipMindColors.borderColor),
+                  Expanded(child: _buildTrack(TrackTypeDisplay.audio, project)),
+                  const Divider(height: 1, color: ClipMindColors.borderColor),
+                  Expanded(child: _buildTrack(TrackTypeDisplay.text, project)),
+                  const Divider(height: 1, color: ClipMindColors.borderColor),
+                  Expanded(child: _buildTrack(TrackTypeDisplay.fx, project)),
+                ],
               ),
             ),
-            const Divider(height: 1, color: ClipMindColors.borderColor),
-          ],
-          Expanded(child: _buildTrack(TrackTypeDisplay.video, project)),
-          const Divider(height: 1, color: ClipMindColors.borderColor),
-          Expanded(child: _buildTrack(TrackTypeDisplay.audio, project)),
-          const Divider(height: 1, color: ClipMindColors.borderColor),
-          Expanded(child: _buildTrack(TrackTypeDisplay.text, project)),
-          const Divider(height: 1, color: ClipMindColors.borderColor),
-          Expanded(child: _buildTrack(TrackTypeDisplay.fx, project)),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRulerRow(
+    int rulerDuration,
+    double areaWidth,
+    ProjectDocument? taggingDocument,
+  ) {
+    return SizedBox(
+      height: 44,
+      child: Row(
+        children: [
+          const SizedBox(width: 92),
+          const SizedBox(
+            width: 1,
+            height: double.infinity,
+            child: ColoredBox(color: ClipMindColors.borderColor),
+          ),
+          Expanded(
+            child: GestureDetector(
+              key: _rulerKey,
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragStart: _onRangeDragStart,
+              onHorizontalDragUpdate: _onRangeDragUpdate,
+              onHorizontalDragEnd: _onRangeDragEnd,
+              // A ruler click also seeks: tap = no movement → the drag
+              // never starts → the tap fires naturally.
+              onTapUp: _onRulerTapUp,
+              child: Stack(
+                children: [
+                  MarkerRuler(
+                    durationMs: rulerDuration,
+                    width: areaWidth,
+                    document: taggingDocument,
+                  ),
+                  _rangeHighlight(rulerDuration),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The dedicated seek strip: its own GestureDetector (no gesture
+  /// conflicts) — drag to scrub (throttled seeks via the player) and
+  /// tap-to-seek, in the ruler's fit-to-width coordinate space.
+  Widget _buildSeekStrip() {
+    return SizedBox(
+      height: 14,
+      child: Row(
+        // Stretch: the strip surface must fill the row's 14px height
+        // (a childless ColoredBox has no intrinsic height).
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(width: 92),
+          const SizedBox(
+            width: 1,
+            child: ColoredBox(color: ClipMindColors.borderColor),
+          ),
+          Expanded(
+            child: GestureDetector(
+              key: const ValueKey('timeline-seek-strip'),
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragStart: _onScrubStart,
+              onHorizontalDragUpdate: _onScrubUpdate,
+              onHorizontalDragEnd: _onScrubEnd,
+              onTapUp: (details) => _seekToAreaPx(details.localPosition.dx),
+              child: const ColoredBox(color: ClipMindColors.bgElevated),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The playhead: a vertical accent line at the playback position across
+  /// the ruler + the seek strip (one fit-to-width coordinate space; the
+  /// player's position maps linearly), with a ~12px grabbable hit zone
+  /// that drags to scrub.
+  Widget _playheadOverlay(int rulerDuration, double areaWidth) {
+    final positionMs = ref.watch(playbackPositionProvider).inMilliseconds;
+    if (rulerDuration <= 0 || areaWidth <= 0) return const SizedBox.shrink();
+    final clampedMs = positionMs.clamp(0, rulerDuration);
+    final x = 93.0 + clampedMs / rulerDuration * areaWidth;
+    final zoneLeft = math.max(93.0, x - 8);
+    return Stack(
+      children: [
+        Positioned(
+          left: x - 1,
+          top: 0,
+          bottom: 0,
+          width: 2,
+          child: const ColoredBox(color: ClipMindColors.accentPrimary),
+        ),
+        Positioned(
+          left: zoneLeft,
+          top: 0,
+          bottom: 0,
+          width: 16,
+          child: GestureDetector(
+            key: const ValueKey('timeline-playhead'),
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragStart: _onScrubStart,
+            onHorizontalDragUpdate: _onScrubUpdate,
+            onHorizontalDragEnd: _onScrubEnd,
+            onTapUp: (details) =>
+                _seekToAreaPx(zoneLeft - 93.0 + details.localPosition.dx),
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ],
     );
   }
 
@@ -498,6 +813,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       selectedClipId: _selectedClipId,
       onClipSelected: _selectClip,
       onMoveClip: _moveClip,
+      onTrimEdge: _onTrimEdge,
+      scrollController: _trackScrollController,
     );
   }
 

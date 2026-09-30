@@ -53,7 +53,9 @@ class FilterGraphComposer {
         standalone.add(op);
       } else if (op.type == EditOperationType.deleteClip ||
           op.type == EditOperationType.copyClip ||
-          op.type == EditOperationType.moveClip) {
+          op.type == EditOperationType.moveClip ||
+          op.type == EditOperationType.trimClip ||
+          op.type == EditOperationType.splitClip) {
         // Manual structural ops never produce FFmpeg jobs (defensive:
         // they would otherwise fall into the filterable bucket).
         continue;
@@ -295,6 +297,8 @@ class FilterGraphComposer {
       case EditOperationType.deleteClip:
       case EditOperationType.copyClip:
       case EditOperationType.moveClip:
+      case EditOperationType.trimClip:
+      case EditOperationType.splitClip:
         // Unreachable via routing (skipped in _composeClip) — the switch
         // stays total over the enum.
         break;
@@ -480,6 +484,8 @@ class FilterGraphComposer {
       case EditOperationType.deleteClip:
       case EditOperationType.copyClip:
       case EditOperationType.moveClip:
+      case EditOperationType.trimClip:
+      case EditOperationType.splitClip:
         // Structural ops execute through the structural applier, never
         // FFmpeg. Skip rather than fabricate a broken job.
         return null;

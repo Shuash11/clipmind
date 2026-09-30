@@ -226,6 +226,293 @@ void main() {
     });
   });
 
+  group('trimClip', () {
+    test('shrinks the range and stamps the original bounds', () {
+      final project = _project([_clip('a', 0, 10000, positionMs: 0)]);
+
+      final result = useCase.apply(
+        _op(EditOperationType.trimClip,
+            {'clip_id': 'a', 'start_ms': 2000, 'end_ms': 8000}),
+        project,
+      );
+
+      expect(result, isNotNull);
+      final clip = result!.tracks.single.clips.single;
+      expect(clip.startMs, equals(2000));
+      expect(clip.endMs, equals(8000));
+      expect(clip.positionMs, equals(0));
+      expect(clip.transformations['original_start_ms'], equals(0));
+      expect(clip.transformations['original_end_ms'], equals(10000));
+    });
+
+    test('repins the track cumulatively (ripple)', () {
+      final project = _project([
+        _clip('a', 0, 10000, positionMs: 0),
+        _clip('b', 0, 5000, positionMs: 10000),
+      ]);
+
+      final result = useCase.apply(
+        _op(EditOperationType.trimClip,
+            {'clip_id': 'a', 'start_ms': 2000, 'end_ms': 8000}),
+        project,
+      );
+
+      expect(result, isNotNull);
+      expect(_ids(result!), equals(['a', 'b']));
+      // `a` now spans 6000ms, so `b` shifts from 10000 to 6000.
+      expect(_positions(result), equals([0, 6000]));
+    });
+
+    test('in/out validation returns null', () {
+      final project = _project([_clip('a', 0, 10000)]);
+      final cases = <Map<String, dynamic>>[
+        // start >= end.
+        {'clip_id': 'a', 'start_ms': 5000, 'end_ms': 5000},
+        {'clip_id': 'a', 'start_ms': 6000, 'end_ms': 1000},
+        // negative start.
+        {'clip_id': 'a', 'start_ms': -100, 'end_ms': 1000},
+        // below the minimum clip duration.
+        {'clip_id': 'a', 'start_ms': 100, 'end_ms': 120},
+        // missing params.
+        {'clip_id': 'a', 'start_ms': 100},
+        {'clip_id': 'a', 'end_ms': 1000},
+        {'start_ms': 100, 'end_ms': 1000},
+        // unknown clip.
+        {'clip_id': 'zz', 'start_ms': 100, 'end_ms': 1000},
+      ];
+      for (final params in cases) {
+        expect(
+          useCase.apply(_op(EditOperationType.trimClip, params), project),
+          isNull,
+          reason: params.toString(),
+        );
+      }
+    });
+
+    test('handles may move outward up to the original', () {
+      var project = _project([_clip('a', 0, 10000)]);
+      project = useCase.apply(
+        _op(EditOperationType.trimClip,
+            {'clip_id': 'a', 'start_ms': 2000, 'end_ms': 8000}),
+        project,
+      )!;
+
+      // Outward within the stamped range is allowed ...
+      final grown = useCase.apply(
+        _op(EditOperationType.trimClip,
+            {'clip_id': 'a', 'start_ms': 0, 'end_ms': 10000}),
+        project,
+      );
+
+      expect(grown, isNotNull);
+      final clip = grown!.tracks.single.clips.single;
+      expect(clip.startMs, equals(0));
+      expect(clip.endMs, equals(10000));
+      // ... and the stamp still marks the true original.
+      expect(clip.transformations['original_start_ms'], equals(0));
+      expect(clip.transformations['original_end_ms'], equals(10000));
+    });
+
+    test('growing beyond the original returns null', () {
+      var project = _project([_clip('a', 0, 10000)]);
+      project = useCase.apply(
+        _op(EditOperationType.trimClip,
+            {'clip_id': 'a', 'start_ms': 2000, 'end_ms': 8000}),
+        project,
+      )!;
+
+      // In/out-valid ranges that exceed the stamped original.
+      expect(
+        useCase.apply(
+          _op(EditOperationType.trimClip,
+              {'clip_id': 'a', 'start_ms': 2000, 'end_ms': 10001}),
+          project,
+        ),
+        isNull,
+      );
+      // A stamped start above zero (via split below) also bounds the
+      // handle: [4000, 10000] split off, shrunk, then pushed past it.
+      var split = useCase.apply(
+        _op(EditOperationType.splitClip,
+            {'clip_id': 'a', 'at_local_ms': 4000}),
+        _project([_clip('a', 0, 10000)]),
+      )!;
+      split = useCase.apply(
+        _op(EditOperationType.trimClip,
+            {'clip_id': 'a_copy_1', 'start_ms': 5000, 'end_ms': 9000}),
+        split,
+      )!;
+      expect(
+        useCase.apply(
+          _op(EditOperationType.trimClip,
+              {'clip_id': 'a_copy_1', 'start_ms': 3000, 'end_ms': 9000}),
+          split,
+        ),
+        isNull,
+      );
+    });
+
+    test('corrupt stamped bounds fail closed', () {
+      final stamped = _clip('a', 3000, 7000).copyWith(transformations: {
+        'original_start_ms': 'bogus',
+        'original_end_ms': 8000,
+      });
+      final project = _project([stamped]);
+
+      expect(
+        useCase.apply(
+          _op(EditOperationType.trimClip,
+              {'clip_id': 'a', 'start_ms': 3000, 'end_ms': 6000}),
+          project,
+        ),
+        isNull,
+      );
+    });
+
+    test('numeric-string params are accepted', () {
+      final project = _project([_clip('a', 0, 10000)]);
+
+      final result = useCase.apply(
+        _op(EditOperationType.trimClip,
+            {'clip_id': 'a', 'start_ms': '2000', 'end_ms': 8000.0}),
+        project,
+      );
+
+      expect(result, isNotNull);
+      final clip = result!.tracks.single.clips.single;
+      expect(clip.startMs, equals(2000));
+      expect(clip.endMs, equals(8000));
+    });
+  });
+
+  group('splitClip', () {
+    test('divides the clip into two sharing the source', () {
+      final project = _project([_clip('a', 0, 10000, positionMs: 0)]);
+
+      final result = useCase.apply(
+        _op(EditOperationType.splitClip,
+            {'clip_id': 'a', 'at_local_ms': 4000}),
+        project,
+      );
+
+      expect(result, isNotNull);
+      final clips = result!.tracks.single.clips;
+      expect(clips.map((c) => c.id).toList(), equals(['a', 'a_copy_1']));
+      expect(clips[0].startMs, equals(0));
+      expect(clips[0].endMs, equals(4000));
+      expect(clips[1].startMs, equals(4000));
+      expect(clips[1].endMs, equals(10000));
+      expect(clips[1].sourcePath, equals(clips[0].sourcePath));
+      expect(clips[1].sourcePath, equals('/v/a.mp4'));
+      expect(_positions(result), equals([0, 4000]));
+    });
+
+    test('repins later clips after the split (ripple)', () {
+      final project = _project([
+        _clip('a', 0, 10000, positionMs: 0),
+        _clip('b', 0, 5000, positionMs: 10000),
+      ]);
+
+      final result = useCase.apply(
+        _op(EditOperationType.splitClip,
+            {'clip_id': 'a', 'at_local_ms': 4000}),
+        project,
+      );
+
+      expect(result, isNotNull);
+      expect(_ids(result!), equals(['a', 'a_copy_1', 'b']));
+      expect(_positions(result), equals([0, 4000, 10000]));
+    });
+
+    test('first half keeps id and transformations', () {
+      var project = _project([_clip('a', 0, 10000)]);
+      project = useCase.apply(
+        _op(EditOperationType.trimClip,
+            {'clip_id': 'a', 'start_ms': 2000, 'end_ms': 8000}),
+        project,
+      )!;
+
+      final result = useCase.apply(
+        _op(EditOperationType.splitClip,
+            {'clip_id': 'a', 'at_local_ms': 5000}),
+        project,
+      );
+
+      expect(result, isNotNull);
+      final clips = result!.tracks.single.clips;
+      expect(clips[0].id, equals('a'));
+      expect(clips[0].startMs, equals(2000));
+      expect(clips[0].endMs, equals(5000));
+      expect(clips[0].transformations['original_start_ms'], equals(0));
+      expect(clips[1].startMs, equals(5000));
+      expect(clips[1].endMs, equals(8000));
+      expect(clips[1].transformations['original_start_ms'], equals(0));
+      expect(clips[1].transformations['original_end_ms'], equals(10000));
+    });
+
+    test('split ids stay unique like copies', () {
+      final project = _project([
+        _clip('a', 0, 10000),
+        _clip('a_copy_1', 0, 10000),
+      ]);
+
+      final result = useCase.apply(
+        _op(EditOperationType.splitClip,
+            {'clip_id': 'a', 'at_local_ms': 4000}),
+        project,
+      );
+
+      expect(_ids(result!), equals(['a', 'a_copy_2', 'a_copy_1']));
+    });
+
+    test('points within 50ms of an edge return null', () {
+      final project = _project([_clip('a', 0, 10000)]);
+      final cases = <Map<String, dynamic>>[
+        {'clip_id': 'a', 'at_local_ms': 0},
+        {'clip_id': 'a', 'at_local_ms': 10000},
+        {'clip_id': 'a', 'at_local_ms': 49},
+        {'clip_id': 'a', 'at_local_ms': 9951},
+        {'clip_id': 'a', 'at_local_ms': -10},
+        {'clip_id': 'a', 'at_local_ms': 20000},
+        {'clip_id': 'a'},
+        {'clip_id': 'zz', 'at_local_ms': 4000},
+      ];
+      for (final params in cases) {
+        expect(
+          useCase.apply(_op(EditOperationType.splitClip, params), project),
+          isNull,
+          reason: params.toString(),
+        );
+      }
+    });
+
+    test('exactly 50ms from an edge is allowed', () {
+      final project = _project([_clip('a', 0, 10000)]);
+
+      final atStart = useCase.apply(
+        _op(EditOperationType.splitClip,
+            {'clip_id': 'a', 'at_local_ms': 50}),
+        project,
+      );
+      expect(atStart, isNotNull);
+      expect(
+        atStart!.tracks.single.clips.map((c) => c.endMs - c.startMs).toList(),
+        equals([50, 9950]),
+      );
+
+      final atEnd = useCase.apply(
+        _op(EditOperationType.splitClip,
+            {'clip_id': 'a', 'at_local_ms': 9950}),
+        project,
+      );
+      expect(atEnd, isNotNull);
+      expect(
+        atEnd!.tracks.single.clips.map((c) => c.endMs - c.startMs).toList(),
+        equals([9950, 50]),
+      );
+    });
+  });
+
   group('non-structural ops', () {
     test('ffmpeg op types return null', () {
       final project = _project([_clip('a', 0, 1000)]);

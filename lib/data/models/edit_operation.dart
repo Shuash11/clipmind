@@ -30,7 +30,13 @@ enum EditOperationType {
   // Panel-driven sound op (append-only, same Drift rule). UI-driven like
   // the structural ops above — journaled and undoable, but never a model
   // tool (the 20-tool cap holds; `sound_path` is app-generated).
-  addSound;
+  addSound,
+  // Manual trim/split (append-only, same Drift rule). Pure structural ops:
+  // the export slices per-clip `startMs`/`endMs` into the shared source,
+  // so no FFmpeg and no repointing is needed. Manual-only — never model
+  // tools (the 20-tool cap holds).
+  trimClip,
+  splitClip;
 
   String get jsonValue => name;
 }

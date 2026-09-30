@@ -33,6 +33,8 @@ class CommandMapper {
     'delete_clip',
     'copy_clip',
     'move_clip',
+    'trim_clip',
+    'split_clip',
   };
 
   /// Map an LLM operation set to FFmpeg jobs using real file paths.

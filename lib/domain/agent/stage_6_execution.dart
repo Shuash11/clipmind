@@ -191,6 +191,8 @@ class ExecutionEngine {
       case 'delete_clip': return EditOperationType.deleteClip;
       case 'copy_clip': return EditOperationType.copyClip;
       case 'move_clip': return EditOperationType.moveClip;
+      case 'trim_clip': return EditOperationType.trimClip;
+      case 'split_clip': return EditOperationType.splitClip;
       case 'generate_thumbnail': return EditOperationType.generateThumbnail;
       case 'adjust_brightness': return EditOperationType.adjustBrightness;
       case 'add_sound': return EditOperationType.addSound;

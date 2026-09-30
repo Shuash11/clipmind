@@ -61,4 +61,10 @@ const Map<String, List<String>> releaseNotes = {
     '* NVIDIA model dropdown auto-populates after key entry',
     '* Back button on the AI providers page',
   ],
+  '1.25.0': [
+    '* Playhead with scrubbing and click-to-seek',
+    '* Non-destructive trim handles',
+    '* Split at the playhead',
+    '* Timeline zoom with Ctrl+wheel',
+  ],
 };

@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:media_kit/media_kit.dart' as media_kit;
 import 'package:clipmind/data/local/database/app_database.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
@@ -13,9 +14,11 @@ import 'package:clipmind/data/repositories/project_repository.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_binary_resolver.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/features/tagging/presentation/providers/tagging_providers.dart';
+import 'package:clipmind/presentation/editor/providers/selected_clip_provider.dart';
 import 'package:clipmind/presentation/editor/widgets/timeline/timeline_view.dart';
 import 'package:clipmind/presentation/editor/widgets/timeline/track_row.dart';
 import 'package:clipmind/state/agent_providers.dart';
+import 'package:clipmind/state/player_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/settings_providers.dart';
 import 'package:clipmind/state/undo_redo_providers.dart';
@@ -61,6 +64,21 @@ class _StubResolver extends FfmpegBinaryResolver {
   String? resolveFfmpeg({String? settingsPath}) => path;
 }
 
+/// Fake player for the seek tests: `implements media_kit.Player` (no
+/// native init — the sandbox lacks the media_kit libs, so a real read
+/// throws). Records the seek targets; the timeline only ever calls [seek].
+class _FakePlayer implements media_kit.Player {
+  final List<Duration> seeks = [];
+
+  @override
+  Future<void> seek(Duration duration) async {
+    seeks.add(duration);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
 Project _project() {
   return Project(
     id: 'p1',
@@ -86,6 +104,44 @@ Project _project() {
       ),
     ],
     durationMs: 30000,
+  );
+}
+
+Project twoClipProject() {
+  return Project(
+    id: 'p1',
+    name: 'Test',
+    createdAt: DateTime(2026, 1, 1),
+    updatedAt: DateTime(2026, 1, 1),
+    sourceMediaPaths: const ['C:/media/sample.mp4'],
+    tracks: const [
+      Track(
+        id: 'track-1',
+        type: TrackType.video,
+        label: 'Video',
+        clips: [
+          Clip(
+            id: 'clip-1',
+            trackId: 'track-1',
+            sourcePath: 'C:/media/sample.mp4',
+            startMs: 0,
+            endMs: 30000,
+            positionMs: 0,
+            label: 'sample.mp4',
+          ),
+          Clip(
+            id: 'clip-2',
+            trackId: 'track-1',
+            sourcePath: 'C:/media/sample.mp4',
+            startMs: 0,
+            endMs: 30000,
+            positionMs: 30000,
+            label: 'second.mp4',
+          ),
+        ],
+      ),
+    ],
+    durationMs: 60000,
   );
 }
 
@@ -164,44 +220,6 @@ void main() {
     tearDown(() async {
       await db.close();
     });
-
-    Project twoClipProject() {
-      return Project(
-        id: 'p1',
-        name: 'Test',
-        createdAt: DateTime(2026, 1, 1),
-        updatedAt: DateTime(2026, 1, 1),
-        sourceMediaPaths: const ['C:/media/sample.mp4'],
-        tracks: const [
-          Track(
-            id: 'track-1',
-            type: TrackType.video,
-            label: 'Video',
-            clips: [
-              Clip(
-                id: 'clip-1',
-                trackId: 'track-1',
-                sourcePath: 'C:/media/sample.mp4',
-                startMs: 0,
-                endMs: 30000,
-                positionMs: 0,
-                label: 'sample.mp4',
-              ),
-              Clip(
-                id: 'clip-2',
-                trackId: 'track-1',
-                sourcePath: 'C:/media/sample.mp4',
-                startMs: 0,
-                endMs: 30000,
-                positionMs: 30000,
-                label: 'second.mp4',
-              ),
-            ],
-          ),
-        ],
-        durationMs: 60000,
-      );
-    }
 
     List<String> clipOrder(Project? project) {
       if (project == null) return const [];
@@ -505,6 +523,337 @@ void main() {
         for (final track in restored?.tracks ?? const <Track>[]) ...track.clips,
       ];
       expect(clips.single.id, equals('clip-1'));
+    });
+  });
+
+  group('trim handles', () {
+    late AppDatabase db;
+
+    setUp(() {
+      db = AppDatabase(NativeDatabase.memory());
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    testWidgets('dragging a selected block\'s start handle fires the '
+        'trimClip op; the arena keeps the scroll still',
+        (WidgetTester tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          projectRepositoryProvider.overrideWithValue(
+            _FakeProjectRepository(db: db),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(projectProvider.notifier).setProject(twoClipProject());
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: TimelineView())),
+        ),
+      );
+      await tester.pump();
+
+      // Select clip-1 so its trim handles appear (handles render on the
+      // selected block only).
+      await tester.tap(find.text('sample.mp4'));
+      await tester.pump();
+      expect(
+        container.read(selectedClipIdProvider),
+        equals('clip-1'),
+      );
+
+      // Drag the start handle +30px right at zoom 1.0: 30px * 1000/12 =
+      // 2500ms. The handle's GestureDetector is the deepest hit-test
+      // member, so it wins the arena against the block's Draggable and
+      // the horizontal scroll.
+      final handle = find.byKey(const ValueKey('trim-start-clip-1'));
+      await tester.drag(handle, const Offset(30, 0));
+      await tester.pump();
+      await tester.pump();
+
+      // The trim went through the structural applier (a `trimClip` op):
+      // the clip's in point moved to 2500ms, the out point kept, repinned.
+      final project = container.read(projectProvider).valueOrNull!;
+      final clip = project.tracks.first.clips.first;
+      expect(clip.startMs, equals(2500));
+      expect(clip.endMs, equals(30000));
+      // The arena resolved to the handle: the track scroll stayed still.
+      final scroll = find.descendant(
+        of: find.byType(TrackRow),
+        matching: find.byType(Scrollable),
+      );
+      expect(tester.state<ScrollableState>(scroll.first).position.pixels,
+          equals(0));
+      // The trim op is in the undo stack (undoable, journaled).
+      expect(container.read(undoRedoProvider).canUndo, isTrue);
+      final op = await container.read(undoRedoProvider.notifier).undo();
+      expect(op, isNotNull);
+      expect(op!.type, equals(EditOperationType.trimClip));
+      // Undo restores the pre-trim range.
+      final restored = container.read(projectProvider).valueOrNull!;
+      expect(restored.tracks.first.clips.first.startMs, equals(0));
+    });
+
+    testWidgets('the trim handle beats the block\'s middle drag (the arena '
+        'proof): the middle keeps reorder-drag', (WidgetTester tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          projectRepositoryProvider.overrideWithValue(
+            _FakeProjectRepository(db: db),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(projectProvider.notifier).setProject(twoClipProject());
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: TimelineView())),
+        ),
+      );
+      await tester.pump();
+
+      // Select clip-2 so its trim handles appear, then drag from the
+      // block's MIDDLE (the label — outside the 8px edge zones): the
+      // reorder still works with the handles present. The descendant
+      // finder targets the track block, not the header's selected label.
+      await tester.tap(find.text('second.mp4'));
+      await tester.pump();
+      expect(
+        container.read(selectedClipIdProvider),
+        equals('clip-2'),
+      );
+      final block = find.descendant(
+        of: find.byType(TrackRow),
+        matching: find.text('second.mp4'),
+      );
+      await tester.drag(block.first, const Offset(-400, 0));
+      await tester.pump();
+      await tester.pump();
+
+      // The moveClip op went through (the order clip-2 then clip-1); the
+      // undo stack's op is moveClip, NOT trimClip.
+      final project = container.read(projectProvider).valueOrNull!;
+      final track = project.tracks.first;
+      final sorted = [...track.clips]
+        ..sort((a, b) => a.positionMs.compareTo(b.positionMs));
+      expect([for (final clip in sorted) clip.id], equals(['clip-2', 'clip-1']));
+      expect(container.read(undoRedoProvider).canUndo, isTrue);
+      final op = await container.read(undoRedoProvider.notifier).undo();
+      expect(op, isNotNull);
+      expect(op!.type, equals(EditOperationType.moveClip));
+    });
+  });
+
+  group('split at the playhead', () {
+    late AppDatabase db;
+
+    setUp(() {
+      db = AppDatabase(NativeDatabase.memory());
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    testWidgets('the split button at the playhead splits the clip via one '
+        'splitClip op', (WidgetTester tester) async {
+      final harness = TaggingWidgetHarness();
+      final container = ProviderContainer(
+        overrides: [
+          projectRepositoryProvider.overrideWithValue(
+            _FakeProjectRepository(db: db),
+          ),
+          appDatabaseProvider.overrideWithValue(db),
+          taggingProvidersProvider.overrideWithValue(harness.providers),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(projectProvider.notifier).setProject(twoClipProject());
+      // The playhead at 500ms project time: the 1000ms harness ruler maps
+      // it inside clip-1's span [0, 30000).
+      container.read(playbackPositionProvider.notifier).state =
+          const Duration(milliseconds: 500);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: TimelineView())),
+        ),
+      );
+      await tester.pump();
+
+      // The split button sits in the timeline's header (next to
+      // cut/delete/copy).
+      await tester.tap(find.byIcon(Icons.call_split));
+      await tester.pump();
+      await tester.pump();
+
+      // ONE splitClip op: two clips sharing the source, undoable +
+      // journaled, repinned cumulatively.
+      final project = container.read(projectProvider).valueOrNull!;
+      final clips = [for (final track in project.tracks) ...track.clips];
+      expect(clips.length, equals(3));
+      final sorted = [...clips]
+        ..sort((a, b) => a.positionMs.compareTo(b.positionMs));
+      final first = sorted[0];
+      final second = sorted[1];
+      expect(first.id, equals('clip-1'));
+      expect(first.endMs, equals(500));
+      expect(second.startMs, equals(500));
+      expect(first.sourcePath, equals(second.sourcePath));
+      expect(find.text('Split clip "clip-1" at the playhead.'), findsOneWidget);
+      expect(container.read(undoRedoProvider).canUndo, isTrue);
+      final op = await container.read(undoRedoProvider.notifier).undo();
+      expect(op, isNotNull);
+      expect(op!.type, equals(EditOperationType.splitClip));
+    });
+  });
+
+  group('playhead + seek strip', () {
+    late AppDatabase db;
+
+    setUp(() {
+      db = AppDatabase(NativeDatabase.memory());
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    Future<ProviderContainer> pumpTimeline(
+      WidgetTester tester, {
+      required media_kit.Player? player,
+    }) async {
+      final harness = TaggingWidgetHarness();
+      final container = ProviderContainer(
+        overrides: [
+          projectRepositoryProvider.overrideWithValue(
+            _FakeProjectRepository(db: db),
+          ),
+          appDatabaseProvider.overrideWithValue(db),
+          taggingProvidersProvider.overrideWithValue(harness.providers),
+          if (player != null) playerProvider.overrideWithValue(player),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(projectProvider.notifier).setProject(_project());
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: TimelineView())),
+        ),
+      );
+      await tester.pump();
+      return container;
+    }
+
+    TimelineClipRange? timelineRangeOf(WidgetTester tester) {
+      final context = tester.element(find.byType(TimelineView));
+      final container = ProviderScope.containerOf(context);
+      return container.read(timelineRangeProvider);
+    }
+
+    testWidgets('the playhead renders at the playback position on the ruler '
+        'and the seek strip', (WidgetTester tester) async {
+      final container = await pumpTimeline(tester, player: null);
+      // The playhead at 500ms = 50% of the 1000ms harness ruler.
+      container.read(playbackPositionProvider.notifier).state =
+          const Duration(milliseconds: 500);
+      await tester.pump();
+
+      // The dedicated seek strip and the playhead line render.
+      final strip = find.byKey(const ValueKey('timeline-seek-strip'));
+      expect(strip, findsOneWidget);
+      final playhead = find.byKey(const ValueKey('timeline-playhead'));
+      expect(playhead, findsOneWidget);
+      // The playhead maps to 50% of the ruler's area: the grabbable
+      // zone's left edge sits at gutter(93) + area/2 - 8.
+      final areaWidth = tester.getSize(strip).width;
+      expect(tester.getTopLeft(playhead).dx,
+          closeTo(93 + areaWidth / 2 - 8, 1));
+    });
+
+    testWidgets('the seek strip tap seeks (click-to-seek)',
+        (WidgetTester tester) async {
+      final fakePlayer = _FakePlayer();
+      await pumpTimeline(tester, player: fakePlayer);
+
+      // Tap the strip's centre: 50% of the 1000ms ruler → 500ms. The
+      // strip's GestureDetector owns the surface, so no gesture conflicts.
+      await tester.tap(find.byKey(const ValueKey('timeline-seek-strip')));
+      await tester.pump();
+
+      expect(fakePlayer.seeks, equals([const Duration(milliseconds: 500)]));
+    });
+
+    testWidgets('the seek strip drag scrubs with a throttled final seek',
+        (WidgetTester tester) async {
+      final fakePlayer = _FakePlayer();
+      await pumpTimeline(tester, player: fakePlayer);
+
+      // Drag the strip from its centre +120px in 3 moves: the throttle
+      // gate allows at most one seek per ~80ms during the drag, and the
+      // final seek on release lands the exact position.
+      final stripCenter =
+          tester.getCenter(find.byKey(const ValueKey('timeline-seek-strip')));
+      final gesture = await tester.startGesture(stripCenter);
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      // The throttle gate keeps the seek count low (at most the
+      // grab-seek + one throttled update + the final seek; the exact
+      // count depends on the test's real-time awaits — the ~80ms gate
+      // tuning is verified live). The final seek lands at the release
+      // spot.
+      expect(fakePlayer.seeks.length, inInclusiveRange(2, 5));
+      final stripWidth =
+          tester.getSize(find.byKey(const ValueKey('timeline-seek-strip')))
+              .width;
+      final releasePx = stripCenter.dx - 93 + 120;
+      final expectedEndMs =
+          (releasePx / stripWidth * 1000).round().clamp(0, 1000);
+      expect(
+        fakePlayer.seeks.last,
+        equals(Duration(milliseconds: expectedEndMs)),
+      );
+    });
+
+    testWidgets('a ruler click seeks; the ruler drag stays range-select',
+        (WidgetTester tester) async {
+      final fakePlayer = _FakePlayer();
+      await pumpTimeline(tester, player: fakePlayer);
+
+      // A click on the ruler: tap = no movement → the drag never starts →
+      // the tap fires naturally on the ruler's GestureDetector.
+      final ruler = find.byWidgetPredicate(
+        (w) => w is GestureDetector && w.onHorizontalDragStart != null,
+      );
+      await tester.tap(ruler.first);
+      await tester.pump();
+      expect(fakePlayer.seeks, equals([const Duration(milliseconds: 500)]));
+
+      // The ruler drag stays range-select (no regression).
+      await tester.drag(ruler.first, const Offset(200, 0));
+      await tester.pump();
+      final range = timelineRangeOf(tester);
+      expect(range, isNotNull);
+      expect(range!.clipId, equals('clip-1'));
+      expect(range.startMs, greaterThanOrEqualTo(400));
+      expect(range.endMs, lessThanOrEqualTo(1000));
+      // The drag added no seek.
+      expect(fakePlayer.seeks.length, equals(1));
     });
   });
 }

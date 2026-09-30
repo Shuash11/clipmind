@@ -13,6 +13,7 @@ import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
 import 'package:clipmind/domain/agent/stage_6_execution.dart';
 import 'package:clipmind/state/agent_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
+import 'package:clipmind/state/structural_edit_providers.dart';
 
 /// Typed outcome of a manual panel edit (cut, effect recipe, text overlay,
 /// sound). Mirrors the `SubmitResult` pattern.
@@ -43,6 +44,14 @@ class ManualCutResult {
         success: false,
         message: message,
       );
+
+  /// Structural success (trim/split): no FFmpeg runs, so there is no
+  /// output file — [outputPath] stays null and Track 3 reads
+  /// `success`/`message` only.
+  factory ManualCutResult.okStructural(String message) => ManualCutResult(
+        success: true,
+        message: message,
+      );
 }
 
 /// Manual-FFmpeg edit controller (D4): panel submits executed through the
@@ -67,6 +76,15 @@ class ManualCutResult {
 ///   `drone-low`, `drone-mid`, `hum`, `static-noise`, `alert-chime`)
 ///   renders a temp wav via `ProceduralSoundService`; anything else is a
 ///   local file path (frontend passes the file_picker result).
+/// - `submitTrim({clipId, startMs, endMs})` — trim handles: LOCAL source
+///   times (the clip's new in/out); runs through
+///   `structuralEditApplierProvider` (`trimClip`), so no FFmpeg and no
+///   output file (success has `outputPath == null`).
+/// - `submitSplit({clipId, atProjectMs})` — split button: PROJECT timeline
+///   time (the playhead position, passed straight through); the controller
+///   converts to the SOURCE split point
+///   (`atProjectMs − clip.positionMs + clip.startMs`) and runs `splitClip`
+///   through the same structural applier (no output file on success).
 class ManualEditController {
   final Ref _ref;
   final Uuid _uuid = const Uuid();
@@ -517,6 +535,101 @@ class ManualEditController {
     } finally {
       engine.dispose();
     }
+  }
+
+  /// Trim [clipId] to the LOCAL source range `[startMs, endMs)` through
+  /// the structural applier (`trimClip`: in/out validation, the
+  /// original-range outward limits, and the repin ripple live in the
+  /// backend use case — no FFmpeg, no output file).
+  ///
+  /// Time convention: [startMs]/[endMs] are LOCAL source times — the
+  /// clip's new in/out points, i.e. what the trim handles drag. (This
+  /// differs from [submitSplit], which takes PROJECT time straight from
+  /// the playhead.)
+  Future<ManualCutResult> submitTrim({
+    required String clipId,
+    required int startMs,
+    required int endMs,
+  }) async {
+    final target = _resolveTarget(clipId);
+    if (target.failure != null) {
+      return ManualCutResult.fail(target.failure!);
+    }
+    if (startMs >= endMs) {
+      return ManualCutResult.fail(
+        'Invalid trim range [$startMs, $endMs): start must be before end.',
+      );
+    }
+    final applied = await _ref.read(structuralEditApplierProvider).apply(
+          EditOperation(
+            id: _uuid.v4(),
+            type: EditOperationType.trimClip,
+            targetClipIds: [clipId],
+            params: {
+              'clip_id': clipId,
+              'start_ms': startMs,
+              'end_ms': endMs,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+    if (!applied) {
+      return ManualCutResult.fail(
+        'Could not trim clip "$clipId" to [$startMs, $endMs): the range is '
+        'invalid or outside the clip. Adjust the trim handles and retry.',
+      );
+    }
+    return ManualCutResult.okStructural('Trimmed clip "$clipId".');
+  }
+
+  /// Split [clipId] at the playhead through the structural applier
+  /// (`splitClip`: ≥50ms from the edges, two clips sharing the source,
+  /// repin — all in the backend use case; no FFmpeg, no output file).
+  ///
+  /// Time convention: [atProjectMs] is PROJECT timeline time — the
+  /// playhead position, passed straight through by the frontend. The
+  /// controller converts to the SOURCE split point
+  /// (`atProjectMs − clip.positionMs + clip.startMs`) for the
+  /// `at_local_ms` op param.
+  Future<ManualCutResult> submitSplit({
+    required String clipId,
+    required int atProjectMs,
+  }) async {
+    final target = _resolveTarget(clipId);
+    if (target.failure != null) {
+      return ManualCutResult.fail(target.failure!);
+    }
+    final clip = target.clip!;
+    final spanStart = clip.positionMs;
+    final spanEnd = clip.positionMs + (clip.endMs - clip.startMs);
+    if (atProjectMs <= spanStart || atProjectMs >= spanEnd) {
+      return ManualCutResult.fail(
+        'Cannot split clip "$clipId" at ${atProjectMs}ms: outside the clip '
+        '($spanStart–$spanEnd). Move the playhead over the clip and retry.',
+      );
+    }
+    final applied = await _ref.read(structuralEditApplierProvider).apply(
+          EditOperation(
+            id: _uuid.v4(),
+            type: EditOperationType.splitClip,
+            targetClipIds: [clipId],
+            params: {
+              'clip_id': clipId,
+              'at_local_ms': atProjectMs - spanStart + clip.startMs,
+            },
+            createdAt: DateTime.now(),
+          ),
+        );
+    if (!applied) {
+      return ManualCutResult.fail(
+        'Could not split clip "$clipId" at the playhead: too close to the '
+        'clip edges (splits need 50ms each side). Nudge the playhead and '
+        'retry.',
+      );
+    }
+    return ManualCutResult.okStructural(
+      'Split clip "$clipId" at the playhead.',
+    );
   }
 
   /// Journal type for a recipe step op. Null when the recipe references an

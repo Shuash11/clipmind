@@ -14,7 +14,11 @@ class PreviewPlayer extends ConsumerStatefulWidget {
 }
 
 class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
-  final Player _player = Player();
+  // The shared mpv-backed Player comes from the provider (the app's ONE
+  // player; the provider owns the lifetime via ref.onDispose). The widget
+  // keeps only its VideoController + the stream sync into the playback
+  // providers.
+  late final Player _player;
   late final VideoController _controller;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
@@ -23,6 +27,7 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
   @override
   void initState() {
     super.initState();
+    _player = ref.read(playerProvider);
     _controller = VideoController(_player);
     _listenToPlayer();
   }
@@ -57,7 +62,8 @@ class _PreviewPlayerState extends ConsumerState<PreviewPlayer> {
     _positionSub?.cancel();
     _durationSub?.cancel();
     _playingSub?.cancel();
-    _player.dispose();
+    // No _player.dispose() here: the provider owns the Player lifetime
+    // (ref.onDispose(player.dispose) in playerProvider).
     super.dispose();
   }
 
