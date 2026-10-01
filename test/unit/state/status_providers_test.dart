@@ -128,7 +128,7 @@ void main() {
       final sub = container.listen<AsyncValue<ConnectionStatus>>(
         providerHealthProvider,
         (previous, next) {
-          final value = next.valueOrNull;
+          final value = next.value;
           if (value != null) events.add(value);
         },
       );
@@ -154,10 +154,17 @@ void main() {
       );
       addTearDown(container.dispose);
 
+      // Riverpod 3 only subscribes a StreamProvider while it has a
+      // listener; `.future` alone no longer activates the stream.
+      final sub = container.listen<AsyncValue<ConnectionStatus>>(
+        providerHealthProvider,
+        (_, _) {},
+      );
       final first = await container.read(providerHealthProvider.future);
+      sub.close();
       expect(first, equals(ConnectionStatus.disconnected));
       expect(
-        container.read(providerHealthProvider).valueOrNull,
+        container.read(providerHealthProvider).value,
         equals(ConnectionStatus.disconnected),
       );
     });

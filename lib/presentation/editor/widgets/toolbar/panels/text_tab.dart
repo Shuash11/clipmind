@@ -98,7 +98,7 @@ class _TextTabState extends ConsumerState<TextTab> {
 
   @override
   Widget build(BuildContext context) {
-    final project = ref.watch(projectProvider).valueOrNull;
+    final project = ref.watch(projectProvider).value;
     final selectedClip =
         resolveSelectedClip(project, ref.watch(selectedClipIdProvider));
     final preset = _stylePresets[_selectedPresetIndex];

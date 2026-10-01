@@ -12,7 +12,7 @@ import 'package:clipmind/features/providers/domain/entities/provider_profiles_do
 import 'package:clipmind/features/providers/domain/provider_credential_reference.dart';
 import 'package:clipmind/features/providers/domain/provider_failures.dart';
 import 'package:clipmind/features/providers/domain/provider_service_ids.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 typedef ProviderIdFactory = String Function();
 typedef ProviderCancellationControllerFactory =

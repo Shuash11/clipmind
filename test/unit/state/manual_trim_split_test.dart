@@ -73,14 +73,14 @@ Project _project() {
 
 List<Clip> _clips(ProviderContainer container) => container
     .read(projectProvider)
-    .valueOrNull!
+    .value!
     .tracks
     .firstWhere((t) => t.id == 't1')
     .clips;
 
 EditOperation _lastJournaled(ProviderContainer container) => container
     .read(projectProvider)
-    .valueOrNull!
+    .value!
     .editHistory
     .last;
 

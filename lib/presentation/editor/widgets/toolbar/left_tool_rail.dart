@@ -35,7 +35,7 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
     }
     if (tool.label == 'Export') {
       // An action, not content: stays a dialog.
-      final project = ref.read(projectProvider).valueOrNull;
+      final project = ref.read(projectProvider).value;
       if (project == null) {
         _showMessage('Open a project before exporting.');
         return;

@@ -578,7 +578,7 @@ void main() {
         container.dispose();
       });
       for (var i = 0; i < 200; i++) {
-        if (container.read(settingsProvider).valueOrNull != null) break;
+        if (container.read(settingsProvider).value != null) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       return container;
@@ -591,21 +591,21 @@ void main() {
       await container.read(settingsProvider.notifier).update(
             container
                 .read(settingsProvider)
-                .valueOrNull!
+                .value!
                 .copyWith(confirmAgentEdits: true),
           );
       expect(container.read(agentConfirmEditsProvider), isTrue);
 
       container.read(agentConfirmEditsProvider.notifier).state = false;
       for (var i = 0; i < 200; i++) {
-        if (container.read(settingsProvider).valueOrNull?.confirmAgentEdits ==
+        if (container.read(settingsProvider).value?.confirmAgentEdits ==
             false) {
           break;
         }
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       expect(
-        container.read(settingsProvider).valueOrNull?.confirmAgentEdits,
+        container.read(settingsProvider).value?.confirmAgentEdits,
         isFalse,
       );
     });
@@ -707,7 +707,7 @@ void main() {
         // Wait for settings to finish loading first: the flag mirrors
         // settings, so a late load would revert an early write.
         for (var i = 0; i < 200; i++) {
-          if (container.read(settingsProvider).valueOrNull != null) break;
+          if (container.read(settingsProvider).value != null) break;
           await Future<void>.delayed(const Duration(milliseconds: 10));
         }
         container.read(agentConfirmEditsProvider.notifier).state = true;
@@ -984,13 +984,13 @@ void main() {
             _project(input, outDir.path),
           );
       for (var i = 0; i < 200; i++) {
-        if (container.read(settingsProvider).valueOrNull != null) break;
+        if (container.read(settingsProvider).value != null) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       await container.read(settingsProvider.notifier).update(
             container
                 .read(settingsProvider)
-                .valueOrNull!
+                .value!
                 .copyWith(planEditsBeforeApply: true),
           );
       return container;

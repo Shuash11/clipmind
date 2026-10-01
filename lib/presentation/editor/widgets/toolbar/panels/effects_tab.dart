@@ -51,7 +51,7 @@ class _EffectsTabState extends ConsumerState<EffectsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final project = ref.watch(projectProvider).valueOrNull;
+    final project = ref.watch(projectProvider).value;
     final selectedClip =
         resolveSelectedClip(project, ref.watch(selectedClipIdProvider));
     return Column(

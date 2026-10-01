@@ -686,7 +686,7 @@ class ManualEditController {
   ({Project? project, Clip? clip, String? failure}) _resolveTarget(
     String clipId,
   ) {
-    final project = _ref.read(projectProvider).valueOrNull;
+    final project = _ref.read(projectProvider).value;
     if (project == null) {
       return (
         project: null,

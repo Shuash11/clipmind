@@ -77,4 +77,8 @@ const Map<String, List<String>> releaseNotes = {
     '* Live-verified FFmpeg gates',
     '* Code-graph freshness enforcement',
   ],
+  '1.28.0': [
+    '* Riverpod 3 upgrade with preserved semantics',
+    '* Removed unused dependencies',
+  ],
 };

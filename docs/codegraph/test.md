@@ -1,4 +1,4 @@
-# Code Graph — test (138 files, 32,529 lines; DO NOT EDIT)
+# Code Graph — test (138 files, 32,535 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -474,13 +474,13 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/data/media_analysis_dao_test.dart (146 lines)
 - L5  function main
 
-## test/unit/domain/usecases/export_args_test.dart (423 lines)
-- L22  class _CapturingFfmpeg extends FfmpegService (_tmp, jobs, createTempPathCalls, _counter) — _CapturingFfmpeg(this._tmp) : super(tempDir: _tmp.path) L23, lastJob L30, createTempPath(…) L33, run(FfmpegJob job) async* L40, cancel() L60
-- L63  function _clip
-- L82  function _project
-- L108  function _joined
-- L113  function _export
-- L129  function main
+## test/unit/domain/usecases/export_args_test.dart (422 lines)
+- L21  class _CapturingFfmpeg extends FfmpegService (_tmp, jobs, createTempPathCalls, _counter) — _CapturingFfmpeg(this._tmp) : super(tempDir: _tmp.path) L22, lastJob L29, createTempPath(…) L32, run(FfmpegJob job) async* L39, cancel() L59
+- L62  function _clip
+- L81  function _project
+- L107  function _joined
+- L112  function _export
+- L128  function main
 
 ## test/unit/domain/usecases/export_flow_test.dart (302 lines)
 - L17  class _FlowFfmpeg extends FfmpegService (_tmp, script, createFile, delay, shouldThrow, jobs, tempCalls, cancelCalled) — _FlowFfmpeg(…) L18, Function()? onCreateTempPath L30, createTempPath(…) L37, run(FfmpegJob job) async* L44, cancel() L75
@@ -652,7 +652,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L82  function main
 - L281  class _WritingFfmpeg extends FfmpegService — _WritingFfmpeg() : super(tempDir: Directory.systemTemp.path) L282, runSync(FfmpegJob job) L285
 
-## test/unit/state/status_providers_test.dart (301 lines)
+## test/unit/state/status_providers_test.dart (308 lines)
 - L25  class _ScriptProvider extends LlmProvider — health L26, id L30, availableModels() L33, parseCommand(AgentRequest request) L36, watchConnection() L40
 - L43  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L45, getActiveProvider() L48
 - L51  class _FakeGenBRegistry — definitions L53, definitionFor(String providerId) L56, adapterFor(String providerId) L59

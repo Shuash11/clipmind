@@ -112,7 +112,7 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
       settingsProvider,
       (_, next) {
         if (!next.isLoading && !completer.isCompleted) {
-          completer.complete(next.valueOrNull);
+          completer.complete(next.value);
         }
       },
       fireImmediately: true,
@@ -125,7 +125,7 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
   /// `SettingsRepository.save`. No-op when settings have not loaded yet.
   Future<void> _updateSettings(AppSettings Function(AppSettings) mutate) async {
     try {
-      final current = ref.read(settingsProvider).valueOrNull;
+      final current = ref.read(settingsProvider).value;
       if (current == null) return;
       await ref.read(settingsProvider.notifier).update(mutate(current));
     } catch (_) {}

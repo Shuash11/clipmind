@@ -117,7 +117,7 @@ Project _project(String inputA, String outDir) {
 
 String _sourceOf(ProviderContainer container) => container
     .read(projectProvider)
-    .valueOrNull!
+    .value!
     .tracks
     .expand((t) => t.clips)
     .singleWhere((c) => c.id == 'clip_1')

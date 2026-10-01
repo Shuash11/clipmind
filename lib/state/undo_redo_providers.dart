@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/domain/usecases/undo_redo_usecase.dart';
@@ -51,7 +52,7 @@ class UndoRedoNotifier extends StateNotifier<UndoRedoState> {
   /// Undo: restores the pre-edit project (in-memory + file via [onRestore])
   /// and returns the op for UI confirmation. Null when nothing to undo.
   Future<EditOperation?> undo() async {
-    final projectNow = _ref.read(projectProvider).valueOrNull;
+    final projectNow = _ref.read(projectProvider).value;
     if (projectNow == null) {
       _emitState();
       return null;
@@ -68,7 +69,7 @@ class UndoRedoNotifier extends StateNotifier<UndoRedoState> {
 
   /// Redo: restores the post-edit project. Null when nothing to redo.
   Future<EditOperation?> redo() async {
-    final projectNow = _ref.read(projectProvider).valueOrNull;
+    final projectNow = _ref.read(projectProvider).value;
     if (projectNow == null) {
       _emitState();
       return null;

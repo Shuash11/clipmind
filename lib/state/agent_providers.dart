@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:clipmind/core/results/result.dart';
 import 'package:clipmind/data/models/chat_step.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
@@ -113,7 +114,7 @@ final projectMetadataForPathProvider =
 /// the project has no source file. Callers must treat null as unverified
 /// and use safe defaults.
 final projectMetadataProvider = FutureProvider<VideoMetadata?>((ref) async {
-  final project = ref.watch(projectProvider).valueOrNull;
+  final project = ref.watch(projectProvider).value;
   if (project == null || project.sourceMediaPaths.isEmpty) return null;
   return ref.watch(ffprobeServiceProvider).extractMetadata(
         project.sourceMediaPaths.first,
@@ -126,7 +127,7 @@ final agentEditApplierProvider = Provider<AgentEditApplier>((ref) {
     onApply: (operation, newSourcePath, {List<String> removeClipIds = const []}) async {
       // Memento order: snapshot first, then mutate. Guarded: no project
       // means nothing to snapshot (and nothing to apply to).
-      final project = ref.read(projectProvider).valueOrNull;
+      final project = ref.read(projectProvider).value;
       if (project != null) {
         ref.read(undoRedoProvider.notifier).pushEdit(project, operation);
       }
@@ -140,7 +141,7 @@ final agentEditApplierProvider = Provider<AgentEditApplier>((ref) {
             .read(appDatabaseProvider)
             .saveEditOperation(project.id, operation);
         try {
-          final updated = ref.read(projectProvider).valueOrNull;
+          final updated = ref.read(projectProvider).value;
           if (updated != null) {
             await ref.read(projectRepositoryProvider).save(updated);
           }

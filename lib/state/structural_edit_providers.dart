@@ -24,7 +24,7 @@ class StructuralEditApplier {
   const StructuralEditApplier(this._ref);
 
   Future<bool> apply(EditOperation operation) async {
-    final project = _ref.read(projectProvider).valueOrNull;
+    final project = _ref.read(projectProvider).value;
     if (project == null) return false;
 
     // The transform is pure: validate first so a no-op never pushes a
@@ -45,7 +45,7 @@ class StructuralEditApplier {
       // DB journal is best-effort; in-memory + undo already updated.
     }
     try {
-      final updated = _ref.read(projectProvider).valueOrNull;
+      final updated = _ref.read(projectProvider).value;
       if (updated != null) {
         await _ref.read(projectRepositoryProvider).save(updated);
       }

@@ -265,7 +265,7 @@ void main() {
       expect(reply.resultingOperationIds, equals(['call_1']));
       final clip = container
           .read(projectProvider)
-          .valueOrNull!
+          .value!
           .tracks
           .expand((t) => t.clips)
           .singleWhere((c) => c.id == 'clip_1');

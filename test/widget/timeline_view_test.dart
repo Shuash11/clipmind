@@ -263,7 +263,7 @@ void main() {
 
       // The moveClip op went through the structural applier: the track's
       // order is clip-2 then clip-1, repinned cumulatively.
-      expect(clipOrder(container.read(projectProvider).valueOrNull),
+      expect(clipOrder(container.read(projectProvider).value),
           equals(['clip-2', 'clip-1']));
       // The arena resolved to the drag: no scroll happened.
       expect(tester.state<ScrollableState>(scroll.first).position.pixels,
@@ -365,7 +365,7 @@ void main() {
       expect(container.read(undoRedoProvider).canUndo, isTrue);
       expect(container.read(undoRedoProvider).historyCount, equals(1));
       // The clip was repointed to the cut output.
-      final updated = container.read(projectProvider).valueOrNull!;
+      final updated = container.read(projectProvider).value!;
       final clip = updated.tracks.first.clips.single;
       expect(clip.sourcePath, contains('.mp4'));
     });
@@ -480,12 +480,12 @@ void main() {
       expect(undoState.canUndo, isTrue);
       expect(undoState.historyCount, greaterThanOrEqualTo(1));
       // The mutation landed: the clip is gone from the project state.
-      expect(clipCount(container.read(projectProvider).valueOrNull), equals(0));
+      expect(clipCount(container.read(projectProvider).value), equals(0));
 
       // Undo restores the pre-edit project; structural entries carry no op.
       final op = await container.read(undoRedoProvider.notifier).undo();
       expect(op, isNull);
-      final restored = container.read(projectProvider).valueOrNull;
+      final restored = container.read(projectProvider).value;
       final clips = [
         for (final track in restored?.tracks ?? const <Track>[]) ...track.clips,
       ];
@@ -511,14 +511,14 @@ void main() {
       await tester.pump();
 
       // The copy landed: two clips, the structural entry pushed.
-      expect(clipCount(container.read(projectProvider).valueOrNull), equals(2));
+      expect(clipCount(container.read(projectProvider).value), equals(2));
       expect(container.read(undoRedoProvider).canUndo, isTrue);
 
       // Undo restores the pre-copy project (one clip).
       final op = await container.read(undoRedoProvider.notifier).undo();
       expect(op, isNull);
-      expect(clipCount(container.read(projectProvider).valueOrNull), equals(1));
-      final restored = container.read(projectProvider).valueOrNull;
+      expect(clipCount(container.read(projectProvider).value), equals(1));
+      final restored = container.read(projectProvider).value;
       final clips = [
         for (final track in restored?.tracks ?? const <Track>[]) ...track.clips,
       ];
@@ -578,7 +578,7 @@ void main() {
 
       // The trim went through the structural applier (a `trimClip` op):
       // the clip's in point moved to 2500ms, the out point kept, repinned.
-      final project = container.read(projectProvider).valueOrNull!;
+      final project = container.read(projectProvider).value!;
       final clip = project.tracks.first.clips.first;
       expect(clip.startMs, equals(2500));
       expect(clip.endMs, equals(30000));
@@ -595,7 +595,7 @@ void main() {
       expect(op, isNotNull);
       expect(op!.type, equals(EditOperationType.trimClip));
       // Undo restores the pre-trim range.
-      final restored = container.read(projectProvider).valueOrNull!;
+      final restored = container.read(projectProvider).value!;
       expect(restored.tracks.first.clips.first.startMs, equals(0));
     });
 
@@ -639,7 +639,7 @@ void main() {
 
       // The moveClip op went through (the order clip-2 then clip-1); the
       // undo stack's op is moveClip, NOT trimClip.
-      final project = container.read(projectProvider).valueOrNull!;
+      final project = container.read(projectProvider).value!;
       final track = project.tracks.first;
       final sorted = [...track.clips]
         ..sort((a, b) => a.positionMs.compareTo(b.positionMs));
@@ -696,7 +696,7 @@ void main() {
 
       // ONE splitClip op: two clips sharing the source, undoable +
       // journaled, repinned cumulatively.
-      final project = container.read(projectProvider).valueOrNull!;
+      final project = container.read(projectProvider).value!;
       final clips = [for (final track in project.tracks) ...track.clips];
       expect(clips.length, equals(3));
       final sorted = [...clips]

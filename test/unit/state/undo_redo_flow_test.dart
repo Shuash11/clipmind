@@ -64,7 +64,7 @@ EditOperation _trimOp() => EditOperation(
 String _sourceOf(ProviderContainer container, String clipId) {
   return container
       .read(projectProvider)
-      .valueOrNull!
+      .value!
       .tracks
       .expand((t) => t.clips)
       .singleWhere((c) => c.id == clipId)
@@ -133,19 +133,19 @@ void main() {
       final container = makeContainer();
       final undoRedo = container.read(undoRedoProvider.notifier);
       final before =
-          container.read(projectProvider).valueOrNull!;
+          container.read(projectProvider).value!;
       final renamed = before.copyWith(name: 'Renamed');
 
       undoRedo.pushStructural(before);
       container.read(projectProvider.notifier).setProject(renamed);
       expect(
-        container.read(projectProvider).valueOrNull!.name,
+        container.read(projectProvider).value!.name,
         equals('Renamed'),
       );
 
       await undoRedo.undo();
       expect(
-        container.read(projectProvider).valueOrNull!.name,
+        container.read(projectProvider).value!.name,
         equals('Test'),
       );
       expect(repository.saves, equals(1));

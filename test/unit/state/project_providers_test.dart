@@ -76,7 +76,7 @@ void main() {
             removeClipIds: const ['clip_2'],
           );
 
-      final updated = container.read(projectProvider).valueOrNull!;
+      final updated = container.read(projectProvider).value!;
       final video =
           updated.tracks.firstWhere((t) => t.id == 't1').clips;
       expect(video.map((c) => c.id), equals(['clip_1']));
@@ -99,7 +99,7 @@ void main() {
             '/out/trimmed.mp4',
           );
 
-      final updated = container.read(projectProvider).valueOrNull!;
+      final updated = container.read(projectProvider).value!;
       expect(
         updated.tracks
             .expand((t) => t.clips)

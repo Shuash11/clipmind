@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 /// The tabs of the CapCut-style left panel, in display order.
 enum LeftPanelTab { media, effects, text, audio }

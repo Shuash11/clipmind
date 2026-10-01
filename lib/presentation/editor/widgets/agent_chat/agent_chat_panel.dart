@@ -38,7 +38,7 @@ class _AgentChatPanelState extends ConsumerState<AgentChatPanel> {
   void initState() {
     super.initState();
     // Restore persisted chat history (with steps) for the open project.
-    final projectId = ref.read(projectProvider).valueOrNull?.id;
+    final projectId = ref.read(projectProvider).value?.id;
     if (projectId != null) {
       ref.read(agentRunControllerProvider.notifier).loadHistory(projectId);
     }

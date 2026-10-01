@@ -95,7 +95,7 @@ class Nl2VecPipeline {
     //   whisperConfig: `() => WhisperPaths(
     //     binaryPath: settings.whisperBinaryPath,
     //     modelPath: settings.whisperModelPath)` where `settings` is
-    //     `ref.read(settingsProvider).valueOrNull` (empty strings = unset).
+    //     `ref.read(settingsProvider).value` (empty strings = unset).
     //   resolveFont: `ref.read(resolveFontProvider)` (wired to
     //     FontResolver via fontResolverProvider).
     Map<String, dynamic>? Function(String kind)? readAnalysis,

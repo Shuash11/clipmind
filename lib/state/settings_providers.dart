@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:clipmind/data/models/app_settings.dart';
 import 'package:clipmind/data/repositories/settings_repository.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
@@ -47,5 +48,5 @@ final settingsProvider =
 
 final activeProviderIdProvider = Provider<String>((ref) {
   final settings = ref.watch(settingsProvider);
-  return settings.valueOrNull?.activeProviderId ?? 'ollama';
+  return settings.value?.activeProviderId ?? 'ollama';
 });

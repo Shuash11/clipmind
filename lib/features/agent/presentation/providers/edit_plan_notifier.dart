@@ -6,7 +6,7 @@ import 'package:clipmind/features/agent/domain/entities/validation_finding.dart'
 import 'package:clipmind/features/projects/domain/commands/project_command.dart';
 import 'package:clipmind/features/projects/domain/transactions/edit_transaction.dart';
 import 'package:clipmind/features/projects/domain/transactions/project_save_outcome.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import 'edit_plan_state.dart';
 import 'edit_plan_transaction_gateway.dart';

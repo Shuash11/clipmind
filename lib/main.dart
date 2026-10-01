@@ -20,6 +20,10 @@ Future<void> main(List<String> arguments) async {
   final foundation = (preparation as Success<FoundationPreparation>).value;
   runApp(
     ProviderScope(
+      // Preserves Riverpod 2.x behavior (3.x enables automatic retry by
+      // default with exponential backoff). Phase 2 will evaluate
+      // per-provider adoption.
+      retry: (retryCount, error) => null,
       overrides: [
         providerPlatformBootstrapResultProvider.overrideWithValue(
           foundation.providerInitialization,

@@ -31,7 +31,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void initState() {
     super.initState();
     _loadVersion();
-    _syncWhisperFields(ref.read(settingsProvider).valueOrNull);
+    _syncWhisperFields(ref.read(settingsProvider).value);
     _binaryFocus.addListener(_onBinaryFocusLost);
     _modelFocus.addListener(_onModelFocusLost);
   }
@@ -89,7 +89,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// `SettingsRepository.save`. No-op when settings have not loaded yet.
   Future<void> _updateSettings(AppSettings Function(AppSettings) mutate) async {
     try {
-      final current = ref.read(settingsProvider).valueOrNull;
+      final current = ref.read(settingsProvider).value;
       if (current == null) return;
       await ref.read(settingsProvider.notifier).update(mutate(current));
     } catch (_) {}
@@ -100,12 +100,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final theme = Theme.of(context);
     final updateState = ref.watch(updateNotifierProvider);
     final providerState = ref.watch(providerProfileNotifierProvider);
-    final settings = ref.watch(settingsProvider).valueOrNull;
+    final settings = ref.watch(settingsProvider).value;
 
     // Sync the whisper path fields whenever settings (re)load while the
     // fields are not being edited.
     ref.listen<AsyncValue<AppSettings>>(settingsProvider, (previous, next) {
-      _syncWhisperFields(next.valueOrNull);
+      _syncWhisperFields(next.value);
     });
 
     return Scaffold(

@@ -197,7 +197,7 @@ void main() {
     expect(repo.createdNames, equals(['Blank project']));
     // Navigation reached the editor route with the new project id.
     expect(find.byKey(const ValueKey('editor-stub')), findsOneWidget);
-    expect(container.read(projectProvider).valueOrNull?.id, 'blank-1');
+    expect(container.read(projectProvider).value?.id, 'blank-1');
   });
 
   testWidgets('duration badge shows M:SS and H:MM:SS, hidden when pending', (

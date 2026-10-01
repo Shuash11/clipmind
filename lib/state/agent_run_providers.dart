@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:uuid/uuid.dart';
 import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/data/models/app_settings.dart';
@@ -38,10 +39,10 @@ final agentConfirmEditsProvider =
 
 class AgentConfirmEditsFlag extends StateNotifier<bool> {
   AgentConfirmEditsFlag(this._ref) : super(false) {
-    _syncFromSettings(_ref.read(settingsProvider).valueOrNull);
+    _syncFromSettings(_ref.read(settingsProvider).value);
     _ref.listen<AsyncValue<AppSettings>>(
       settingsProvider,
-      (_, next) => _syncFromSettings(next.valueOrNull),
+      (_, next) => _syncFromSettings(next.value),
     );
   }
 
@@ -62,7 +63,7 @@ class AgentConfirmEditsFlag extends StateNotifier<bool> {
 
   Future<void> _persist(bool value) async {
     try {
-      final current = _ref.read(settingsProvider).valueOrNull;
+      final current = _ref.read(settingsProvider).value;
       if (current == null || current.confirmAgentEdits == value) return;
       await _ref
           .read(settingsProvider.notifier)
@@ -182,7 +183,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
       final messages =
           await _ref.read(appDatabaseProvider).getChatMessages(projectId);
       _ref.read(chatMessagesProvider.notifier).replaceAll(messages);
-      final project = _ref.read(projectProvider).valueOrNull;
+      final project = _ref.read(projectProvider).value;
       if (project != null && project.id == projectId) {
         final clipIds = [
           for (final track in project.tracks)
@@ -210,7 +211,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
       timestamp: DateTime.now(),
     );
     _ref.read(chatMessagesProvider.notifier).add(userMessage);
-    final opened = _ref.read(projectProvider).valueOrNull;
+    final opened = _ref.read(projectProvider).value;
     if (opened != null) {
       try {
         await _ref
@@ -230,7 +231,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
     var completedAsPlan = false;
 
     try {
-      final project = _ref.read(projectProvider).valueOrNull;
+      final project = _ref.read(projectProvider).value;
       if (project == null) {
         await _replyError(
           null,
@@ -269,7 +270,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
       try {
         await _ref.read(settingsProvider.notifier).ready;
       } catch (_) {}
-      final settings = _ref.read(settingsProvider).valueOrNull;
+      final settings = _ref.read(settingsProvider).value;
       final gate = AgentConfirmationGate(
         _ref,
         perEdit: _ref.read(agentConfirmEditsProvider),
@@ -286,7 +287,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
         recentHistory: _recentHistory(),
         applier: _ref.read(agentEditApplierProvider),
         liveProject: () =>
-            _ref.read(projectProvider).valueOrNull ?? snapshot,
+            _ref.read(projectProvider).value ?? snapshot,
         cancellation: controller.token,
         gate: gate,
         dryRun: planPreview,
@@ -422,7 +423,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
         .agentActivity
         .listen(_ref.read(agentActivityFeedProvider.notifier).push);
     try {
-      final project = _ref.read(projectProvider).valueOrNull;
+      final project = _ref.read(projectProvider).value;
       if (project == null || project.id != plan.projectId) {
         await _replyError(
           project,
@@ -437,7 +438,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
                 project,
                 applier: _ref.read(agentEditApplierProvider),
                 liveProject: () =>
-                    _ref.read(projectProvider).valueOrNull ?? project,
+                    _ref.read(projectProvider).value ?? project,
                 cancellation: controller.token,
                 resolveFont: _ref.read(resolveFontProvider),
               );

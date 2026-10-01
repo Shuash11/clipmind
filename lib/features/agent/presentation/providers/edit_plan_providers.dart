@@ -2,6 +2,7 @@ import 'package:clipmind/core/async/cancellation_token.dart';
 import 'package:clipmind/core/results/result.dart';
 import 'package:clipmind/features/agent/domain/entities/edit_plan.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import 'edit_plan_notifier.dart';
 import 'edit_plan_state.dart';

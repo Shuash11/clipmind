@@ -167,7 +167,7 @@ void main() {
     ProviderContainer container,
     String name,
   ) async {
-    final project = container.read(projectProvider).valueOrNull!;
+    final project = container.read(projectProvider).value!;
     final useCase = container.read(exportUseCaseProvider);
     final result = await useCase.execute(
       project,
@@ -197,7 +197,7 @@ void main() {
 
       final clips = container
           .read(projectProvider)
-          .valueOrNull!
+          .value!
           .tracks
           .single
           .clips;
@@ -225,7 +225,7 @@ void main() {
 
       final cutClip = container
           .read(projectProvider)
-          .valueOrNull!
+          .value!
           .tracks
           .single
           .clips
@@ -253,7 +253,7 @@ void main() {
 
       final clips = container
           .read(projectProvider)
-          .valueOrNull!
+          .value!
           .tracks
           .single
           .clips;

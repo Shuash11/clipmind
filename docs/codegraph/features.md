@@ -1,4 +1,4 @@
-# Code Graph — lib/features (124 files, 14,329 lines; DO NOT EDIT)
+# Code Graph — lib/features (124 files, 14,332 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/features/agent/data/provider_tool_call_normalizer.dart (68 lines)
@@ -86,7 +86,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L25  typedef EditPlanCancellationControllerFactory
 - L28  class EditPlanNotifier extends StateNotifier<EditPlanState> (_submitter, _replanner, _transactionGateway, _cancellationControllerFactory, _cancellation, _epoch, _isDisposed) — EditPlanNotifier(…) L29, EditPlanNotifier L44, submit(String command) L60, approve(String planId) L105, apply(String planId) L113, cancel(String planId) L188, cancelActivePlanning() L216, revise(String planId, String instruction) L230, _beginRequest() L300, _accepts(int epoch, CancellationController controller) L308, _matchingPlan(String planId) L314, _failPlan(EditPlan plan, String message) L319, _revisionFailure(EditPlan plan, String message) L341, _isAcceptedPlanningPlan(EditPlan plan) L361, _isAcceptedReplan(EditPlan plan, Object? oldPayload) L367, _hasConsistentStatusPayload(EditPlan plan) L375, _isCoherentOutcome(…) L387, _safeInstruction(String value) L398, dispose() L404
 
-## lib/features/agent/presentation/providers/edit_plan_providers.dart (43 lines)
+## lib/features/agent/presentation/providers/edit_plan_providers.dart (44 lines)
 
 ## lib/features/agent/presentation/providers/edit_plan_state.dart (45 lines)
 - L4  enum EditPlanAction
@@ -327,10 +327,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L15  typedef ProviderRegistryFactory
 - L20  class ProviderPlatformBootstrapImpl (_profiles, _credentials, _migrate, _transport, _registryFactory, _registries, _migrationCompleted) — ProviderPlatformBootstrapImpl(…) L21, ProviderPlatformBootstrapImpl L37, initialize(…) L61, _fail(Object error) L111
 
-## lib/features/providers/data/provider_platform_riverpod.dart (151 lines)
-- L103  class _UnavailableRepository — _UnavailableRepository() L104, _failure L105, deleteProfile(…) L111, load() L116, resumePendingDeletions(…) L119, save(ProviderProfilesDocument document) L123
-- L127  class _UnavailableCredentials — _UnavailableCredentials() L128, _failure L129, delete(String credentialId) L133, read(String credentialId) L135, write(String credentialId, String secret) L138
-- L142  class _UnavailableRegistry — _UnavailableRegistry() L143, definitions L145, adapterFor(String providerId) L147, definitionFor(String providerId) L149
+## lib/features/providers/data/provider_platform_riverpod.dart (152 lines)
+- L104  class _UnavailableRepository — _UnavailableRepository() L105, _failure L106, deleteProfile(…) L112, load() L117, resumePendingDeletions(…) L120, save(ProviderProfilesDocument document) L124
+- L128  class _UnavailableCredentials — _UnavailableCredentials() L129, _failure L130, delete(String credentialId) L134, read(String credentialId) L136, write(String credentialId, String secret) L139
+- L143  class _UnavailableRegistry — _UnavailableRegistry() L144, definitions L146, adapterFor(String providerId) L148, definitionFor(String providerId) L150
 
 ## lib/features/providers/data/provider_platform_startup.dart (66 lines)
 - L18  class ProviderPlatformStartup (ProviderPlatformStartup) — initialize(…) L21
@@ -465,8 +465,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/features/tagging/domain/tagging_controller.dart (75 lines)
 - L5  class TaggingController (_commandFactory) — TaggingController(this._commandFactory) L6, createTag(…) L10, updateTag(…) L13, deleteTag(…) L19, assignTag(…) L22, unassignTag(…) L32, createMarker(…) L42, updateMarker(…) L56, deleteMarker(…) L72
 
-## lib/features/tagging/presentation/providers/tagging_providers.dart (101 lines)
-- L23  class TaggingProviders (controller, _transactions) — TaggingProviders(…) L24, TaggingProviders L36, Function() _currentDocument L44, Function() _manualTransactionId L46, document L48, applyManual(ProjectCommand command) L50
+## lib/features/tagging/presentation/providers/tagging_providers.dart (102 lines)
+- L24  class TaggingProviders (controller, _transactions) — TaggingProviders(…) L25, TaggingProviders L37, Function() _currentDocument L45, Function() _manualTransactionId L47, document L49, applyManual(ProjectCommand command) L51
 
 ## lib/features/tagging/presentation/widgets/asset_tag_chips.dart (60 lines)
 - L6  class AssetTagChips extends ConsumerStatefulWidget (assetId) — AssetTagChips(…) L7, createState() L12

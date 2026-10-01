@@ -94,14 +94,14 @@ void main() {
     await _pumpSettings(tester, container);
     await _settle(tester);
 
-    expect(container.read(settingsProvider).valueOrNull?.planEditsBeforeApply,
+    expect(container.read(settingsProvider).value?.planEditsBeforeApply,
         isFalse);
     final savesBefore = repo.saves;
 
     await tester.tap(find.byKey(const ValueKey('settings-plan-edits')));
     await _settle(tester);
 
-    expect(container.read(settingsProvider).valueOrNull?.planEditsBeforeApply,
+    expect(container.read(settingsProvider).value?.planEditsBeforeApply,
         isTrue);
     expect(repo.saves, greaterThan(savesBefore));
     expect(repo.lastSaved?.planEditsBeforeApply, isTrue);
@@ -151,7 +151,7 @@ void main() {
     await _settle(tester);
 
     expect(
-      container.read(settingsProvider).valueOrNull?.whisperBinaryPath,
+      container.read(settingsProvider).value?.whisperBinaryPath,
       r'C:\w\whisper-cli.exe',
     );
     expect(repo.lastSaved?.whisperBinaryPath, r'C:\w\whisper-cli.exe');
@@ -165,7 +165,7 @@ void main() {
     await _settle(tester);
 
     expect(
-      container.read(settingsProvider).valueOrNull?.whisperModelPath,
+      container.read(settingsProvider).value?.whisperModelPath,
       r'C:\w\ggml-base.bin',
     );
 
@@ -178,7 +178,7 @@ void main() {
     await _settle(tester);
 
     expect(
-      container.read(settingsProvider).valueOrNull?.whisperBinaryPath,
+      container.read(settingsProvider).value?.whisperBinaryPath,
       '',
     );
     expect(tester.takeException(), isNull);

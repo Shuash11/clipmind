@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:uuid/uuid.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/models/clip.dart';
@@ -258,7 +259,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   /// The clip whose span contains [timeMs] (timeline ruler times), or null.
   Clip? _clipAt(int timeMs) {
     final project =
-        widget.project ?? ref.read(projectProvider).valueOrNull;
+        widget.project ?? ref.read(projectProvider).value;
     if (project == null) return null;
     for (final track in project.tracks) {
       for (final clip in track.clips) {
@@ -312,7 +313,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   /// actionable strings with zero side effects. Undoable + journaled.
   Future<void> _onTrimEdge(String clipId, bool isStart, int newLocalMs) async {
     if (_isEditing) return;
-    final project = ref.read(projectProvider).valueOrNull;
+    final project = ref.read(projectProvider).value;
     final clip = resolveSelectedClip(project, clipId);
     if (clip == null) {
       _showTimelineMessage('Select a clip before trimming.');
@@ -424,7 +425,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   }
 
   Future<void> _deleteSelectedClip() async {
-    final project = ref.read(projectProvider).valueOrNull;
+    final project = ref.read(projectProvider).value;
     final location = _selectedClipLocation(project);
     if (project == null || location == null) {
       _showTimelineMessage('Select a clip before deleting.');
@@ -443,7 +444,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   }
 
   Future<void> _copySelectedClip() async {
-    final project = ref.read(projectProvider).valueOrNull;
+    final project = ref.read(projectProvider).value;
     final location = _selectedClipLocation(project);
     if (project == null || location == null) {
       _showTimelineMessage('Select a clip before copying.');
@@ -520,7 +521,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
 
   @override
   Widget build(BuildContext context) {
-    final project = widget.project ?? ref.watch(projectProvider).valueOrNull;
+    final project = widget.project ?? ref.watch(projectProvider).value;
     final selectedClip = _selectedClipLocation(project)?.clip;
     final taggingDocument =
         widget.projectDocument ?? ref.watch(taggingProvidersProvider)?.document;

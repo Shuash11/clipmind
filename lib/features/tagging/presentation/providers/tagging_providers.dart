@@ -9,6 +9,7 @@ import 'package:clipmind/features/tagging/domain/marker_filter.dart';
 import 'package:clipmind/features/tagging/domain/tag_query.dart';
 import 'package:clipmind/features/tagging/domain/tagging_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 final tagQueryProvider = StateProvider<TagQuery>((ref) => TagQuery());
 

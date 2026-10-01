@@ -330,7 +330,7 @@ void main() {
     // The noir recipe's two steps journal as two ops.
     expect(container.read(undoRedoProvider).historyCount, equals(2));
     // The clip repointed to the composed output.
-    final updated = container.read(projectProvider).valueOrNull!;
+    final updated = container.read(projectProvider).value!;
     final clip = updated.tracks.first.clips.single;
     expect(clip.sourcePath, contains('.mp4'));
   });

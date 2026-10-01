@@ -16,7 +16,7 @@ class StatusBar extends ConsumerWidget {
     final health = ref.watch(providerHealthProvider);
     final ffmpeg = ref.watch(ffmpegBinaryAvailableProvider);
     final runState = ref.watch(agentRunControllerProvider);
-    final modelName = ref.watch(resolvedModelNameProvider).valueOrNull;
+    final modelName = ref.watch(resolvedModelNameProvider).value;
 
     return Container(
       key: const ValueKey('status-bar'),

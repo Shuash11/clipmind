@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:clipmind/data/services/updates/github_release_checker.dart';
 import 'package:clipmind/data/services/updates/release_info.dart';
 

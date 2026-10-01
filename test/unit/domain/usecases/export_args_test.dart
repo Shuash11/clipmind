@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
@@ -206,7 +205,7 @@ void main() {
         ),
         '/out/cut.mp4',
       );
-      final updated = notifier.state.valueOrNull!;
+      final updated = notifier.state.value!;
       expect(updated.tracks.single.clips.single.endMs, equals(50000));
 
       final job = await _export(updated, fake);

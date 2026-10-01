@@ -128,7 +128,7 @@ EditOperation _cutOp(
 
 List<Clip> _clips(ProviderContainer container) => container
     .read(projectProvider)
-    .valueOrNull!
+    .value!
     .tracks
     .firstWhere((t) => t.id == 't1')
     .clips;

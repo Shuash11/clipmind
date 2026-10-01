@@ -16,7 +16,7 @@ class TopActionBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final undoRedoState = ref.watch(undoRedoProvider);
     final projectAsync = ref.watch(projectProvider);
-    final project = projectAsync.valueOrNull;
+    final project = projectAsync.value;
     final projectTitle = project?.name ?? 'Untitled project';
 
     return Container(

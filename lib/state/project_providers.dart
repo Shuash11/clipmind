@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
@@ -66,7 +67,7 @@ class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
     String newSourcePath, {
     List<String> removeClipIds = const [],
   }) {
-    final project = state.valueOrNull;
+    final project = state.value;
     if (project == null) return;
 
     final targets = operation.targetClipIds.isNotEmpty
@@ -116,7 +117,7 @@ class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
   /// (graceful no-op, state untouched) for unknown clips or non-structural
   /// op types. Mirrors [applyEdit]'s state update + timestamp.
   bool applyStructuralEdit(EditOperation operation) {
-    final project = state.valueOrNull;
+    final project = state.value;
     if (project == null) return false;
 
     final updated =

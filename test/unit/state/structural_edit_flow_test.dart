@@ -96,7 +96,7 @@ EditOperation _op(
 List<String> _clipIds(ProviderContainer container, String trackId) {
   return container
       .read(projectProvider)
-      .valueOrNull!
+      .value!
       .tracks
       .firstWhere((t) => t.id == trackId)
       .clips
@@ -156,7 +156,7 @@ void main() {
       expect(
         container
             .read(projectProvider)
-            .valueOrNull!
+            .value!
             .editHistory
             .map((e) => e.id),
         contains('op_del'),
@@ -194,7 +194,7 @@ void main() {
       expect(applied, isTrue);
       final clips = container
           .read(projectProvider)
-          .valueOrNull!
+          .value!
           .tracks
           .firstWhere((t) => t.id == 't1')
           .clips;
@@ -217,7 +217,7 @@ void main() {
       expect(applied, isTrue);
       final clips = container
           .read(projectProvider)
-          .valueOrNull!
+          .value!
           .tracks
           .firstWhere((t) => t.id == 't1')
           .clips;
@@ -321,7 +321,7 @@ void main() {
 
       String source() => container
           .read(projectProvider)
-          .valueOrNull!
+          .value!
           .tracks
           .expand((t) => t.clips)
           .singleWhere((c) => c.id == 'clip_1')

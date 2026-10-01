@@ -12,6 +12,7 @@ import 'package:clipmind/features/providers/domain/provider_failures.dart';
 import 'package:clipmind/features/providers/domain/provider_platform_bootstrap.dart';
 import 'package:clipmind/features/providers/presentation/providers/provider_profile_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 /// The startup override makes provider state available without activating UI.
 final providerPlatformBootstrapResultProvider =
