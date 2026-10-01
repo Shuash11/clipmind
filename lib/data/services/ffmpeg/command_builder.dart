@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:clipmind/core/utils/timecode_utils.dart';
+
 import 'filter_escaping.dart';
 
 class CommandBuilder {
@@ -7,7 +9,44 @@ class CommandBuilder {
     return ['-i', input, '-ss', start, '-to', end, '-c', 'copy'];
   }
 
-  static List<String> cut(String input, String removeStart, String removeEnd) {
+  /// Cut out `[removeStart, removeEnd]` via `select`/`aselect`.
+  ///
+  /// Ranged-cut fix: when the clip's range is known, pass [clipStartSec]
+  /// (the clip's in-point in seconds) and [clipDurationSec] (the clip span
+  /// in seconds). The input is then restricted with input-seeking
+  /// `-ss clipStartSec -i input -t clipDurationSec` and the remove times
+  /// are shifted (`remove − clipStartSec`) inside `between()`, so the
+  /// output length is `clipLen − removedLen` — exactly the propagated
+  /// `_cutNewRange` new range — for every clip state. When the range is
+  /// unknown both stay null and the legacy whole-file path runs unchanged.
+  /// `-t` (duration) is used instead of `-to` to avoid the input-seek
+  /// origin ambiguity. Audio-less inputs still fail on `-af aselect`
+  /// exactly as before.
+  static List<String> cut(
+    String input,
+    String removeStart,
+    String removeEnd, {
+    double? clipStartSec,
+    double? clipDurationSec,
+  }) {
+    if (clipStartSec != null && clipDurationSec != null) {
+      final shiftedStart = shiftedCutTime(removeStart, clipStartSec);
+      final shiftedEnd = shiftedCutTime(removeEnd, clipStartSec);
+      return [
+        '-ss',
+        clipStartSec.toString(),
+        '-i',
+        input,
+        '-t',
+        clipDurationSec.toString(),
+        '-vf',
+        "select='not(between(t,$shiftedStart,$shiftedEnd))',"
+            'setpts=N/FRAME_RATE/TB',
+        '-af',
+        "aselect='not(between(t,$shiftedStart,$shiftedEnd))',"
+            'asetpts=N/SR/TB',
+      ];
+    }
     return [
       '-i',
       input,
@@ -18,6 +57,29 @@ class CommandBuilder {
       "aselect='not(between(t,$removeStart,$removeEnd))',"
           'asetpts=N/SR/TB',
     ];
+  }
+
+  /// Shift a `cut` remove time from file time to clip-span-relative time.
+  ///
+  /// `removeTime` accepts both `HH:MM:SS.mmm` timecodes (the AI path) and
+  /// plain decimal seconds (the manual path, e.g. `15.000`). The result is
+  /// rounded to the millisecond so binary float noise never leaks into the
+  /// filter. Unparseable inputs fall back to the original string.
+  static String shiftedCutTime(String removeTime, double clipStartSec) {
+    final seconds = _cutTimeToSeconds(removeTime);
+    if (seconds == null) return removeTime;
+    final shiftedMs = ((seconds - clipStartSec) * 1000).round();
+    return (shiftedMs / 1000).toString();
+  }
+
+  /// Parse a `cut` time to seconds (timecode or plain seconds).
+  static double? _cutTimeToSeconds(String time) {
+    final trimmed = time.trim();
+    final asDouble = double.tryParse(trimmed);
+    if (asDouble != null) return asDouble;
+    final ms = TimecodeUtils.parseToMilliseconds(trimmed);
+    if (ms != null) return ms / 1000.0;
+    return null;
   }
 
   static List<String> merge(List<String> inputs) {
@@ -164,14 +226,16 @@ class CommandBuilder {
   /// Burn an SRT file into the video via the libass `subtitles` filter.
   ///
   /// [assColor] is an ASS `&H00BBGGRR` color (see
-  /// [FilterEscaping.assColorFromHex]); [alignment] is an ASS numpad
-  /// alignment (5 = middle-center, 8 = top-center, null = bottom default).
+  /// [FilterEscaping.assColorFromHex]); [alignment] is an ASS Style
+  /// `Alignment` in legacy `\a` numbering (6 = top-center,
+  /// 10 = middle-center, 2 = bottom-center, null = bottom default).
   /// `force_style` carries only non-default keys and is omitted entirely
   /// when everything is default.
   ///
-  /// TO-VERIFY-LIVE: requires a libass-enabled FFmpeg build, and ASS
-  /// `Alignment` numpad (modern `\an`) vs legacy (`\a`) semantics — if the
-  /// burned position renders wrong, switch to legacy values.
+  /// Live-verified 2026-10-01 on FFmpeg 8.1.1-essentials (+libass):
+  /// `force_style='Alignment=N'` follows legacy `\a` semantics, NOT the
+  /// modern `\an` numpad — numpad 8 rendered middle-center while legacy 6
+  /// rendered top-center (luminance-probed top/bottom thirds).
   static List<String> burnCaptions(
     String input,
     String srtPath, {
@@ -222,9 +286,11 @@ class CommandBuilder {
   /// When neither input [hasAudio], the audio crossfade is skipped and the
   /// output maps video only (`-an`).
   ///
-  /// TO-VERIFY-LIVE: both inputs must share resolution/pixel-format/frame
-  /// rate/timebase (the executor enforces resolution+fps via ffprobe), and
-  /// `acrossfade` sample-rate matching.
+  /// Live-verified 2026-10-01 on FFmpeg 8.1.1: the 44100+44100 pair exits
+  /// 0, and the mismatched 44100+48000 pair ALSO exits 0 — `acrossfade`
+  /// auto-resamples to the first input's rate, so no pre-resample is
+  /// needed. Both inputs must still share resolution/pixel-format/frame
+  /// rate/timebase (the executor enforces resolution+fps via ffprobe).
   static List<String> transition(
     String firstPath,
     String secondPath, {
@@ -281,8 +347,10 @@ class CommandBuilder {
   /// - `contrast` / `saturation`: `eq` multipliers clamped to 0–3.
   ///
   /// All mappings live-verified 2026-09-28 on FFmpeg 8.1.1 (exit 0).
-  /// The sigma cap is app-chosen (spot-checked at 6) — TO-VERIFY-LIVE
-  /// beyond that. Unknown effects yield the `null` passthrough.
+  /// Live-verified 2026-10-01: the full cap `gblur=sigma=20.0`
+  /// (strength 1.0) renders exit 0 — gblur documents no upper cap, so the
+  /// 20 cap stays a compute-cost choice, not a validity limit. Unknown
+  /// effects yield the `null` passthrough.
   static String effectFilter({
     required String effect,
     double? strength,

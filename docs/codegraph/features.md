@@ -1,4 +1,4 @@
-# Code Graph — lib/features (124 files, 14,329 lines; generated 2026-10-01T07:59; DO NOT EDIT)
+# Code Graph — lib/features (124 files, 14,329 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/features/agent/data/provider_tool_call_normalizer.dart (68 lines)

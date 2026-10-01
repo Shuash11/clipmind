@@ -597,6 +597,12 @@ class EditToolExecutor implements ToolExecutor {
     };
     // The new range lets the applier normalize the clip's range after the
     // cut (the stale-range fix); the middle-end's applyEdit consumes it.
+    // The ranged-cut fix also carries the live clip extent as
+    // `clip_start_s`/`clip_len_s` (seconds, doubles) so the mapper can
+    // restrict the FFmpeg input with `-ss`/`-t` and shift the `between()`
+    // times — output length == the propagated new range for every clip
+    // state. Unknown/missing ranges omit the params (legacy whole-file
+    // path, unchanged behavior).
     final range = _clipRange(_ctx, clipId!);
     if (range != null) {
       final newRange = _cutNewRange(
@@ -606,6 +612,11 @@ class EditToolExecutor implements ToolExecutor {
         removeEndTc: end,
       );
       if (newRange != null) params.addAll(newRange);
+      final clipLenMs = range.endMs - range.startMs;
+      if (clipLenMs > 0) {
+        params['clip_start_s'] = range.startMs / 1000.0;
+        params['clip_len_s'] = clipLenMs / 1000.0;
+      }
     }
     return _runSingleOp(
       callId: call.id,
@@ -1138,14 +1149,16 @@ class EditToolExecutor implements ToolExecutor {
       }
     }
     // Style hint, not a safety value: unknown positions fall back to
-    // bottom without error. bottom → omit Alignment; top → 8
-    // (numpad top-center); center → 5 (numpad middle-center).
-    // TO-VERIFY-LIVE: numpad (modern `\an`) vs legacy (`\a`) semantics.
+    // bottom without error. bottom → omit Alignment; top → 6 (legacy
+    // top-center); center → 10 (legacy middle-center).
+    // Live-verified 2026-10-01 on FFmpeg 8.1.1 (+libass): the ASS Style
+    // `Alignment` field follows legacy `\a` numbering — numpad 8 rendered
+    // middle-center, legacy 6 rendered top-center.
     final rawPosition =
         (_stringArg(call.args, 'position') ?? 'bottom').trim().toLowerCase();
     final position =
         rawPosition == 'top' || rawPosition == 'center' ? rawPosition : 'bottom';
-    final alignment = position == 'top' ? 8 : position == 'center' ? 5 : null;
+    final alignment = position == 'top' ? 6 : position == 'center' ? 10 : null;
     final fontSize = _numArg(call.args, 'font_size')?.toInt() ?? 24;
 
     final cached = _ctx.readAnalysis?.call('transcript:$clipId');
@@ -1376,6 +1389,11 @@ class EditToolExecutor implements ToolExecutor {
   ///
   /// The new range lets the applier normalize the clip's range after the
   /// cut (the stale-range fix); the middle-end's applyEdit consumes it.
+  /// It composes with the ranged-cut input restriction (`clip_start_s` /
+  /// `clip_len_s` → `-ss`/`-t` + shifted `between()` in
+  /// [CommandBuilder.cut]): the restricted output length is
+  /// `clipLen − removedLen`, exactly `new_end_ms − new_start_ms`, for
+  /// every clip state (no two-segment trim+concat graph needed).
   static Map<String, int>? _cutNewRange({
     required int clipStartMs,
     required int clipEndMs,

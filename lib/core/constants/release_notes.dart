@@ -70,4 +70,11 @@ const Map<String, List<String>> releaseNotes = {
   '1.26.0': [
     '* Fixed clip range after cuts (display, AI view, and follow-up edits stay correct)',
   ],
+  '1.27.0': [
+    '* Fixed ranged cuts on trimmed clips',
+    '* Full export test suite',
+    '* Fixed a potential export hang',
+    '* Live-verified FFmpeg gates',
+    '* Code-graph freshness enforcement',
+  ],
 };

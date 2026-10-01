@@ -1,4 +1,4 @@
-# Code Graph — lib/presentation (32 files, 7,972 lines; generated 2026-10-01T07:59; DO NOT EDIT)
+# Code Graph — lib/presentation (32 files, 7,972 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/presentation/editor/editor_screen.dart (248 lines)

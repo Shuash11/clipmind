@@ -33,6 +33,99 @@ void main() {
       expect(joined, contains('setpts=N/FRAME_RATE/TB'));
       expect(joined, contains('asetpts=N/SR/TB'));
     });
+
+    test('legacy path has no input seeking when range is absent', () {
+      final args = CommandBuilder.cut('input.mp4', '5', '15');
+      expect(args.sublist(0, 2), equals(['-i', 'input.mp4']));
+      expect(args.contains('-ss'), isFalse);
+      expect(args.contains('-t'), isFalse);
+    });
+
+    test('legacy path when only one range param is present', () {
+      final onlyStart = CommandBuilder.cut(
+        'input.mp4',
+        '5',
+        '15',
+        clipStartSec: 5.0,
+      );
+      expect(onlyStart.contains('-ss'), isFalse);
+      final onlyLen = CommandBuilder.cut(
+        'input.mp4',
+        '5',
+        '15',
+        clipDurationSec: 55.0,
+      );
+      expect(onlyLen.contains('-ss'), isFalse);
+    });
+  });
+
+  group('CommandBuilder.cut ranged (Cycle 6 Phase 2 D2)', () {
+    test('composes -ss/-t with shifted between times', () {
+      final args = CommandBuilder.cut(
+        'input.mp4',
+        '00:00:10.000',
+        '00:00:20.000',
+        clipStartSec: 5.0,
+        clipDurationSec: 55.0,
+      );
+      // Input-side restriction: -ss 5.0 -i input -t 55.0.
+      expect(args, containsAll(['-ss', '5.0', '-i', 'input.mp4', '-t', '55.0']));
+      expect(
+        args.indexOf('-ss'),
+        lessThan(args.indexOf('-i')),
+      );
+      expect(
+        args.indexOf('-i'),
+        lessThan(args.indexOf('-t')),
+      );
+      // File times [10, 20] shift to clip-relative [5.0, 15.0].
+      final joined = args.join(' ');
+      expect(joined, contains('between(t,5.0,15.0)'));
+      expect(joined, contains("select='not(between(t,5.0,15.0))'"));
+      expect(joined, contains("aselect='not(between(t,5.0,15.0))'"));
+    });
+
+    test('shifts plain decimal seconds (manual path format)', () {
+      final args = CommandBuilder.cut(
+        'input.mp4',
+        '15.000',
+        '25.000',
+        clipStartSec: 10.0,
+        clipDurationSec: 50.0,
+      );
+      expect(args.join(' '), contains('between(t,5.0,15.0)'));
+    });
+
+    test('shiftedCutTime rounds to the millisecond', () {
+      expect(CommandBuilder.shiftedCutTime('00:00:10.000', 5.0), equals('5.0'));
+      expect(CommandBuilder.shiftedCutTime('15.000', 10.0), equals('5.0'));
+      expect(CommandBuilder.shiftedCutTime('00:00:10.123', 5.0), equals('5.123'));
+      expect(CommandBuilder.shiftedCutTime('nope', 5.0), equals('nope'));
+    });
+
+    test('clipSpan == fileLen is equivalent to the legacy path', () {
+      const removeStart = '00:00:10.000';
+      const removeEnd = '00:00:20.000';
+      final legacy = CommandBuilder.cut('input.mp4', removeStart, removeEnd);
+      final ranged = CommandBuilder.cut(
+        'input.mp4',
+        removeStart,
+        removeEnd,
+        clipStartSec: 0.0,
+        clipDurationSec: 60.0,
+      );
+      // Shifted times equal the originals numerically (0 offset).
+      expect(CommandBuilder.shiftedCutTime(removeStart, 0.0), equals('10.0'));
+      expect(CommandBuilder.shiftedCutTime(removeEnd, 0.0), equals('20.0'));
+      expect(legacy.join(' '), contains('between(t,00:00:10.000,00:00:20.000)'));
+      expect(ranged.join(' '), contains('between(t,10.0,20.0)'));
+      // Output extent matches: fileLen − removedLen == clipLen − removedLen.
+      const fileLen = 60.0;
+      const clipLen = 60.0;
+      const removedLen = 10.0;
+      expect(clipLen - removedLen, equals(fileLen - removedLen));
+      expect(ranged, containsAll(['-ss', '0.0', '-t', '60.0']));
+    });
   });
 
   group('CommandBuilder.merge', () {

@@ -1,4 +1,4 @@
-# Code Graph — lib/state (13 files, 2,252 lines; generated 2026-10-01T07:59; DO NOT EDIT)
+# Code Graph — lib/state (13 files, 2,268 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/state/agent_analysis_providers.dart (70 lines)
@@ -22,9 +22,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/state/ffmpeg_providers.dart (33 lines)
 - L18  class ActiveJobsNotifier extends StateNotifier<List<FfmpegJob>> — ActiveJobsNotifier() : super([]) L19, add(FfmpegJob job) L21, remove(String jobId) L25, clear() L29
 
-## lib/state/manual_edit_providers.dart (736 lines)
+## lib/state/manual_edit_providers.dart (752 lines)
 - L20  class ManualCutResult (success, message, outputPath) — ManualCutResult(…) L25, ManualCutResult L31, ManualCutResult L36, ManualCutResult L43, ManualCutResult L51
-- L88  class ManualEditController (_ref, _uuid) — ManualEditController(this._ref) L92, submitCut(…) L107, submitRecipe(…) L209, submitOverlayText(…) L323, submitSound(…) L442, submitTrim(…) L570, submitSplit(…) L615, _recipeJournalType(String opType) L658, _resolveTarget(…) L670, _clipPathMap(Project project) L693, _defaultPath(…) L707, _findClip(Project project, String clipId) L720, _toSeconds(int ms) L730
+- L88  class ManualEditController (_ref, _uuid) — ManualEditController(this._ref) L92, submitCut(…) L114, submitRecipe(…) L225, submitOverlayText(…) L339, submitSound(…) L458, submitTrim(…) L586, submitSplit(…) L631, _recipeJournalType(String opType) L674, _resolveTarget(…) L686, _clipPathMap(Project project) L709, _defaultPath(…) L723, _findClip(Project project, String clipId) L736, _toSeconds(int ms) L746
 
 ## lib/state/player_providers.dart (31 lines)
 

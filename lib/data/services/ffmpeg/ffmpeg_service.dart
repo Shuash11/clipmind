@@ -98,6 +98,11 @@ class FfmpegService {
 
     _process = process;
 
+    // Drain stderr while parsing stdout progress: FFmpeg logs to stderr
+    // and an unread pipe blocks the child once the OS buffer fills,
+    // hanging the export. Live-gate finding 2026-10-01 (gate 1 hung here).
+    final stderrDrained = process.stderr.transform(utf8.decoder).join();
+
     final lineStream = process.stdout
         .transform(utf8.decoder)
         .transform(const LineSplitter());
@@ -136,6 +141,7 @@ class FfmpegService {
       }
     }
 
+    await stderrDrained;
     await process.exitCode;
     _process = null;
   }

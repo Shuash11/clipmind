@@ -1,0 +1,26 @@
+name: Codegraph Freshness
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  freshness:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.5
+          cache: true
+
+      - name: Regenerate codegraph
+        run: dart run tool/grapify.dart
+
+      - name: Check codegraph freshness
+        run: git diff --exit-code -- docs/codegraph

@@ -3,7 +3,8 @@ import 'dart:io';
 /// Generates the committed code-graph slices under `docs/codegraph/`.
 ///
 /// Run: `dart run tool/grapify.dart` (pure `dart:io`, no shell-out,
-/// Windows-safe). Deterministic apart from the staleness timestamp.
+/// Windows-safe). Fully deterministic: same working tree → byte-identical
+/// output, so `git diff --exit-code -- docs/codegraph` is meaningful.
 ///
 /// The slices are a navigation aid, not a resolved call graph:
 /// relationships are `extends`/`implements`/`with` from the class line
@@ -13,7 +14,6 @@ void main() {
   final root = Directory.current.path;
   final files = _dartFiles(root);
   final layers = _groupByLayer(files);
-  final stamp = _timestamp();
 
   final outDir = Directory('$root/docs/codegraph');
   if (!outDir.existsSync()) outDir.createSync(recursive: true);
@@ -40,7 +40,7 @@ void main() {
       ..writeln(
         '# Code Graph — $title '
         '(${entry.value.length} files, ${_formatCount(lines)} lines; '
-        'generated $stamp; DO NOT EDIT)',
+        'DO NOT EDIT)',
       )
       ..writeln(
         '_Generated files (*.g.dart, *.freezed.dart) excluded. '
@@ -54,7 +54,7 @@ void main() {
     summaries.add(_LayerSummary(entry.key, entry.value.length, lines));
   }
 
-  File('${outDir.path}/README.md').writeAsStringSync(_readme(summaries, stamp));
+  File('${outDir.path}/README.md').writeAsStringSync(_readme(summaries));
   stdout.writeln(
     'grapify: wrote ${summaries.length} slices '
     '(${summaries.fold<int>(0, (sum, s) => sum + s.lines)} lines indexed).',
@@ -331,14 +331,6 @@ String _relative(String root, String path) {
   return normalized;
 }
 
-String _timestamp() {
-  final now = DateTime.now();
-  String pad(int v, [int width = 2]) =>
-      v.toString().padLeft(width, '0');
-  return '${now.year}-${pad(now.month)}-${pad(now.day)}'
-      'T${pad(now.hour)}:${pad(now.minute)}';
-}
-
 String _formatCount(int lines) {
   final text = lines.toString();
   final buffer = StringBuffer();
@@ -357,7 +349,7 @@ class _LayerSummary {
   final int lines;
 }
 
-String _readme(List<_LayerSummary> summaries, String stamp) {
+String _readme(List<_LayerSummary> summaries) {
   final totalFiles =
       summaries.fold<int>(0, (sum, s) => sum + s.files);
   final totalLines =
@@ -368,15 +360,15 @@ String _readme(List<_LayerSummary> summaries, String stamp) {
           '`docs/codegraph/${s.layer}.md` |')
       .join('\n');
   return '''
-# ClipMind Code Graph (generated $stamp; DO NOT EDIT)
+# ClipMind Code Graph (DO NOT EDIT)
 
 Per-layer navigation slices — load only what you need (~1–4k tokens
 each vs ~10–25k for reading the layer's files). Generated files
 (`*.g.dart`, `*.freezed.dart`) are excluded from every slice.
 
-Regenerate: `dart run tool/grapify.dart`
-Staleness: compare this timestamp with your last structural change;
-regenerate after any structural change (new files, renames, API moves).
+Regenerate with `dart run tool/grapify.dart` after any structural
+change (new files, renames, API moves). Output is fully deterministic,
+so `git diff --exit-code -- docs/codegraph` detects staleness.
 
 | Layer | Files | Lines | Slice |
 | --- | --- | --- | --- |

@@ -313,7 +313,7 @@ void main() {
       expect(result.success, isTrue);
       expect(videoFilter(ffmpeg), contains('FontSize=32'));
       expect(videoFilter(ffmpeg), contains('PrimaryColour=&H000000FF'));
-      expect(videoFilter(ffmpeg), contains('Alignment=8'));
+      expect(videoFilter(ffmpeg), contains('Alignment=6'));
     });
 
     test('unknown position defaults to bottom without error', () async {

@@ -1,4 +1,4 @@
-# Code Graph — lib/data (40 files, 6,327 lines; generated 2026-10-01T07:59; DO NOT EDIT)
+# Code Graph — lib/data (40 files, 6,412 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -55,18 +55,18 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/repositories/settings_repository.dart (54 lines)
 - L8  class SettingsRepository (_cached, _controller, _disposed) — stream L13, load() L15, save(AppSettings settings) L32, getActiveProviderId() L44, dispose() L49
 
-## lib/data/services/ffmpeg/command_builder.dart (505 lines)
-- L5  class CommandBuilder — trim(String input, String start, String end) L6, cut(String input, String removeStart, String removeEnd) L10, merge(List<String> inputs) L23, changeSpeed(String input, double factor) L41, mute(String input) L67, overlayText(…) L71, resize(String input, int width, int height, String fit) L134, rotate(String input, double degrees) L155, burnCaptions(…) L175, burnCaptionsFilter(…) L197, transition(…) L228, effectFilter(…) L286, effect(…) L311, extractAudio(String input, String outputFormat) L330, generateThumbnail(String input, String timestamp) L342, changeFormat(…) L346, adjustBrightness(String input, double value) L366, changeVolume(String input, double factor) L371, overlayWatermark(…) L375, addAudio(…) L426, proceduralSoundSource(String presetId) L486, lavfiToWav(String source) L501
+## lib/data/services/ffmpeg/command_builder.dart (573 lines)
+- L7  class CommandBuilder — trim(String input, String start, String end) L8, cut(…) L25, shiftedCutTime(String removeTime, double clipStartSec) L68, _cutTimeToSeconds(String time) L76, merge(List<String> inputs) L85, changeSpeed(String input, double factor) L103, mute(String input) L129, overlayText(…) L133, resize(String input, int width, int height, String fit) L196, rotate(String input, double degrees) L217, burnCaptions(…) L239, burnCaptionsFilter(…) L261, transition(…) L294, effectFilter(…) L354, effect(…) L379, extractAudio(String input, String outputFormat) L398, generateThumbnail(String input, String timestamp) L410, changeFormat(…) L414, adjustBrightness(String input, double value) L434, changeVolume(String input, double factor) L439, overlayWatermark(…) L443, addAudio(…) L494, proceduralSoundSource(String presetId) L554, lavfiToWav(String source) L569
 
 ## lib/data/services/ffmpeg/ffmpeg_binary_resolver.dart (62 lines)
 - L3  class FfmpegBinaryResolver (_cachedFfmpeg, _cachedFfprobe) — resolveFfmpeg(…) L7, resolveFfprobe(…) L13, _resolve(String binary,…) L19, _bundledPath(String binary) L29, _executablePlatform() L35, _which(String binary) L42, invalidateCache() L57
 
-## lib/data/services/ffmpeg/ffmpeg_service.dart (214 lines)
+## lib/data/services/ffmpeg/ffmpeg_service.dart (220 lines)
 - L10  class FfmpegProgress (percent, outTimeMs, speed, status) — FfmpegProgress(…) L16
 - L24  class FfmpegJob (id, args, expectedDurationMs, inputPath, outputPath, label) — FfmpegJob(…) L32
 - L42  class FfmpegResult (success, outputPath, exitCode, stderr, error) — FfmpegResult(…) L49
-- L58  class FfmpegService (_resolver, _tempDir, _uuid, _process) — FfmpegService(…) L65, tempDir L69, createTempPath(…) L71, run(FfmpegJob job) async* L77, runSync(FfmpegJob job) L143, cancel() L191, dispose() L196
-- L207  class FfmpegBinaryNotFoundException (message) — FfmpegBinaryNotFoundException(this.message) L209, toString() L212
+- L58  class FfmpegService (_resolver, _tempDir, _uuid, _process) — FfmpegService(…) L65, tempDir L69, createTempPath(…) L71, run(FfmpegJob job) async* L77, runSync(FfmpegJob job) L149, cancel() L197, dispose() L202
+- L213  class FfmpegBinaryNotFoundException (message) — FfmpegBinaryNotFoundException(this.message) L215, toString() L218
 
 ## lib/data/services/ffmpeg/ffprobe_service.dart (145 lines)
 - L7  class VideoMetadata (durationMs, width, height, fps, codec, hasAudio, bitrate, audioSampleRate) — VideoMetadata(…) L17
@@ -76,8 +76,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L5  class FilterEscaping (_hexColor) — escapeDrawtext(String text) L13, validateColor(String color) L23, assColorFromHex(String color) L37, escapeSubtitlePath(String path) L53, escapeFontFilePath(String path) L66, validateImagePath(String imagePath,…) L78
 - L104  class FilterValidationException (message) — FilterValidationException(this.message) L106, toString() L109
 
-## lib/data/services/ffmpeg/filter_graph_composer.dart (540 lines)
-- L8  class FilterGraphComposer (_uuid) — compose(…) L11, _composeClip(…) L34, _buildFilterJob(…) L82, _accumulateFilter(…) L140, _atempoChain(double factor) L328, _buildStandaloneJob(EditOperation op, String inputPath) L343, _buildOpArgs(EditOperation op, String inputPath) L360, _outputExtension(EditOperation op) L495, _paramString(Map<String, dynamic> p, String key, String fallback) L512, _paramNum(Map<String, dynamic> p, String key, double fallback) L519, _paramInt(Map<String, dynamic> p, String key, int fallback) L526, _paramDoubleOrNull(Map<String, dynamic> p, String key) L534
+## lib/data/services/ffmpeg/filter_graph_composer.dart (551 lines)
+- L8  class FilterGraphComposer (_uuid) — compose(…) L11, _composeClip(…) L34, _buildFilterJob(…) L82, _accumulateFilter(…) L140, _atempoChain(double factor) L328, _buildStandaloneJob(EditOperation op, String inputPath) L343, _buildOpArgs(EditOperation op, String inputPath) L360, _outputExtension(EditOperation op) L497, _paramString(Map<String, dynamic> p, String key, String fallback) L514, _paramNum(Map<String, dynamic> p, String key, double fallback) L521, _paramInt(Map<String, dynamic> p, String key, int fallback) L528, _paramDoubleOrNull(Map<String, dynamic> p, String key) L536, _paramCutRangeOrNull(Map<String, dynamic> p, String key) L544
 
 ## lib/data/services/ffmpeg/procedural_sound_service.dart (111 lines)
 - L11  class ProceduralSoundPreset (id, label, durationSeconds) — ProceduralSoundPreset(…) L16

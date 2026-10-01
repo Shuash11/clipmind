@@ -99,6 +99,20 @@ Project _trimmedProject(String inputA, String inputB, String outDir) {
   );
 }
 
+/// Cycle 6 Phase 2 fixture: a ranged clip (`startMs: 5000`) so the
+/// `-ss 5.0`/`-t 55.0` restriction and the shifted `between` times are
+/// unambiguous (file times differ from the shifted clip-relative times).
+Project _rangedProject(String inputA, String inputB, String outDir) {
+  final base = _project(inputA, inputB, outDir);
+  final clips = [
+    base.tracks.first.clips.first.copyWith(startMs: 5000, endMs: 60000),
+    base.tracks.first.clips[1].copyWith(positionMs: 55000),
+  ];
+  return base.copyWith(
+    tracks: [base.tracks.first.copyWith(clips: clips)],
+  );
+}
+
 EditOperation _cutOp(
   String id,
   Map<String, dynamic> params, {
@@ -121,6 +135,25 @@ List<Clip> _clips(ProviderContainer container) => container
 
 Clip _clip(ProviderContainer container, String id) =>
     _clips(container).singleWhere((c) => c.id == id);
+
+/// Value following an FFmpeg flag (`-ss 5.0` → 5.0), or null when the flag
+/// is absent. Accepts any decimal formatting (`5.0`/`5.00`/`5.000`).
+double? _flagValue(List<String> args, String flag) {
+  final i = args.indexOf(flag);
+  if (i < 0 || i + 1 >= args.length) return null;
+  return double.tryParse(args[i + 1]);
+}
+
+/// First `between(t,a,b)` pair in the joined args, or null when absent.
+List<double>? _betweenValues(String joined) {
+  final m =
+      RegExp(r'between\(t,([\d.]+),([\d.]+)\)').firstMatch(joined);
+  if (m == null) return null;
+  final a = double.tryParse(m.group(1)!);
+  final b = double.tryParse(m.group(2)!);
+  if (a == null || b == null) return null;
+  return [a, b];
+}
 
 void main() {
   group('applyEdit range normalization + repin (D1+D3, AI path)', () {
@@ -282,7 +315,7 @@ void main() {
       await db.close();
     });
 
-    ProviderContainer makeContainer({bool trimmed = false}) {
+    ProviderContainer makeContainer({bool trimmed = false, bool ranged = false}) {
       final container = ProviderContainer(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
@@ -292,9 +325,11 @@ void main() {
       );
       addTearDown(container.dispose);
       container.read(projectProvider.notifier).setProject(
-            trimmed
-                ? _trimmedProject(inputA, '${tmp.path}/b.mp4', outDir)
-                : _project(inputA, '${tmp.path}/b.mp4', outDir),
+            ranged
+                ? _rangedProject(inputA, '${tmp.path}/b.mp4', outDir)
+                : trimmed
+                    ? _trimmedProject(inputA, '${tmp.path}/b.mp4', outDir)
+                    : _project(inputA, '${tmp.path}/b.mp4', outDir),
           );
       return container;
     }
@@ -303,16 +338,22 @@ void main() {
       final container = makeContainer(trimmed: true);
 
       // Timeline [5000, 15000) into the trimmed clip (in-point 10000):
-      // the file time is startMs + local = [15000, 25000).
+      // the file segment is startMs + local = [15000, 25000). Phase 2
+      // restricts the input to that clip extent (-ss 10.0 -t 50.0) and
+      // shifts the `between` times by the in-point → [5, 15) clip-relative.
       final result = await container
           .read(manualEditControllerProvider)
           .submitCut(clipId: 'clip_1', startMs: 5000, endMs: 15000);
 
       expect(result.success, isTrue);
-      expect(
-        ffmpeg.lastJob!.args.join(' '),
-        contains('between(t,15.000,25.000)'),
-      );
+      final args = ffmpeg.lastJob!.args;
+      final joined = args.join(' ');
+      expect(_flagValue(args, '-ss'), closeTo(10.0, 0.001));
+      expect(_flagValue(args, '-t'), closeTo(50.0, 0.001));
+      final between = _betweenValues(joined);
+      expect(between, isNotNull, reason: 'expected between(t,a,b) in: $joined');
+      expect(between![0], closeTo(5.0, 0.001));
+      expect(between[1], closeTo(15.0, 0.001));
       // 50s of source minus the 10s segment → [0, 40000].
       final cut = _clip(container, 'clip_1');
       expect(cut.sourcePath, equals(result.outputPath));
@@ -342,15 +383,97 @@ void main() {
         endMs: 10000,
       );
       expect(second.success, isTrue);
-      expect(
-        ffmpeg.lastJob!.args.join(' '),
-        contains('between(t,0.000,10.000)'),
-      );
+      // Clip-relative [0, 10): the backend formats shifted times without
+      // trailing zeros (0.0, not 0.000), so parse instead of matching text.
+      final secondBetween =
+          _betweenValues(ffmpeg.lastJob!.args.join(' '));
+      expect(secondBetween, isNotNull);
+      expect(secondBetween![0], closeTo(0.0, 0.001));
+      expect(secondBetween[1], closeTo(10.0, 0.001));
       final cut = _clip(container, 'clip_1');
       expect(cut.startMs, equals(0));
       expect(cut.endMs, equals(40000));
       expect(cut.sourcePath, equals(second.outputPath));
       expect(_clip(container, 'clip_2').positionMs, equals(40000));
+    });
+
+    test('ranged clip restricts FFmpeg to the clip extent (Phase 2)', () async {
+      final container = makeContainer(ranged: true);
+
+      // Clip [5000, 60000) (len 55s) at position 0 → span [0, 55000).
+      // Timeline [5000, 15000) → local [5000, 15000) → file [10000, 20000).
+      // The backend restricts the input to -ss 5.0 -t 55.0 and shifts the
+      // `between` times by the 5.0s in-point → [5, 15).
+      final result = await container
+          .read(manualEditControllerProvider)
+          .submitCut(clipId: 'clip_1', startMs: 5000, endMs: 15000);
+
+      expect(result.success, isTrue);
+      final args = ffmpeg.lastJob!.args;
+      final joined = args.join(' ');
+      final ss = _flagValue(args, '-ss');
+      final t = _flagValue(args, '-t');
+      expect(ss, isNotNull,
+          reason: 'ranged cut must restrict the input with -ss (clip_start_s)');
+      expect(t, isNotNull,
+          reason: 'ranged cut must restrict the input with -t (clip_len_s)');
+      expect(ss!, closeTo(5.0, 0.001));
+      expect(t!, closeTo(55.0, 0.001));
+      final between = _betweenValues(joined);
+      expect(between, isNotNull, reason: 'expected between(t,a,b) in: $joined');
+      expect(between![0], closeTo(5.0, 0.001));
+      expect(between[1], closeTo(15.0, 0.001));
+    });
+
+    test('propagated range equals clipLen minus removedLen (Phase 2)',
+        () async {
+      final container = makeContainer(ranged: true);
+
+      final result = await container
+          .read(manualEditControllerProvider)
+          .submitCut(clipId: 'clip_1', startMs: 5000, endMs: 15000);
+
+      expect(result.success, isTrue);
+      // clipLen 55s − removed 10s = 45s → [0, 45000]; the follower repins
+      // to 45000 so the timeline and the restricted output agree.
+      final cut = _clip(container, 'clip_1');
+      expect(cut.sourcePath, equals(result.outputPath));
+      expect(cut.startMs, equals(0));
+      expect(cut.endMs, equals(45000));
+      expect(cut.endMs - cut.startMs, equals(45000));
+      expect(_clip(container, 'clip_2').positionMs, equals(45000));
+      // The restricted output extent implies the same length:
+      // -t 55s of clip minus the 10s segment = 45s of output.
+      final t = _flagValue(ffmpeg.lastJob!.args, '-t');
+      expect(t, isNotNull);
+      expect((t! - 10.0) * 1000, closeTo(45000, 1.0));
+    });
+
+    test('full-span clip matches the legacy whole-file path (Phase 2)',
+        () async {
+      final container = makeContainer();
+
+      // Full clip [0, 60000): file times equal local times, so the shift
+      // is a no-op and the restriction (-ss 0 / -t 60) is equivalent to
+      // the legacy whole-file cut.
+      final result = await container
+          .read(manualEditControllerProvider)
+          .submitCut(clipId: 'clip_1', startMs: 5000, endMs: 15000);
+
+      expect(result.success, isTrue);
+      final args = ffmpeg.lastJob!.args;
+      final joined = args.join(' ');
+      final ss = _flagValue(args, '-ss');
+      if (ss != null) expect(ss, closeTo(0.0, 0.001));
+      final between = _betweenValues(joined);
+      expect(between, isNotNull, reason: 'expected between(t,a,b) in: $joined');
+      expect(between![0], closeTo(5.0, 0.001));
+      expect(between[1], closeTo(15.0, 0.001));
+      // 60s minus the 10s segment → [0, 50000].
+      final cut = _clip(container, 'clip_1');
+      expect(cut.startMs, equals(0));
+      expect(cut.endMs, equals(50000));
+      expect(_clip(container, 'clip_2').positionMs, equals(50000));
     });
   });
 

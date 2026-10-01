@@ -104,6 +104,13 @@ class ManualEditController {
   /// executor's `_cutNewRange`: `[0, clipLen − removedLen]`, omitted when
   /// degenerate) so `applyEdit` normalizes the clip's range and repins
   /// the track on the manual path too.
+  ///
+  /// Ranged-cut restriction: the op also carries `clip_start_s`/`clip_len_s`
+  /// (the live clip's `startMs / 1000` and `(endMs − startMs) / 1000`,
+  /// omitted when the range is missing/degenerate) so the backend
+  /// `CommandBuilder.cut` restricts FFmpeg to the clip extent
+  /// (`-ss clipStart -i input -t clipLen`, `between` times shifted by
+  /// `clipStart`). Absent params fall back to the legacy whole-file path.
   Future<ManualCutResult> submitCut({
     required String clipId,
     required int startMs,
@@ -140,6 +147,15 @@ class ManualEditController {
     if (clipLen > 0 && newLen >= 0) {
       params['new_start_ms'] = 0;
       params['new_end_ms'] = newLen;
+    }
+    // Clip extent for the ranged cut (the additive param pattern): the
+    // backend restricts FFmpeg to this window and shifts the `between`
+    // times by `clip_start_s`, so the output length is exactly
+    // `clipLen − removedLen`. Degenerate ranges omit the params and keep
+    // the legacy whole-file path unchanged.
+    if (clipLen > 0) {
+      params['clip_start_s'] = found.startMs / 1000.0;
+      params['clip_len_s'] = clipLen / 1000.0;
     }
     final clipPathMap = _clipPathMap(project);
     final defaultPath = _defaultPath(project, clipPathMap);

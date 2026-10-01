@@ -104,6 +104,18 @@ List<String> _clipIds(ProviderContainer container, String trackId) {
       .toList();
 }
 
+/// First `between(t,a,b)` pair in the joined args, or null when absent.
+/// Accepts any decimal formatting (`5.0`/`5.00`/`5.000`) so the assertion
+/// is robust to the backend's ms-rounded shortest round-trip format.
+List<double>? _betweenValues(String joined) {
+  final m = RegExp(r'between\(t,([\d.]+),([\d.]+)\)').firstMatch(joined);
+  if (m == null) return null;
+  final a = double.tryParse(m.group(1)!);
+  final b = double.tryParse(m.group(2)!);
+  if (a == null || b == null) return null;
+  return [a, b];
+}
+
 void main() {
   group('Structural edit flow (real structural wiring)', () {
     late AppDatabase db;
@@ -301,7 +313,11 @@ void main() {
       expect(result.outputPath!.startsWith(outDir), isTrue);
       // The job ran against the real clip file.
       expect(ffmpeg.lastJob!.inputPath, equals(inputA));
-      expect(ffmpeg.lastJob!.args.join(' '), contains('between(t,5.000,15.000)'));
+      final joined = ffmpeg.lastJob!.args.join(' ');
+      final between = _betweenValues(joined);
+      expect(between, isNotNull, reason: 'expected between(t,a,b) in: $joined');
+      expect(between![0], closeTo(5.0, 0.001));
+      expect(between[1], closeTo(15.0, 0.001));
 
       String source() => container
           .read(projectProvider)

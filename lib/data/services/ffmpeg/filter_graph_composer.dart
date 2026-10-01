@@ -371,6 +371,8 @@ class FilterGraphComposer {
           inputPath,
           _paramString(p, 'remove_start', '0'),
           _paramString(p, 'remove_end', '0'),
+          clipStartSec: _paramCutRangeOrNull(p, 'clip_start_s'),
+          clipDurationSec: _paramCutRangeOrNull(p, 'clip_len_s'),
         );
       case EditOperationType.merge:
         final paths =
@@ -534,6 +536,15 @@ class FilterGraphComposer {
   double? _paramDoubleOrNull(Map<String, dynamic> p, String key) {
     final v = p[key];
     if (v is num) return v.toDouble();
+    return null;
+  }
+
+  /// Null-safe double read for the ranged-cut `clip_start_s`/`clip_len_s`
+  /// params (absent → null → the legacy whole-file cut path).
+  double? _paramCutRangeOrNull(Map<String, dynamic> p, String key) {
+    final v = p[key];
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.trim());
     return null;
   }
 }

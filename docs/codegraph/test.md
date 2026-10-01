@@ -1,4 +1,4 @@
-# Code Graph — test (133 files, 30,397 lines; generated 2026-10-01T07:59; DO NOT EDIT)
+# Code Graph — test (138 files, 32,529 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -431,12 +431,13 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L52  function _project
 - L80  function main
 
-## test/unit/agent/tools/edit_tool_executor_test.dart (360 lines)
-- L15  class _MockFfprobe extends Mock implements FfprobeService
-- L17  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L20, runSync(FfmpegJob job) L23
-- L32  class _Applied (op, path) — _Applied(this.op, this.path) L35
-- L38  function _project
-- L73  function main
+## test/unit/agent/tools/edit_tool_executor_test.dart (582 lines)
+- L18  class _MockFfprobe extends Mock implements FfprobeService
+- L20  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L23, runSync(FfmpegJob job) L26
+- L35  class _Applied (op, path) — _Applied(this.op, this.path) L38
+- L41  function _project
+- L78  function _rangedProject
+- L90  function main
 
 ## test/unit/agent/tools/overlay_text_font_test.dart (267 lines)
 - L17  class _MockFfprobe extends Mock implements FfprobeService
@@ -473,6 +474,20 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/data/media_analysis_dao_test.dart (146 lines)
 - L5  function main
 
+## test/unit/domain/usecases/export_args_test.dart (423 lines)
+- L22  class _CapturingFfmpeg extends FfmpegService (_tmp, jobs, createTempPathCalls, _counter) — _CapturingFfmpeg(this._tmp) : super(tempDir: _tmp.path) L23, lastJob L30, createTempPath(…) L33, run(FfmpegJob job) async* L40, cancel() L60
+- L63  function _clip
+- L82  function _project
+- L108  function _joined
+- L113  function _export
+- L129  function main
+
+## test/unit/domain/usecases/export_flow_test.dart (302 lines)
+- L17  class _FlowFfmpeg extends FfmpegService (_tmp, script, createFile, delay, shouldThrow, jobs, tempCalls, cancelCalled) — _FlowFfmpeg(…) L18, Function()? onCreateTempPath L30, createTempPath(…) L37, run(FfmpegJob job) async* L44, cancel() L75
+- L80  function _project
+- L107  function _options
+- L133  function main
+
 ## test/unit/domain/usecases/structural_edit_usecase_test.dart (551 lines)
 - L8  function _clip
 - L19  function _project
@@ -491,8 +506,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L28  function _op
 - L42  function main
 
-## test/unit/ffmpeg/command_builder_test.dart (576 lines)
+## test/unit/ffmpeg/command_builder_test.dart (669 lines)
 - L4  function main
+
+## test/unit/ffmpeg/export_live_gates_test.dart (423 lines)
+- L36  function _synthAv
+- L56  function _synthDark
+- L68  function _frameRgb
+- L98  function _stripMean
+- L111  function main
 
 ## test/unit/ffmpeg/procedural_sound_service_test.dart (146 lines)
 - L8  class _NoFfmpeg extends FfmpegBinaryResolver — resolveFfmpeg(…) L10
@@ -575,15 +597,25 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L198  function _project
 - L226  function main
 
-## test/unit/state/cut_range_test.dart (400 lines)
+## test/unit/state/cut_range_test.dart (523 lines)
 - L27  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L30, save(Project project) L33
 - L38  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L41, runSync(FfmpegJob job) L44
 - L53  function _project
 - L91  function _trimmedProject
-- L102  function _cutOp
-- L115  function _clips
-- L122  function _clip
-- L125  function main
+- L105  function _rangedProject
+- L116  function _cutOp
+- L129  function _clips
+- L136  function _clip
+- L141  function _flagValue
+- L148  function _betweenValues
+- L158  function main
+
+## test/unit/state/export_after_manual_edit_test.dart (275 lines)
+- L34  class _RecordingRepository extends ProjectRepository — _RecordingRepository(super.db) L35, save(Project project) L38
+- L41  class _EditExportFfmpeg extends FfmpegService (_tmp, exportJobs, lastCutJob, _counter) — _EditExportFfmpeg(this._tmp) : super(tempDir: _tmp.path) L42, createTempPath(…) L50, runSync(FfmpegJob job) L56, run(FfmpegJob job) async* L69, cancel() L83
+- L86  function _project
+- L124  function _joined
+- L126  function main
 
 ## test/unit/state/manual_edit_panels_test.dart (389 lines)
 - L23  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L26, save(Project project) L29
@@ -629,13 +661,14 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L101  class _StubResolver extends FfmpegBinaryResolver (value, throws) — _StubResolver(…) L104, resolveFfmpeg(…) L107
 - L113  function main
 
-## test/unit/state/structural_edit_flow_test.dart (326 lines)
+## test/unit/state/structural_edit_flow_test.dart (342 lines)
 - L20  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L23, save(Project project) L26
 - L31  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L34, runSync(FfmpegJob job) L37
 - L46  function _project
 - L83  function _op
 - L96  function _clipIds
-- L107  function main
+- L110  function _betweenValues
+- L119  function main
 
 ## test/unit/state/undo_redo_flow_test.dart (179 lines)
 - L15  class _RecordingRepository extends ProjectRepository (saves, lastSaved) — _RecordingRepository(super.db) L19, save(Project project) L22
@@ -662,6 +695,14 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L46  function failed
 - L63  function liveStep
 - L75  function main
+
+## test/widget/export_dialog_test.dart (255 lines)
+- L25  class _GatedFfmpeg extends FfmpegService (lastJob, gate, createdFiles) — _GatedFfmpeg() : super(tempDir: Directory.systemTemp.path) L26, run(FfmpegJob job) async* L33, cancel() L55
+- L58  class _FastFfmpeg extends FfmpegService (lastJob, createdFiles) — _FastFfmpeg() : super(tempDir: Directory.systemTemp.path) L59, run(FfmpegJob job) async* L65, cancel() L86
+- L89  function _project
+- L116  function _pumpDialog
+- L131  function _deleteFiles
+- L138  function main
 
 ## test/widget/left_panel_test.dart (495 lines)
 - L33  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L34, save(Project project) L37

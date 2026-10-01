@@ -152,6 +152,12 @@ class CommandMapper {
     final filters = <String>[];
     final audioFilters = <String>[];
     bool hasAudio = true;
+    // Ranged-cut input restriction (first cut op wins): when a cut carries
+    // `clip_start_s`/`clip_len_s` the whole composed input is restricted
+    // with `-ss`/`-t` and the cut's `between()` times shift to the
+    // clip-span-relative base (same composition as CommandBuilder.cut).
+    double? rangedClipStart;
+    double? rangedClipLen;
 
     filters.add('[0:v]null[v0]');
 
@@ -272,12 +278,29 @@ class CommandMapper {
         case 'cut':
           final removeStart = _str(params, 'remove_start', '0');
           final removeEnd = _str(params, 'remove_end', '0');
-          filters.add(
-            '[$prev]select=\'not(between(t,$removeStart,$removeEnd))\',setpts=N/FRAME_RATE/TB[$next]',
-          );
-          audioFilters.add(
-            '[0:a]aselect=\'not(between(t,$removeStart,$removeEnd))\',asetpts=N/SR/TB[a$i]',
-          );
+          final cutClipStart = _cutRangeParam(params, 'clip_start_s');
+          final cutClipLen = _cutRangeParam(params, 'clip_len_s');
+          if (cutClipStart != null && cutClipLen != null) {
+            final shiftedStart =
+                CommandBuilder.shiftedCutTime(removeStart, cutClipStart);
+            final shiftedEnd =
+                CommandBuilder.shiftedCutTime(removeEnd, cutClipStart);
+            filters.add(
+              '[$prev]select=\'not(between(t,$shiftedStart,$shiftedEnd))\',setpts=N/FRAME_RATE/TB[$next]',
+            );
+            audioFilters.add(
+              '[0:a]aselect=\'not(between(t,$shiftedStart,$shiftedEnd))\',asetpts=N/SR/TB[a$i]',
+            );
+            rangedClipStart ??= cutClipStart;
+            rangedClipLen ??= cutClipLen;
+          } else {
+            filters.add(
+              '[$prev]select=\'not(between(t,$removeStart,$removeEnd))\',setpts=N/FRAME_RATE/TB[$next]',
+            );
+            audioFilters.add(
+              '[0:a]aselect=\'not(between(t,$removeStart,$removeEnd))\',asetpts=N/SR/TB[a$i]',
+            );
+          }
           break;
 
         case 'overlay_watermark':
@@ -290,11 +313,25 @@ class CommandMapper {
     final filterStr = filters.join(';');
     final audioStr = audioFilters.isNotEmpty ? ';${audioFilters.last}' : '';
 
-    final args = <String>[
-      '-i', inputPath,
-      '-filter_complex', '$filterStr$audioStr',
-      '-map', '[$lastVideoLabel]',
-    ];
+    final args = <String>[];
+    if (rangedClipStart != null && rangedClipLen != null) {
+      args.addAll([
+        '-ss',
+        rangedClipStart.toString(),
+        '-i',
+        inputPath,
+        '-t',
+        rangedClipLen.toString(),
+      ]);
+    } else {
+      args.addAll(['-i', inputPath]);
+    }
+    args.addAll([
+      '-filter_complex',
+      '$filterStr$audioStr',
+      '-map',
+      '[$lastVideoLabel]',
+    ]);
 
     if (hasAudio && audioFilters.isNotEmpty) {
       final lastAudioLabel = 'a${ops.length - 1}';
@@ -423,6 +460,8 @@ class CommandMapper {
           inputPath,
           _str(params, 'remove_start', '0'),
           _str(params, 'remove_end', '0'),
+          clipStartSec: _cutRangeParam(params, 'clip_start_s'),
+          clipDurationSec: _cutRangeParam(params, 'clip_len_s'),
         );
         break;
       case 'change_speed':
@@ -611,6 +650,17 @@ class CommandMapper {
   static double? _numOrNull(Map<String, dynamic> params, String key) {
     final value = params[key];
     if (value is num) return value.toDouble();
+    return null;
+  }
+
+  /// Null-safe double read for the ranged-cut `clip_start_s`/`clip_len_s`
+  /// params (the executor writes doubles; the manual path may write
+  /// decimal strings). Absent/unparseable → null → the legacy whole-file
+  /// cut path, unchanged behavior.
+  static double? _cutRangeParam(Map<String, dynamic> params, String key) {
+    final value = params[key];
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value.trim());
     return null;
   }
 
