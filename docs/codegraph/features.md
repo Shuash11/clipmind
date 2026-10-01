@@ -1,4 +1,4 @@
-# Code Graph — lib/features (123 files, 14,157 lines; generated 2026-09-29T15:29; DO NOT EDIT)
+# Code Graph — lib/features (124 files, 14,329 lines; generated 2026-10-01T07:59; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/features/agent/data/provider_tool_call_normalizer.dart (68 lines)
@@ -424,25 +424,30 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L132  class ProviderProfileDraft (id, providerId, displayName, endpoint, enabled, timeout, headers, secretHeaderNames) — ProviderProfileDraft(…) L133
 - L166  class ProviderProfileNotifier (_repository, _credentials, _registry, _cancellationControllerFactory, _idFactory, _discoveryCancellation, _requestEpoch) — ProviderProfileNotifier(…) L168, ProviderProfileNotifier L185, load() L202, beginCreate() L233, selectProfile(String profileId) L240, activateProfile(String profileId) L252, saveProfile(ProviderProfileDraft draft) L263, deleteProfile(String profileId) L405, deleteSelectedProfile() L427, testConnection(String profileId) L432, discoverModels(String profileId) L463, addManualModel(String profileId, String value) L501, selectModel(String profileId, String modelId) L519, _replaceProfile(…) L533, _saveDocument(…) L544, _document(…) L568, _commitSaved(…) L578, _finishCredentialMutations(…) L594, _deleteNewReferences(Iterable<String> references) L629, _isCurrentRequest(int request, String profileId) L635, _canRun(ProviderProfile? profile) L638, _supportsDiscovery(ProviderProfile profile) L646, _validateDraft(ProviderProfileDraft draft) L654, _validateNewSecretValues(…) L697, _removedSecretNames(…) L715, _normalizedSecretValues(…) L734, _normalizedModels(Iterable<String> values) L750, _normalizedHeaderNames(Iterable<String> values) L761, _uniqueDescriptors(Iterable<ModelDescriptor> models) L773, _validHeader(String value) L778, _sensitiveHeader(String value) L780, _discoveryUnavailable() L795, _validation(String message) L803, _failure(AppFailure failure,…) L808, dispose() L817
 
-## lib/features/providers/presentation/screens/ai_providers_screen.dart (160 lines)
-- L9  class AiProvidersScreen extends ConsumerWidget — AiProvidersScreen(…) L10, build(BuildContext context, WidgetRef ref) L13
-- L46  class _ProfileRail extends ConsumerWidget (state) — _ProfileRail(…) L47, build(BuildContext context, WidgetRef ref) L50
-- L103  class _ConfigurationSurface extends ConsumerWidget (state) — _ConfigurationSurface(…) L104, build(BuildContext context, WidgetRef ref) L107
-- L131  class _EmptyProfiles extends StatelessWidget — _EmptyProfiles() L132, build(BuildContext context) L134
+## lib/features/providers/presentation/screens/ai_providers_screen.dart (183 lines)
+- L11  class AiProvidersScreen extends ConsumerWidget — AiProvidersScreen(…) L12, build(BuildContext context, WidgetRef ref) L15
+- L61  function _navigateBackToSettings
+- L69  class _ProfileRail extends ConsumerWidget (state) — _ProfileRail(…) L70, build(BuildContext context, WidgetRef ref) L73
+- L126  class _ConfigurationSurface extends ConsumerWidget (state) — _ConfigurationSurface(…) L127, build(BuildContext context, WidgetRef ref) L130
+- L154  class _EmptyProfiles extends StatelessWidget — _EmptyProfiles() L155, build(BuildContext context) L157
 
-## lib/features/providers/presentation/widgets/dynamic_model_selector.dart (284 lines)
-- L12  class DynamicModelSelector extends ConsumerWidget — DynamicModelSelector(…) L13, build(BuildContext context, WidgetRef ref) L16, _showPicker(BuildContext context, WidgetRef ref) L68
-- L80  class _ModelPicker extends ConsumerStatefulWidget (profileId) — _ModelPicker(…) L81, createState() L84
-- L87  class _ModelPickerState extends ConsumerState<_ModelPicker> (_manual) — dispose() L90, build(BuildContext context) L96, _add(String value) L276
+## lib/features/providers/presentation/widgets/dynamic_model_selector.dart (391 lines)
+- L14  class DynamicModelSelector extends ConsumerWidget — DynamicModelSelector(…) L15, build(BuildContext context, WidgetRef ref) L18, _showPicker(BuildContext context, WidgetRef ref) L70
+- L82  class _ModelPicker extends ConsumerStatefulWidget (profileId) — _ModelPicker(…) L83, createState() L86
+- L89  class _ModelPickerState extends ConsumerState<_ModelPicker> (_manual) — initState() L93, _discoverOnOpen() L102, dispose() L123, build(BuildContext context) L129, _add(String value) L349
+- L365  function groupDiscoveredByOrg
 
-## lib/features/providers/presentation/widgets/provider_profile_form.dart (615 lines)
-- L13  class ProviderProfileForm extends ConsumerStatefulWidget (profile, onRendered) — ProviderProfileForm(…) L14, createState() L20
-- L24  class _ProviderProfileFormState extends ConsumerState<ProviderProfileForm> (_formKey, _name, _endpoint, _timeout, _apiKey, _headers, _manualModels, _selectedModel) — didUpdateWidget(covariant ProviderProfileForm oldWidget) L41, initState() L47, dispose() L76, build(BuildContext context) L95, _scheduleRendered() L339, _addSecretRow() L347, _removeSecretRow(_SecretHeaderRow row) L349, _save() L359, _presetEndpoint(…) L413, _isLocalHttpWarning L424, _endpointValidation(String? value) L430, _split(String value) L437, _parseHeaders(String value) L443, _encodeHeaders(Map<String, String> value) L456
-- L460  class _FormHeader extends StatelessWidget (profile) — _FormHeader(…) L461, build(BuildContext context) L466
-- L489  class _SecretHeaderEditor extends StatelessWidget (rows, enabled, onAdd, onRemove) — _SecretHeaderEditor(…) L490, build(BuildContext context) L503
-- L566  class _SecretHeaderRow (existingName, name, value) — _SecretHeaderRow(…) L567, dispose() L575
-- L581  class _StatusChip extends StatelessWidget (profile) — _StatusChip(…) L582, build(BuildContext context) L587
-- L598  class _Notice extends StatelessWidget (message, error) — _Notice(…) L599, build(BuildContext context) L605
+## lib/features/providers/presentation/widgets/model_discovery_support.dart (15 lines)
+- L11  function modelDiscoverySupported
+
+## lib/features/providers/presentation/widgets/provider_profile_form.dart (642 lines)
+- L14  class ProviderProfileForm extends ConsumerStatefulWidget (profile, onRendered) — ProviderProfileForm(…) L15, createState() L21
+- L25  class _ProviderProfileFormState extends ConsumerState<ProviderProfileForm> (_formKey, _name, _endpoint, _timeout, _apiKey, _headers, _manualModels, _selectedModel) — didUpdateWidget(covariant ProviderProfileForm oldWidget) L42, initState() L48, dispose() L77, build(BuildContext context) L96, _scheduleRendered() L340, _addSecretRow() L348, _removeSecretRow(_SecretHeaderRow row) L350, _save() L360, _discoverAfterSave() L422, _presetEndpoint(…) L440, _isLocalHttpWarning L451, _endpointValidation(String? value) L457, _split(String value) L464, _parseHeaders(String value) L470, _encodeHeaders(Map<String, String> value) L483
+- L487  class _FormHeader extends StatelessWidget (profile) — _FormHeader(…) L488, build(BuildContext context) L493
+- L516  class _SecretHeaderEditor extends StatelessWidget (rows, enabled, onAdd, onRemove) — _SecretHeaderEditor(…) L517, build(BuildContext context) L530
+- L593  class _SecretHeaderRow (existingName, name, value) — _SecretHeaderRow(…) L594, dispose() L602
+- L608  class _StatusChip extends StatelessWidget (profile) — _StatusChip(…) L609, build(BuildContext context) L614
+- L625  class _Notice extends StatelessWidget (message, error) — _Notice(…) L626, build(BuildContext context) L632
 
 ## lib/features/providers/presentation/widgets/provider_profile_list.dart (87 lines)
 - L5  class ProviderProfileList extends StatelessWidget (profiles, activeProfileId, selectedProfileId, onSelected) — ProviderProfileList(…) L6, build(BuildContext context) L20

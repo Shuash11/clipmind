@@ -146,6 +146,50 @@ void main() {
       expect(applied.single.op.targetClipIds, equals(['clip_1']));
     });
 
+    test('trim carries the new output range (stale-range fix)', () async {
+      final executor = EditToolExecutor(ctx());
+      final result = await executor.execute(
+        const ToolCall(
+          id: 'call_trim_range',
+          name: 'trim_clip',
+          args: {
+            'clip_id': 'clip_1',
+            'start': '00:00:05.000',
+            'end': '00:00:15.000',
+          },
+        ),
+      );
+
+      expect(result.success, isTrue);
+      expect(applied, hasLength(1));
+      // clip_1 spans [0, 60000]; the trim keeps 10s of content, so the
+      // rendered output normalizes to [0, 10000].
+      expect(applied.single.op.params['new_start_ms'], equals(0));
+      expect(applied.single.op.params['new_end_ms'], equals(10000));
+    });
+
+    test('cut carries the new output range (stale-range fix)', () async {
+      final executor = EditToolExecutor(ctx());
+      final result = await executor.execute(
+        const ToolCall(
+          id: 'call_cut_range',
+          name: 'cut_segment',
+          args: {
+            'clip_id': 'clip_1',
+            'remove_start': '00:00:10.000',
+            'remove_end': '00:00:20.000',
+          },
+        ),
+      );
+
+      expect(result.success, isTrue);
+      expect(applied, hasLength(1));
+      // clip_1 spans [0, 60000] (60s); removing a 10s segment leaves 50s
+      // of content, so the rendered output normalizes to [0, 50000].
+      expect(applied.single.op.params['new_start_ms'], equals(0));
+      expect(applied.single.op.params['new_end_ms'], equals(50000));
+    });
+
     test('unknown clip ID fails with actionable message', () async {
       final executor = EditToolExecutor(ctx());
       final result = await executor.execute(

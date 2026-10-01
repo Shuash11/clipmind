@@ -1,13 +1,22 @@
-# Code Graph — lib/presentation (25 files, 5,940 lines; generated 2026-09-29T15:29; DO NOT EDIT)
+# Code Graph — lib/presentation (32 files, 7,972 lines; generated 2026-10-01T07:59; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
-## lib/presentation/editor/editor_screen.dart (238 lines)
-- L16  class EditorScreen extends ConsumerStatefulWidget (projectId) — EditorScreen(…) L18, createState() L21
-- L24  class _EditorScreenState extends ConsumerState<EditorScreen> (_projectState) — initState() L28, didUpdateWidget(covariant EditorScreen oldWidget) L34, _loadProject() L41, build(BuildContext context) L70
-- L106  class _EditorShell extends StatelessWidget — _EditorShell() L107, build(BuildContext context) L110
-- L147  class _WorkspaceStack extends StatelessWidget — _WorkspaceStack() L148, build(BuildContext context) L151
-- L162  class _EditorPanel extends StatelessWidget (child) — _EditorPanel(…) L165, build(BuildContext context) L168
-- L183  class _ProjectStateMessage extends StatelessWidget (icon, title, message, actionLabel, onAction) — _ProjectStateMessage(…) L190, build(BuildContext context) L199
+## lib/presentation/editor/editor_screen.dart (248 lines)
+- L18  class EditorScreen extends ConsumerStatefulWidget (projectId) — EditorScreen(…) L20, createState() L23
+- L26  class _EditorScreenState extends ConsumerState<EditorScreen> (_projectState) — initState() L30, didUpdateWidget(covariant EditorScreen oldWidget) L36, _loadProject() L43, build(BuildContext context) L72
+- L108  class _EditorShell extends ConsumerWidget — _EditorShell() L109, build(BuildContext context, WidgetRef ref) L112
+- L157  class _WorkspaceStack extends StatelessWidget — _WorkspaceStack() L158, build(BuildContext context) L161
+- L172  class _EditorPanel extends StatelessWidget (child) — _EditorPanel(…) L175, build(BuildContext context) L178
+- L193  class _ProjectStateMessage extends StatelessWidget (icon, title, message, actionLabel, onAction) — _ProjectStateMessage(…) L200, build(BuildContext context) L209
+
+## lib/presentation/editor/providers/left_panel_provider.dart (54 lines)
+- L4  enum LeftPanelTab
+- L9  class LeftPanelState (open, tab, LeftPanelState) — LeftPanelState(…) L13, operator L18, hashCode L22
+- L28  class LeftPanelController extends StateNotifier<LeftPanelState> — LeftPanelController() : super(const LeftPanelState.closed()) L29, open(LeftPanelTab tab) L33, close() L37, toggle(LeftPanelTab tab) L41
+
+## lib/presentation/editor/providers/selected_clip_provider.dart (33 lines)
+- L14  function resolveSelectedClip
+- L26  function clipDisplayLabel
 
 ## lib/presentation/editor/widgets/agent_chat/agent_chat_panel.dart (436 lines)
 - L19  class AgentChatPanel extends ConsumerStatefulWidget — AgentChatPanel(…) L20, suggestedPrompts L22, createState() L31
@@ -34,36 +43,62 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/presentation/editor/widgets/agent_chat/suggested_prompt_chip.dart (29 lines)
 - L4  class SuggestedPromptChip extends StatelessWidget (text, onPressed) — SuggestedPromptChip(…) L7, build(BuildContext context) L10
 
-## lib/presentation/editor/widgets/preview_player.dart (253 lines)
+## lib/presentation/editor/widgets/preview_player.dart (259 lines)
 - L9  class PreviewPlayer extends ConsumerStatefulWidget — PreviewPlayer(…) L10, createState() L13
-- L16  class _PreviewPlayerState extends ConsumerState<PreviewPlayer> (_player, _controller, _positionSub, _durationSub, _playingSub, _lastPath) — initState() L24, _listenToPlayer() L30, didChangeDependencies() L45, dispose() L56, _togglePlayPause() L64, _skip(int ms) L72, _formatDuration(Duration d) L84, build(BuildContext context) L95
+- L16  class _PreviewPlayerState extends ConsumerState<PreviewPlayer> (_player, _controller, _positionSub, _durationSub, _playingSub, _lastPath) — initState() L28, _listenToPlayer() L35, didChangeDependencies() L50, dispose() L61, _togglePlayPause() L70, _skip(int ms) L78, _formatDuration(Duration d) L90, build(BuildContext context) L101
 
 ## lib/presentation/editor/widgets/status_bar.dart (202 lines)
 - L11  class StatusBar extends ConsumerWidget — StatusBar(…) L12, build(BuildContext context, WidgetRef ref) L15, _providerPill(…) L48, _connectedPill(String? modelName) L84, _truncateModel(String model) L98, _ffmpegPill(AsyncValue<bool> ffmpeg) L104, _agentPill(AgentRunState runState) L132
 - L150  class _StatusPill extends StatelessWidget (color, label, spinner) — _StatusPill(…) L155, build(BuildContext context) L163
 
-## lib/presentation/editor/widgets/timeline/clip_block.dart (104 lines)
-- L4  class ClipBlock extends StatelessWidget (color, label, durationLabel, width, selected, muted, onTap) — ClipBlock(…) L13, build(BuildContext context) L25
+## lib/presentation/editor/widgets/timeline/clip_block.dart (395 lines)
+- L7  class ClipBlock extends StatelessWidget (color, label, durationLabel, width, selected, muted, clipId, onTap) — Function(String clipId, bool isStart, int newLocalMs)? onTrimEdge L19, ClipBlock(…) L21, build(BuildContext context) L38, _withTrimHandles(Widget block) L71, _buildBlock(BuildContext context) L111, _blockRow(Color textColor) L149, _buildGhost() L252, _buildDraggingPlaceholder() L276
+- L293  class _TrimHandle extends StatefulWidget (clipId, isStart, currentMs, zoom, onTap) — _TrimHandle(…) L294, Function(String clipId, bool isStart, int newLocalMs)? onTrimEdge L308, createState() L312
+- L315  class _TrimHandleState extends State<_TrimHandle> (_pxPerSecondBase, _dragPx, _lastGlobalDx, _dragging) — _onDragStart(DragStartDetails details) L322, _onDragUpdate(DragUpdateDetails details) L334, _onDragEnd(DragEndDetails details) L341, build(BuildContext context) L360, _gripBars() L381
 
-## lib/presentation/editor/widgets/timeline/timeline_view.dart (436 lines)
-- L15  class TimelineClipRange (clipId, startMs, endMs) — TimelineClipRange(…) L16
-- L27  class TimelineView extends ConsumerStatefulWidget (selectedRange, onRemoveRange, project, projectDocument, onRendered) — TimelineView(…) L28, Function(…) L38, createState() L49
-- L52  class _TimelineViewState extends ConsumerState<TimelineView> (_uuid, _zoom, _selectedClipId, _isEditing, _rendered) — didUpdateWidget(covariant TimelineView oldWidget) L60, _showTimelineMessage(String message) L65, _changeZoom(double delta) L74, _removeSelectedRange() L78, _deleteSelectedClip() L106, _copySelectedClip() L125, _replaceTrack(…) L153, _selectedClipLocation(Project? project) L182, build(BuildContext context) L202, _buildTrack(TrackTypeDisplay type, Project? project) L341, _clipsForType(Project? project, TrackTypeDisplay type) L351, _modelTypeForDisplay(TrackTypeDisplay type) L360, _fileNameFromPath(String path) L373, _scheduleRendered(Project? project) L379, _rulerDuration(ProjectDocument? document) L391
-- L421  class _ClipLocation (trackIndex, clipIndex, track, clip) — _ClipLocation(…) L427
-- L435  enum TrackTypeDisplay
+## lib/presentation/editor/widgets/timeline/timeline_view.dart (967 lines)
+- L24  class TimelineClipRange (clipId, startMs, endMs) — TimelineClipRange(…) L25
+- L40  class TimelineView extends ConsumerStatefulWidget (selectedRange, onRemoveRange, project, projectDocument, onRendered) — TimelineView(…) L41, Function(…) L51, createState() L62
+- L65  class _TimelineViewState extends ConsumerState<TimelineView> (_minZoom, _maxZoom, _uuid, _rulerKey, _zoom, _selectedClipId, _isEditing, _rendered) — initState() L83, dispose() L89, didUpdateWidget(covariant TimelineView oldWidget) L97, _showTimelineMessage(String message) L102, _selectClip(String? clipId) L114, _changeZoom(double delta) L119, _onCanvasPointerSignal(PointerSignalEvent event) L126, _syncTrackScrolls() L136, _removeSelectedRange() L173, _rulerBox L205, _onRangeDragStart(DragStartDetails details) L208, _onRangeDragUpdate(DragUpdateDetails details) L217, _onRangeDragEnd(DragEndDetails details) L225, _clearRangeDrag() L251, _clipAt(int timeMs) L259, _rulerRangeDurationMs() L273, _cutRange() L282, _onTrimEdge(String clipId, bool isStart, int newLocalMs) L313, _splitAtPlayhead() L339, _onScrubStart(DragStartDetails details) L368, _onScrubUpdate(DragUpdateDetails details) L376, _onScrubEnd(DragEndDetails details) L389, _scrubAreaPx(double globalDx) L398, _seekToAreaPx(double areaPx) L408, _onRulerTapUp(TapUpDetails details) L422, _deleteSelectedClip() L426, _copySelectedClip() L445, _replaceTrack(…) L473, _selectedClipLocation(Project? project) L502, build(BuildContext context) L522, _buildRulerRow(…) L695, _buildSeekStrip() L740, _playheadOverlay(int rulerDuration, double areaWidth) L773, _buildTrack(TrackTypeDisplay type, Project? project) L808, _moveClip(String clipId, String? afterClipId) L825, _rangeHighlight(int rulerDuration) L850, _clipsForType(Project? project, TrackTypeDisplay type) L882, _modelTypeForDisplay(TrackTypeDisplay type) L891, _fileNameFromPath(String path) L904, _scheduleRendered(Project? project) L910, _rulerDuration(ProjectDocument? document) L922
+- L952  class _ClipLocation (trackIndex, clipIndex, track, clip) — _ClipLocation(…) L958
+- L966  enum TrackTypeDisplay
 
-## lib/presentation/editor/widgets/timeline/track_row.dart (181 lines)
-- L9  class TrackRow extends StatelessWidget (trackType, clips, zoom, selectedClipId, onClipSelected) — TrackRow(…) L16, _trackColor L25, _icon L38, _label L51, build(BuildContext context) L65, _buildClipWidgets() L117, _clipDurationMs(Clip clip) L148, _clipWidth(int durationMs) L153, _gapWidth(int durationMs) L158, _durationLabel(Clip clip) L163, _fileNameFromPath(String path) L175
+## lib/presentation/editor/widgets/timeline/track_row.dart (276 lines)
+- L9  class TrackRow extends StatefulWidget (trackType, clips, zoom, selectedClipId, onClipSelected, scrollController) — Function(String clipId, String? afterClipId)? onMoveClip L15, Function(String clipId, bool isStart, int newLocalMs)? onTrimEdge L16, TrackRow(…) L24, createState() L37
+- L40  class _TrackRowState extends State<TrackRow> (_ownScrollController) — _scrollController L45, dispose() L49, _trackColor L56, _icon L69, _label L82, build(BuildContext context) L96, _buildClipWidgets() L170, _sorted L205, _afterClipIdFor(double localX) L215, _clipDurationMs(Clip clip) L242, _clipWidth(int durationMs) L250, _gapWidth(int durationMs) L254, _durationLabel(Clip clip) L258, _fileNameFromPath(String path) L270
+
+## lib/presentation/editor/widgets/toolbar/left_panel.dart (134 lines)
+- L16  class LeftPanel extends ConsumerStatefulWidget — LeftPanel(…) L17, createState() L20
+- L23  class _LeftPanelState extends ConsumerState<LeftPanel> (_tabController) — initState() L28, dispose() L39, _onTabChanged() L47, build(BuildContext context) L56
 
 ## lib/presentation/editor/widgets/toolbar/left_tool_rail.dart (181 lines)
-- L10  class LeftToolRail extends ConsumerStatefulWidget — LeftToolRail(…) L11, createState() L14
-- L17  class _LeftToolRailState extends ConsumerState<LeftToolRail> (_selectedIndex, _mediaSheetOpen) — _tools L18, _selectTool(int index) L31, _openMediaSheet() L51, _showMessage(String message) L71, build(BuildContext context) L81
-- L107  class _ToolItem (icon, label) — _ToolItem(…) L111
-- L114  class _ToolButton extends StatelessWidget (icon, label, selected, onPressed) — _ToolButton(…) L120, build(BuildContext context) L128
+- L8  class LeftToolRail extends ConsumerStatefulWidget — LeftToolRail(…) L9, createState() L12
+- L15  class _LeftToolRailState extends ConsumerState<LeftToolRail> (_selectedIndex) — _tools L16, _selectTool(int index) L28, _showMessage(String message) L55, build(BuildContext context) L65
+- L92  class _ToolItem (icon, label, tab, comingSoon) — _ToolItem(…) L102
+- L110  class _ToolButton extends StatelessWidget (icon, label, selected, comingSoon, onPressed) — _ToolButton(…) L117, build(BuildContext context) L126
 
-## lib/presentation/editor/widgets/toolbar/top_action_bar.dart (146 lines)
-- L11  class TopActionBar extends ConsumerWidget — TopActionBar(…) L12, build(BuildContext context, WidgetRef ref) L15, _openExportDialog(BuildContext context, Project project) L114
-- L122  class _ChromeIconButton extends StatelessWidget (icon, tooltip, enabled, onPressed) — _ChromeIconButton(…) L128, build(BuildContext context) L136
+## lib/presentation/editor/widgets/toolbar/panels/audio_tab.dart (256 lines)
+- L17  class AudioTab extends ConsumerStatefulWidget — AudioTab(…) L18, createState() L21
+- L24  class _AudioTabState extends ConsumerState<AudioTab> (_volume, _isPicking, _busyPresetId) — _presetIcons L26, _pickSound() L42, _applyPreset(ProceduralSoundPreset preset) L71, build(BuildContext context) L95, _showMessage(String message) L176
+- L186  class _SoundCard extends StatelessWidget (preset, icon, busy, enabled, onApply) — _SoundCard(…) L193, build(BuildContext context) L202, _durationLabel(double seconds) L252
+
+## lib/presentation/editor/widgets/toolbar/panels/effects_tab.dart (199 lines)
+- L15  class EffectsTab extends ConsumerStatefulWidget — EffectsTab(…) L16, createState() L19
+- L22  class _EffectsTabState extends ConsumerState<EffectsTab> (_busyPresetId) — _descriptions L25, _icons L37, build(BuildContext context) L53, _apply(EffectPreset preset) L99, _showMessage(String message) L118
+- L128  class _EffectCard extends StatelessWidget (preset, description, icon, busy, enabled, onApply) — _EffectCard(…) L136, build(BuildContext context) L146
+
+## lib/presentation/editor/widgets/toolbar/panels/panel_notice.dart (40 lines)
+- L7  class PanelNotice extends StatelessWidget (message) — PanelNotice(…) L10, build(BuildContext context) L13
+
+## lib/presentation/editor/widgets/toolbar/panels/text_tab.dart (328 lines)
+- L18  class TextTab extends ConsumerStatefulWidget — TextTab(…) L19, createState() L22
+- L25  class _TextTabState extends ConsumerState<TextTab> (_textController, _engineLoaded, _loadedFonts, _unavailableFonts, _fontsLoading, _selectedPresetIndex, _isApplying) — _stylePresets L30, _selectedFont L43, initState() L48, dispose() L54, _loadFonts() L64, build(BuildContext context) L100, _apply() L198, _showMessage(String message) L229
+- L239  class _TextStylePreset (label, position, fontSize) — _TextStylePreset(…) L244
+- L251  class _FontTile extends StatelessWidget (label, fontFamily, available, pending, selected, onSelect) — _FontTile(…) L259, build(BuildContext context) L269
+
+## lib/presentation/editor/widgets/toolbar/top_action_bar.dart (201 lines)
+- L12  class TopActionBar extends ConsumerWidget — TopActionBar(…) L13, build(BuildContext context, WidgetRef ref) L16, _openExportDialog(BuildContext context, Project project) L115, _undo(BuildContext context, WidgetRef ref) L123, _redo(BuildContext context, WidgetRef ref) L135, _opLabel(EditOperation op) L147
+- L177  class _ChromeIconButton extends StatelessWidget (icon, tooltip, enabled, onPressed) — _ChromeIconButton(…) L183, build(BuildContext context) L191
 
 ## lib/presentation/project_hub/project_hub_screen.dart (941 lines)
 - L31  class ProjectHubScreen extends ConsumerStatefulWidget — ProjectHubScreen(…) L32, createState() L35

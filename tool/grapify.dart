@@ -221,8 +221,12 @@ final _skipMemberPattern = RegExp(
   r'import\s|export\s|part\s|library\s)',
 );
 final _constCtorPattern = RegExp(r'^const\s+([A-Za-z_]\w*)');
+// The return type may itself be parenthesized (record types like
+// `(int, int)?` or `({int x})`), which the word-char class below cannot
+// match — allow one leading `(...)` group so those members are not
+// silently dropped from the slices.
 final _memberPattern = RegExp(
-  r'^(?:static\s+)?(?:[\w<>?,\s\.]+\s+)?(?:(get)\s+)?([A-Za-z_]\w*)',
+  r'^(?:static\s+)?(?:\([^;]*\)\??\s+)?(?:[\w<>?,\s\.]+\s+)?(?:(get)\s+)?([A-Za-z_]\w*)',
 );
 
 ({String name, int line, bool isGetter, bool isField})? _parseMember(

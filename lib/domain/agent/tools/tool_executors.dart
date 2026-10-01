@@ -565,11 +565,16 @@ class EditToolExecutor implements ToolExecutor {
     if (tcError != null) return ToolResult.fail(tcError);
     final orderError = _requireOrder(start!, end!, 'start', 'end');
     if (orderError != null) return ToolResult.fail(orderError);
+    final params = <String, dynamic>{'start': start, 'end': end};
+    // The new range lets the applier normalize the clip's range after the
+    // cut (the stale-range fix); the middle-end's applyEdit consumes it.
+    final newRange = _trimNewRange(start, end);
+    if (newRange != null) params.addAll(newRange);
     return _runSingleOp(
       callId: call.id,
       opType: 'trim',
       clipId: clipId!,
-      params: {'start': start, 'end': end},
+      params: params,
       summary: 'Trimmed clip "$clipId" to $start–$end.',
     );
   }
@@ -586,11 +591,27 @@ class EditToolExecutor implements ToolExecutor {
     final orderError =
         _requireOrder(start!, end!, 'remove_start', 'remove_end');
     if (orderError != null) return ToolResult.fail(orderError);
+    final params = <String, dynamic>{
+      'remove_start': start,
+      'remove_end': end
+    };
+    // The new range lets the applier normalize the clip's range after the
+    // cut (the stale-range fix); the middle-end's applyEdit consumes it.
+    final range = _clipRange(_ctx, clipId!);
+    if (range != null) {
+      final newRange = _cutNewRange(
+        clipStartMs: range.startMs,
+        clipEndMs: range.endMs,
+        removeStartTc: start,
+        removeEndTc: end,
+      );
+      if (newRange != null) params.addAll(newRange);
+    }
     return _runSingleOp(
       callId: call.id,
       opType: 'cut',
-      clipId: clipId!,
-      params: {'remove_start': start, 'remove_end': end},
+      clipId: clipId,
+      params: params,
       summary: 'Cut $start–$end from clip "$clipId".',
     );
   }
@@ -1334,6 +1355,43 @@ class EditToolExecutor implements ToolExecutor {
   static bool _hasFilterBreakout(String text) {
     if (text.contains('\n') || text.contains('\r')) return true;
     return RegExp(r'''['"]\s*[);]''').hasMatch(text);
+  }
+
+  /// New output range for an AI trim (`[0, end-start]` — the output is the
+  /// range content), or null when the timecodes do not parse.
+  ///
+  /// The new range lets the applier normalize the clip's range after the
+  /// cut (the stale-range fix); the middle-end's applyEdit consumes it.
+  static Map<String, int>? _trimNewRange(String startTc, String endTc) {
+    final startMs = TimecodeUtils.parseToMilliseconds(startTc);
+    final endMs = TimecodeUtils.parseToMilliseconds(endTc);
+    if (startMs == null || endMs == null || endMs <= startMs) return null;
+    return {'new_start_ms': 0, 'new_end_ms': endMs - startMs};
+  }
+
+  /// New output range for an AI cut
+  /// (`[0, (end-start) - (localEnd-localStart)]` — the output is the full
+  /// clip minus the removed segment; the in-point is gone in the rendered
+  /// output), or null when the inputs do not parse.
+  ///
+  /// The new range lets the applier normalize the clip's range after the
+  /// cut (the stale-range fix); the middle-end's applyEdit consumes it.
+  static Map<String, int>? _cutNewRange({
+    required int clipStartMs,
+    required int clipEndMs,
+    required String removeStartTc,
+    required String removeEndTc,
+  }) {
+    final removeStartMs = TimecodeUtils.parseToMilliseconds(removeStartTc);
+    final removeEndMs = TimecodeUtils.parseToMilliseconds(removeEndTc);
+    if (removeStartMs == null || removeEndMs == null) return null;
+    if (removeEndMs <= removeStartMs) return null;
+    final clipLen = clipEndMs - clipStartMs;
+    if (clipLen <= 0) return null;
+    final removedLen = removeEndMs - removeStartMs;
+    final newLen = clipLen - removedLen;
+    if (newLen < 0) return null;
+    return {'new_start_ms': 0, 'new_end_ms': newLen};
   }
 
   String? _requireClip(String? clipId) {

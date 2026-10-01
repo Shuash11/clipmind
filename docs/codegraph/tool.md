@@ -1,7 +1,7 @@
-# Code Graph — tool (2 files, 625 lines; generated 2026-09-29T15:29; DO NOT EDIT)
+# Code Graph — tool (2 files, 629 lines; generated 2026-10-01T07:59; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
-## tool/grapify.dart (384 lines)
+## tool/grapify.dart (388 lines)
 - L12  function main
 - L65  class GrapifyMember (name, line, isGetter) — GrapifyMember(this.name, this.line,…) L66
 - L75  class GrapifySymbol (kind, name, line, parents, fields, members) — GrapifySymbol(this.kind, this.name, this.line,…) L76
@@ -12,15 +12,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L135  function renderFileSection
 - L176  function _parseDeclaration
 - L195  function _parents
-- L274  function _signature
-- L295  function _dartFiles
-- L310  function _groupByLayer
-- L321  function _relative
-- L330  function _timestamp
-- L338  function _formatCount
-- L348  class _LayerSummary (layer, files, lines) — _LayerSummary(this.layer, this.files, this.lines) L349
-- L356  function _readme
-- L375  function change
+- L278  function _signature
+- L299  function _dartFiles
+- L314  function _groupByLayer
+- L325  function _relative
+- L334  function _timestamp
+- L342  function _formatCount
+- L352  class _LayerSummary (layer, files, lines) — _LayerSummary(this.layer, this.files, this.lines) L353
+- L360  function _readme
+- L379  function change
 
 ## tool/smoke/windows_release_smoke.dart (241 lines)
 - L15  function validateSmokeReport

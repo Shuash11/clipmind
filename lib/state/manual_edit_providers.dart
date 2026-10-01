@@ -92,6 +92,18 @@ class ManualEditController {
   const ManualEditController(this._ref);
 
   /// Cut out `[startMs, endMs)` (timeline ruler times) from [clipId].
+  ///
+  /// Time mapping: the ruler times are TIMELINE times, so subtracting the
+  /// clip's `positionMs` gives the SPAN-relative local time — but the
+  /// FFmpeg `cut`'s `t` is the FILE (source) time. For handle-trimmed
+  /// clips (`startMs > 0`) the file time needs the in-point back:
+  /// `fileTime = clip.startMs + local`. Combined with the applier's
+  /// range normalization (repointed clips land on `startMs = 0`), the
+  /// mapping is exact for every clip state. The journaled op also carries
+  /// the `new_start_ms`/`new_end_ms` output range (mirroring the backend
+  /// executor's `_cutNewRange`: `[0, clipLen − removedLen]`, omitted when
+  /// degenerate) so `applyEdit` normalizes the clip's range and repins
+  /// the track on the manual path too.
   Future<ManualCutResult> submitCut({
     required String clipId,
     required int startMs,
@@ -114,12 +126,21 @@ class ManualEditController {
     }
     final localStart = startMs - spanStart;
     final localEnd = endMs - spanStart;
+    // Span-relative → file time: add the clip's in-point back.
+    final fileStart = found.startMs + localStart;
+    final fileEnd = found.startMs + localEnd;
 
     final opId = _uuid.v4();
-    final params = {
-      'remove_start': _toSeconds(localStart),
-      'remove_end': _toSeconds(localEnd),
+    final params = <String, dynamic>{
+      'remove_start': _toSeconds(fileStart),
+      'remove_end': _toSeconds(fileEnd),
     };
+    final clipLen = found.endMs - found.startMs;
+    final newLen = clipLen - (localEnd - localStart);
+    if (clipLen > 0 && newLen >= 0) {
+      params['new_start_ms'] = 0;
+      params['new_end_ms'] = newLen;
+    }
     final clipPathMap = _clipPathMap(project);
     final defaultPath = _defaultPath(project, clipPathMap);
     if (defaultPath == null) {

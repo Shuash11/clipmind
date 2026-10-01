@@ -1,4 +1,4 @@
-# Code Graph — lib/core (12 files, 832 lines; generated 2026-09-29T15:29; DO NOT EDIT)
+# Code Graph — lib/core (13 files, 999 lines; generated 2026-10-01T07:59; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/core/async/cancellation_token.dart (34 lines)
@@ -9,7 +9,11 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/core/constants/app_constants.dart (39 lines)
 - L1  class AppConstants (AppConstants, appName, projectExtension, maxPromptLength, cloudTimeoutSeconds, localTimeoutSeconds, minSpeedFactor, maxSpeedFactor) — supportedVideoFormats L15, supportedImageFormats L24
 
-## lib/core/constants/release_notes.dart (58 lines)
+## lib/core/constants/effect_presets.dart (151 lines)
+- L9  class EffectPresetStep (opType, params) — EffectPresetStep(…) L16
+- L19  class EffectPreset (id, label, icon, recipe) — EffectPreset(…) L28
+
+## lib/core/constants/release_notes.dart (74 lines)
 
 ## lib/core/errors/failures.dart (37 lines)
 - L1  class AppFailure (message, cause) — AppFailure(this.message, [this.cause]) L4

@@ -1,4 +1,4 @@
-# Code Graph — test (123 files, 25,452 lines; generated 2026-09-29T15:29; DO NOT EDIT)
+# Code Graph — test (133 files, 30,397 lines; generated 2026-10-01T07:59; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -270,29 +270,32 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L255  class _NetworkAwareBootstrap (networkEnabled) — initialize(…) L259
 - L271  class _EmptyRegistry — adapterFor(String providerId) L273, definitionFor(String providerId) L276, definitions L279
 
-## test/features/providers/presentation/ai_providers_screen_test.dart (94 lines)
-- L13  function main
+## test/features/providers/presentation/ai_providers_screen_test.dart (217 lines)
+- L17  function main
+- L209  class _SettingsPlaceholder extends StatelessWidget — _SettingsPlaceholder() L210, build(BuildContext context) L212
 
-## test/features/providers/presentation/dynamic_model_selector_test.dart (310 lines)
+## test/features/providers/presentation/dynamic_model_selector_test.dart (662 lines)
 - L19  function main
 
 ## test/features/providers/presentation/model_selector_dropdown_test.dart (27 lines)
 - L7  function main
 
-## test/features/providers/presentation/provider_profile_form_test.dart (311 lines)
-- L19  function main
-- L295  function _draft
+## test/features/providers/presentation/provider_profile_form_test.dart (510 lines)
+- L20  function main
+- L494  function _draft
 
 ## test/features/providers/support/provider_adapter_fakes.dart (54 lines)
 - L7  class RecordingTransport (responses, requests) — RecordingTransport(this.responses) L8, send(…) L13
 - L22  class MemoryCredentials (values) — MemoryCredentials([Map<String, String> values = const <String, String>…) L23, delete(String credentialId) L28, read(String credentialId) L34, write(String credentialId, String secret) L38
 - L44  function testProfile
 
-## test/features/providers/support/provider_presentation_fakes.dart (117 lines)
-- L15  class MemoryProfileRepository (document, saveFailure, deleteFailure) — MemoryProfileRepository(this.document) L16, load() L21, save(ProviderProfilesDocument value) L23, deleteProfile(…) L30, resumePendingDeletions(…) L42
-- L47  class MemoryCredentialStore (values, writeFailure, deleteFailure, writes, deletes) — delete(String credentialId) L54, read(String credentialId) L62, write(String credentialId, String secret) L65
-- L73  class FakeProviderRegistry (_definitions, adapter, _adapters) — FakeProviderRegistry(…) L74, definitions L84, adapterFor(String providerId) L86, definitionFor(String providerId) L89
-- L97  class DiscoveringAdapter (models) — DiscoveringAdapter(this.models) L98, discoverModels(…) L101, testConnection(…) L106, complete(…) L111
+## test/features/providers/support/provider_presentation_fakes.dart (187 lines)
+- L18  class MemoryProfileRepository (document, saveFailure, deleteFailure) — MemoryProfileRepository(this.document) L19, load() L24, save(ProviderProfilesDocument value) L26, deleteProfile(…) L33, resumePendingDeletions(…) L45
+- L50  class MemoryCredentialStore (values, writeFailure, deleteFailure, writes, deletes) — delete(String credentialId) L57, read(String credentialId) L65, write(String credentialId, String secret) L68
+- L76  class FakeProviderRegistry (_definitions, adapter, _adapters) — FakeProviderRegistry(…) L77, definitions L87, adapterFor(String providerId) L89, definitionFor(String providerId) L92
+- L100  class DiscoveringAdapter (models) — DiscoveringAdapter(this.models) L101, discoverModels(…) L104, testConnection(…) L109, complete(…) L114
+- L124  class CountingDiscoveryAdapter (models, holdDiscovery, discoveryCalls, _pending) — CountingDiscoveryAdapter(this.models,…) L125, releaseDiscovery() L133, discoverModels(…) L139, testConnection(…) L153, complete(…) L158
+- L166  class FailingDiscoveryAdapter — FailingDiscoveryAdapter() L167, discoverModels(…) L169, testConnection(…) L176, complete(…) L181
 
 ## test/features/tagging/domain/marker_layout_test.dart (186 lines)
 - L6  function main
@@ -341,8 +344,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/features/tagging/presentation/timeline_bridge_test.dart (107 lines)
 - L15  function main
 
-## test/features/tagging/presentation/tool_rail_tagging_test.dart (32 lines)
-- L8  function main
+## test/features/tagging/presentation/tool_rail_tagging_test.dart (50 lines)
+- L10  function main
 
 ## test/features/tagging/regression/no_automatic_analysis_test.dart (61 lines)
 - L5  function main
@@ -379,12 +382,12 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/agent/filter_escaping_test.dart (124 lines)
 - L4  function main
 
-## test/unit/agent/nl2vec_pipeline_test.dart (412 lines)
-- L15  class _StubProvider extends LlmProvider (response) — _StubProvider(this.response) L17, id L20, availableModels() L23, parseCommand(AgentRequest request) L26, watchConnection() L29
-- L34  class _ScriptToolProvider extends LlmProvider (script, calls) — _ScriptToolProvider(this.script) L38, id L41, supportsToolCalling L44, chatWithTools(AgentTurnRequest request) L47, availableModels() L51, parseCommand(AgentRequest request) L54, watchConnection() L58
-- L62  class _FakeFfmpegService extends FfmpegService — _FakeFfmpegService() : super(tempDir: Directory.systemTemp.path) L63, runSync(FfmpegJob job) L66
-- L74  function _projectWithClip
-- L107  function main
+## test/unit/agent/nl2vec_pipeline_test.dart (752 lines)
+- L16  class _StubProvider extends LlmProvider (response) — _StubProvider(this.response) L18, id L21, availableModels() L24, parseCommand(AgentRequest request) L27, watchConnection() L30
+- L35  class _ScriptToolProvider extends LlmProvider (script, calls) — _ScriptToolProvider(this.script) L39, id L42, supportsToolCalling L45, chatWithTools(AgentTurnRequest request) L48, availableModels() L52, parseCommand(AgentRequest request) L55, watchConnection() L59
+- L63  class _FakeFfmpegService extends FfmpegService — _FakeFfmpegService() : super(tempDir: Directory.systemTemp.path) L64, runSync(FfmpegJob job) L67
+- L75  function _projectWithClip
+- L108  function main
 
 ## test/unit/agent/ollama_tool_calling_smoke_test.dart (172 lines)
 - L22  class _MockDio extends Mock implements Dio
@@ -428,12 +431,20 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L52  function _project
 - L80  function main
 
-## test/unit/agent/tools/edit_tool_executor_test.dart (316 lines)
+## test/unit/agent/tools/edit_tool_executor_test.dart (360 lines)
 - L15  class _MockFfprobe extends Mock implements FfprobeService
 - L17  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L20, runSync(FfmpegJob job) L23
 - L32  class _Applied (op, path) — _Applied(this.op, this.path) L35
 - L38  function _project
 - L73  function main
+
+## test/unit/agent/tools/overlay_text_font_test.dart (267 lines)
+- L17  class _MockFfprobe extends Mock implements FfprobeService
+- L19  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L22, runSync(FfmpegJob job) L25
+- L34  class _Applied (op, path) — _Applied(this.op, this.path) L37
+- L41  function _fakeResolve
+- L54  function _project
+- L82  function main
 
 ## test/unit/agent/tools/read_tool_executor_test.dart (146 lines)
 - L13  class _MockFfprobe extends Mock implements FfprobeService
@@ -453,13 +464,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L10  class _StubExecutor — execute(ToolCall call) L12
 - L16  function main
 
+## test/unit/core/effect_presets_test.dart (101 lines)
+- L15  function main
+
 ## test/unit/data/chat_step_test.dart (100 lines)
 - L5  function main
 
 ## test/unit/data/media_analysis_dao_test.dart (146 lines)
 - L5  function main
 
-## test/unit/domain/usecases/structural_edit_usecase_test.dart (246 lines)
+## test/unit/domain/usecases/structural_edit_usecase_test.dart (551 lines)
 - L8  function _clip
 - L19  function _project
 - L39  function _op
@@ -472,13 +486,26 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L19  function _op
 - L27  function main
 
-## test/unit/ffmpeg/command_builder_test.dart (441 lines)
+## test/unit/ffmpeg/add_sound_routing_test.dart (255 lines)
+- L12  class _FakeFfmpeg extends FfmpegService — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L13, runSync(FfmpegJob job) L16
+- L28  function _op
+- L42  function main
+
+## test/unit/ffmpeg/command_builder_test.dart (576 lines)
 - L4  function main
+
+## test/unit/ffmpeg/procedural_sound_service_test.dart (146 lines)
+- L8  class _NoFfmpeg extends FfmpegBinaryResolver — resolveFfmpeg(…) L10
+- L17  class _FakeResolver extends FfmpegBinaryResolver — resolveFfmpeg(…) L19
+- L22  function main
 
 ## test/unit/ffmpeg/scene_detection_service_test.dart (176 lines)
 - L7  class _NoFfmpeg extends FfmpegBinaryResolver — resolveFfmpeg(…) L9
 - L16  class _FakeResolver extends FfmpegBinaryResolver — resolveFfmpeg(…) L18
 - L29  function main
+
+## test/unit/fonts/font_resolver_test.dart (134 lines)
+- L7  function main
 
 ## test/unit/llm/anthropic_provider_tools_test.dart (278 lines)
 - L8  class _MockDio extends Mock implements Dio
@@ -537,16 +564,46 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/state/agent_analysis_port_test.dart (91 lines)
 - L8  function main
 
-## test/unit/state/agent_run_controller_test.dart (1051 lines)
-- L32  class _LegacyStub extends LlmProvider (response) — _LegacyStub(this.response) L34, id L37, availableModels() L40, parseCommand(AgentRequest request) L43, watchConnection() L47
-- L51  class _ScriptTools extends LlmProvider (script, gate, calls) — _ScriptTools(this.script, [Completer<void>? gate]) L56, id L60, supportsToolCalling L63, chatWithTools(AgentTurnRequest request) L66, availableModels() L73, parseCommand(AgentRequest request) L76, watchConnection() L80
-- L84  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L86, getActiveProvider() L89
-- L92  class _CapturingPipeline extends Nl2VecPipeline (seenHistory, seenDryRun) — result L95, _CapturingPipeline() : super(ffmpegService: FfmpegService()) L98, submitCommand(…) L101
-- L119  class _GatedSettingsRepo extends SettingsRepository (gate) — _GatedSettingsRepo(this.gate) L121, load() L124
-- L135  class _TestSettingsRepository extends SettingsRepository (saved) — load() L139, save(AppSettings settings) L142
-- L147  class _FakeFfmpeg extends FfmpegService (cancelCalls) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L150, runSync(FfmpegJob job) L153, cancel() L161
-- L167  function _project
-- L195  function main
+## test/unit/state/agent_run_controller_test.dart (1168 lines)
+- L34  class _LegacyStub extends LlmProvider (response) — _LegacyStub(this.response) L36, id L39, availableModels() L42, parseCommand(AgentRequest request) L45, watchConnection() L49
+- L53  class _ScriptTools extends LlmProvider (script, gate, calls) — _ScriptTools(this.script, [Completer<void>? gate]) L58, id L62, supportsToolCalling L65, chatWithTools(AgentTurnRequest request) L68, availableModels() L75, parseCommand(AgentRequest request) L78, watchConnection() L82
+- L86  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L88, getActiveProvider() L91
+- L94  class _CapturingPipeline extends Nl2VecPipeline (seenHistory, seenDryRun) — Function(String kind)? seenReadAnalysis L97, Function(String kind, Map<String, dynamic> payload)? seenWriteAnalysis L98, Function()? seenWhisperConfig L99, Function(String familyId)? seenResolveFont L100, Function(String familyId)? seenPlannedResolveFont L101, result L102, _CapturingPipeline() : super(ffmpegService: FfmpegService()) L105, submitCommand(…) L108, executePlanned(…) L134
+- L150  class _GatedSettingsRepo extends SettingsRepository (gate) — _GatedSettingsRepo(this.gate) L152, load() L155
+- L166  class _TestSettingsRepository extends SettingsRepository (saved) — load() L170, save(AppSettings settings) L173
+- L178  class _FakeFfmpeg extends FfmpegService (cancelCalls) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L181, runSync(FfmpegJob job) L184, cancel() L192
+- L198  function _project
+- L226  function main
+
+## test/unit/state/cut_range_test.dart (400 lines)
+- L27  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L30, save(Project project) L33
+- L38  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L41, runSync(FfmpegJob job) L44
+- L53  function _project
+- L91  function _trimmedProject
+- L102  function _cutOp
+- L115  function _clips
+- L122  function _clip
+- L125  function main
+
+## test/unit/state/manual_edit_panels_test.dart (389 lines)
+- L23  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L26, save(Project project) L29
+- L34  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L37, runSync(FfmpegJob job) L40
+- L49  class _FakeFfprobe extends FfprobeService (meta) — _FakeFfprobe(this.meta) L50, extractMetadata(String filePath) L55
+- L58  class _FakeSound extends ProceduralSoundService (tmpDir, generatedFor) — _FakeSound(this.tmpDir) L59, generate(…) L65
+- L79  function _meta
+- L89  function _project
+- L118  function _sourceOf
+- L126  function main
+
+## test/unit/state/manual_trim_split_test.dart (331 lines)
+- L26  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L29, save(Project project) L32
+- L37  function _project
+- L74  function _clips
+- L81  function _lastJournaled
+- L87  function main
+
+## test/unit/state/player_provider_test.dart (72 lines)
+- L14  function main
 
 ## test/unit/state/project_providers_test.dart (121 lines)
 - L9  function _project
@@ -588,16 +645,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L74  function main
 - L172  function _sourceOfProject
 
-## test/widget/agent_chat_panel_test.dart (1039 lines)
-- L38  class _StubProvider extends LlmProvider — id L40, availableModels() L43, parseCommand(AgentRequest request) L46, watchConnection() L50
-- L54  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L56, getActiveProvider() L59
-- L64  class _GatePipeline extends Nl2VecPipeline (gate, result, calls) — _GatePipeline(…) L69, submitCommand(…) L74
-- L101  class _ConfirmingPipeline extends Nl2VecPipeline (request, result, calls) — _ConfirmingPipeline(…) L106, submitCommand(…) L110
-- L136  class _PlanningPipeline extends Nl2VecPipeline (dryRunResult, plannedResult, planned) — _PlanningPipeline(…) L141, submitCommand(…) L145, executePlanned(…) L161
-- L175  class _FakeSettingsRepository extends SettingsRepository (saves, settings) — _FakeSettingsRepository(…) L180, load() L183, save(AppSettings settings) L186
-- L189  function _project
-- L219  function _settle
-- L225  function main
+## test/widget/agent_chat_panel_test.dart (1056 lines)
+- L39  class _StubProvider extends LlmProvider — id L41, availableModels() L44, parseCommand(AgentRequest request) L47, watchConnection() L51
+- L55  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L57, getActiveProvider() L60
+- L65  class _GatePipeline extends Nl2VecPipeline (gate, result, calls) — _GatePipeline(…) L70, submitCommand(…) L75
+- L106  class _ConfirmingPipeline extends Nl2VecPipeline (request, result, calls) — _ConfirmingPipeline(…) L111, submitCommand(…) L115
+- L145  class _PlanningPipeline extends Nl2VecPipeline (dryRunResult, plannedResult, planned) — _PlanningPipeline(…) L150, submitCommand(…) L154, executePlanned(…) L174
+- L192  class _FakeSettingsRepository extends SettingsRepository (saves, settings) — _FakeSettingsRepository(…) L197, load() L200, save(AppSettings settings) L203
+- L206  function _project
+- L236  function _settle
+- L242  function main
 
 ## test/widget/agent_steps_view_test.dart (482 lines)
 - L12  function started
@@ -605,6 +662,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L46  function failed
 - L63  function liveStep
 - L75  function main
+
+## test/widget/left_panel_test.dart (495 lines)
+- L33  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L34, save(Project project) L37
+- L42  class _FakeFfmpegService extends FfmpegService — _FakeFfmpegService() : super(resolver: _StubResolver('C:/fake/ffmpeg.exe')) L43, runSync(FfmpegJob job) L46, cancel() L57
+- L62  class _StubFfprobeService extends FfprobeService — _StubFfprobeService() : super(resolver: _StubResolver('C:/fake/ffprobe.exe')) L63, extractMetadata(String filePath) L66
+- L81  class _StubProceduralSoundService extends ProceduralSoundService (_outputDir) — _StubProceduralSoundService(this._outputDir) L82, generate(…) L87
+- L98  class _StubResolver extends FfmpegBinaryResolver (path) — _StubResolver(this.path) L99, resolveFfmpeg(…) L104
+- L107  function _project
+- L135  function main
 
 ## test/widget/project_hub_test.dart (325 lines)
 - L19  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L20, createNew(…) L28, save(Project project) L45, listRecent() L48
@@ -627,10 +693,14 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L47  function _pump
 - L56  function main
 
-## test/widget/timeline_view_test.dart (224 lines)
-- L19  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L20, save(Project project) L23
-- L26  function _project
-- L54  function main
+## test/widget/timeline_view_test.dart (859 lines)
+- L31  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L32, save(Project project) L35
+- L40  class _FakeFfmpegService extends FfmpegService — _FakeFfmpegService() : super(resolver: _StubResolver('C:/fake/ffmpeg.exe')) L41, runSync(FfmpegJob job) L44, cancel() L55
+- L58  class _StubResolver extends FfmpegBinaryResolver (path) — _StubResolver(this.path) L59, resolveFfmpeg(…) L64
+- L70  class _FakePlayer (seeks) — seek(Duration duration) L74, noSuchMethod(Invocation invocation) L79
+- L82  function _project
+- L110  function twoClipProject
+- L148  function main
 
 ## test/widget/whats_new_dialog_test.dart (231 lines)
 - L19  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(super.db) L20, save(Project project) L23

@@ -43,6 +43,24 @@ class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
   /// is repointed at the merged output, the rest are removed). Removed
   /// clips are NOT restored by undo (null-inverse in the domain); the
   /// [Project.editHistory] row keeps `clip_ids` traceability.
+  ///
+  /// Range normalization (the post-cut stale-range fix): cut/trim ops carry
+  /// the additive `new_start_ms`/`new_end_ms` params (computed by the
+  /// executor — and by `ManualEditController.submitCut` for the manual
+  /// path — from the new output file's length). The repointed clip's
+  /// `startMs`/`endMs` are replaced from those params instead of staying
+  /// stale against the shorter output file, so the display duration, the
+  /// `list_project_clips` model view, and subsequent cut mappings all see
+  /// the true range. Absent (or unparseable) keys mean no range update —
+  /// every other op repoints exactly as before. Normalized clips land on
+  /// `startMs = 0`, which unifies the local→file time mapping
+  /// (`fileTime = clip.startMs + local`) for every clip state.
+  ///
+  /// Cut repin (the timeline/export agreement): a range update shortens
+  /// the clip, so the follower positions computed from the original
+  /// lengths would leave gaps/overlaps. Tracks with a range-updated clip
+  /// are repinned cumulatively from 0 (mirroring the structural ripple),
+  /// while tracks without one keep their positions untouched.
   void applyEdit(
     EditOperation operation,
     String newSourcePath, {
@@ -54,18 +72,34 @@ class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
     final targets = operation.targetClipIds.isNotEmpty
         ? operation.targetClipIds
         : const ['_default'];
+    final newRange = _newRange(operation);
 
     final updatedTracks = project.tracks.map((track) {
       final updatedClips = <Clip>[];
+      var rangeUpdated = false;
       for (final clip in track.clips) {
         if (removeClipIds.contains(clip.id)) continue;
         final matches = targets.contains(clip.id) ||
             (targets.contains('_default') && _isFirstClip(project, clip.id));
-        updatedClips.add(
-          matches ? clip.copyWith(sourcePath: newSourcePath) : clip,
-        );
+        if (!matches) {
+          updatedClips.add(clip);
+          continue;
+        }
+        if (newRange != null) {
+          rangeUpdated = true;
+          updatedClips.add(clip.copyWith(
+            sourcePath: newSourcePath,
+            startMs: newRange.$1,
+            endMs: newRange.$2,
+          ));
+        } else {
+          updatedClips.add(clip.copyWith(sourcePath: newSourcePath));
+        }
       }
-      return track.copyWith(clips: updatedClips);
+      // The wiring applies the repin when the op carries a range update.
+      return track.copyWith(
+        clips: rangeUpdated ? _repinned(updatedClips) : updatedClips,
+      );
     }).toList();
 
     state = AsyncValue.data(project.copyWith(
@@ -94,6 +128,44 @@ class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
       updatedAt: DateTime.now(),
     ));
     return true;
+  }
+
+  /// The `(startMs, endMs)` carried by cut/trim op params, or null when
+  /// the keys are absent (no range update — all other ops) or fail closed
+  /// (unparseable, negative, or inverted). Mirrors the backend's
+  /// `_trimNewRange`/`_cutNewRange` omit-when-invalid contract.
+  (int, int)? _newRange(EditOperation operation) {
+    if (!operation.params.containsKey('new_start_ms') ||
+        !operation.params.containsKey('new_end_ms')) {
+      return null;
+    }
+    final startMs = _asInt(operation.params['new_start_ms']);
+    final endMs = _asInt(operation.params['new_end_ms']);
+    if (startMs == null || endMs == null) return null;
+    if (startMs < 0 || endMs < startMs) return null;
+    return (startMs, endMs);
+  }
+
+  /// Timeline-pin clips cumulatively from 0 (mirrors the structural
+  /// use case's repin ripple).
+  List<Clip> _repinned(List<Clip> clips) {
+    var position = 0;
+    final pinned = <Clip>[];
+    for (final clip in clips) {
+      pinned.add(clip.copyWith(positionMs: position));
+      final duration = clip.endMs - clip.startMs;
+      position += duration < 0 ? 0 : duration;
+    }
+    return pinned;
+  }
+
+  int? _asInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.isFinite ? value.toInt() : null;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
   }
 
   bool _isFirstClip(Project project, String clipId) {

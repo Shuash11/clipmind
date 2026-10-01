@@ -12,9 +12,9 @@ import 'package:clipmind/data/models/project.dart';
 /// uniformly.
 ///
 /// Timeline model: a track's clips play sequentially. [moveClip],
-/// [trimClip] and [splitClip] recompute `positionMs` cumulatively from 0
-/// (ripple); deletion leaves gaps as artifacts (documented, not
-/// normalized).
+/// [trimClip], [splitClip] and deletion recompute `positionMs`
+/// cumulatively from 0 (ripple) so the timeline and the export agree —
+/// no gap artifacts.
 ///
 /// Trim bounds: the first trim stamps the pre-trim range into the clip's
 /// `transformations` map (`original_start_ms` / `original_end_ms`);
@@ -80,15 +80,16 @@ class StructuralEditUseCase {
     }
   }
 
+  /// Local delete with ripple: after removing the clip the track is
+  /// repinned cumulatively from 0 (mirroring [_move]'s repin) so the
+  /// timeline and the export agree — no gap artifacts.
   Project? _delete(String? clipId, Project project) {
     if (clipId == null || clipId.isEmpty) return null;
     final found = _locate(project, clipId);
     if (found == null) return null;
-    // Positions of the remaining clips are left as-is: gaps are
-    // deletion artifacts by design.
     final clips = List<Clip>.of(project.tracks[found.$1].clips)
       ..removeAt(found.$2);
-    return _withClips(project, found.$1, clips);
+    return _withClips(project, found.$1, _repinned(clips));
   }
 
   Project? _copy(String? clipId, String? newClipId, Project project) {

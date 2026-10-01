@@ -58,7 +58,7 @@ void main() {
   const useCase = StructuralEditUseCase();
 
   group('deleteClip', () {
-    test('removes the clip, leaving siblings untouched', () {
+    test('removes the clip and repins the track (ripple, no gaps)', () {
       final project = _project([
         _clip('a', 0, 10000, positionMs: 0),
         _clip('b', 0, 10000, positionMs: 10000),
@@ -72,8 +72,26 @@ void main() {
 
       expect(result, isNotNull);
       expect(_ids(result!), equals(['a', 'c']));
-      // Deletion artifacts: surviving positions are not renormalized.
-      expect(_positions(result), equals([0, 20000]));
+      // Ripple: positions are recomputed cumulatively from 0 so the
+      // timeline and the export agree (no gap artifacts).
+      expect(_positions(result), equals([0, 10000]));
+    });
+
+    test('deleting the first clip repins survivors from 0', () {
+      final project = _project([
+        _clip('a', 0, 10000, positionMs: 0),
+        _clip('b', 0, 5000, positionMs: 10000),
+        _clip('c', 0, 20000, positionMs: 15000),
+      ]);
+
+      final result = useCase.apply(
+        _op(EditOperationType.deleteClip, {'clip_id': 'a'}),
+        project,
+      );
+
+      expect(result, isNotNull);
+      expect(_ids(result!), equals(['b', 'c']));
+      expect(_positions(result), equals([0, 5000]));
     });
 
     test('unknown or missing clip id returns null', () {

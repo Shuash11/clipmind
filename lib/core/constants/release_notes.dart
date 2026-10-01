@@ -67,4 +67,7 @@ const Map<String, List<String>> releaseNotes = {
     '* Split at the playhead',
     '* Timeline zoom with Ctrl+wheel',
   ],
+  '1.26.0': [
+    '* Fixed clip range after cuts (display, AI view, and follow-up edits stay correct)',
+  ],
 };

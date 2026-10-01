@@ -1,4 +1,4 @@
-# Code Graph — lib/data (38 files, 5,933 lines; generated 2026-09-29T15:29; DO NOT EDIT)
+# Code Graph — lib/data (40 files, 6,327 lines; generated 2026-10-01T07:59; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -31,10 +31,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/models/clip.dart (22 lines)
 - L7  class Clip — Clip(…) L8, Clip L20
 
-## lib/data/models/edit_operation.dart (52 lines)
-- L6  enum EditOperationType (moveClip) — trim L7, cut L8, merge L9, changeSpeed L10, mute L11, overlayText L12, resize L13, rotate L14, extractAudio L15, generateThumbnail L16, changeFormat L17, adjustBrightness L18, changeVolume L19, overlayWatermark L20, burnCaptions L21, addTransition L22, applyEffect L23, deleteClip L27, copyClip L28, jsonValue L31
-- L34  enum OperationStatus
-- L37  class EditOperation — EditOperation(…) L38, EditOperation L49
+## lib/data/models/edit_operation.dart (62 lines)
+- L6  enum EditOperationType (splitClip) — trim L7, cut L8, merge L9, changeSpeed L10, mute L11, overlayText L12, resize L13, rotate L14, extractAudio L15, generateThumbnail L16, changeFormat L17, adjustBrightness L18, changeVolume L19, overlayWatermark L20, burnCaptions L21, addTransition L22, applyEffect L23, deleteClip L27, copyClip L28, moveClip L29, addSound L33, trimClip L38, jsonValue L41
+- L44  enum OperationStatus
+- L47  class EditOperation — EditOperation(…) L48, EditOperation L59
 
 ## lib/data/models/export_options.dart (71 lines)
 - L1  class ExportOptions (format, resolution, quality, crf, outputPath, formats, qualities) — ExportOptions(…) L8, Map L16, qualityCrfMap L24, resolutions L32, crfForQuality(String quality) L41, ExportOptions L45, copyWith(…) L55
@@ -55,8 +55,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/repositories/settings_repository.dart (54 lines)
 - L8  class SettingsRepository (_cached, _controller, _disposed) — stream L13, load() L15, save(AppSettings settings) L32, getActiveProviderId() L44, dispose() L49
 
-## lib/data/services/ffmpeg/command_builder.dart (407 lines)
-- L5  class CommandBuilder — trim(String input, String start, String end) L6, cut(String input, String removeStart, String removeEnd) L10, merge(List<String> inputs) L23, changeSpeed(String input, double factor) L41, mute(String input) L67, overlayText(…) L71, resize(String input, int width, int height, String fit) L126, rotate(String input, double degrees) L147, burnCaptions(…) L167, burnCaptionsFilter(…) L189, transition(…) L220, effectFilter(…) L278, effect(…) L303, extractAudio(String input, String outputFormat) L322, generateThumbnail(String input, String timestamp) L334, changeFormat(…) L338, adjustBrightness(String input, double value) L358, changeVolume(String input, double factor) L363, overlayWatermark(…) L367
+## lib/data/services/ffmpeg/command_builder.dart (505 lines)
+- L5  class CommandBuilder — trim(String input, String start, String end) L6, cut(String input, String removeStart, String removeEnd) L10, merge(List<String> inputs) L23, changeSpeed(String input, double factor) L41, mute(String input) L67, overlayText(…) L71, resize(String input, int width, int height, String fit) L134, rotate(String input, double degrees) L155, burnCaptions(…) L175, burnCaptionsFilter(…) L197, transition(…) L228, effectFilter(…) L286, effect(…) L311, extractAudio(String input, String outputFormat) L330, generateThumbnail(String input, String timestamp) L342, changeFormat(…) L346, adjustBrightness(String input, double value) L366, changeVolume(String input, double factor) L371, overlayWatermark(…) L375, addAudio(…) L426, proceduralSoundSource(String presetId) L486, lavfiToWav(String source) L501
 
 ## lib/data/services/ffmpeg/ffmpeg_binary_resolver.dart (62 lines)
 - L3  class FfmpegBinaryResolver (_cachedFfmpeg, _cachedFfprobe) — resolveFfmpeg(…) L7, resolveFfprobe(…) L13, _resolve(String binary,…) L19, _bundledPath(String binary) L29, _executablePlatform() L35, _which(String binary) L42, invalidateCache() L57
@@ -72,12 +72,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L7  class VideoMetadata (durationMs, width, height, fps, codec, hasAudio, bitrate, audioSampleRate) — VideoMetadata(…) L17
 - L29  class FfprobeService (_resolver) — FfprobeService(…) L32, extractMetadata(String filePath) L35, _parseMetadata(Map<String, dynamic> data) L63, generateThumbnail(…) L110
 
-## lib/data/services/ffmpeg/filter_escaping.dart (98 lines)
-- L5  class FilterEscaping (_hexColor) — escapeDrawtext(String text) L13, validateColor(String color) L23, assColorFromHex(String color) L37, escapeSubtitlePath(String path) L53, validateImagePath(String imagePath,…) L65
-- L91  class FilterValidationException (message) — FilterValidationException(this.message) L93, toString() L96
+## lib/data/services/ffmpeg/filter_escaping.dart (111 lines)
+- L5  class FilterEscaping (_hexColor) — escapeDrawtext(String text) L13, validateColor(String color) L23, assColorFromHex(String color) L37, escapeSubtitlePath(String path) L53, escapeFontFilePath(String path) L66, validateImagePath(String imagePath,…) L78
+- L104  class FilterValidationException (message) — FilterValidationException(this.message) L106, toString() L109
 
-## lib/data/services/ffmpeg/filter_graph_composer.dart (503 lines)
-- L7  class FilterGraphComposer (_uuid) — compose(…) L10, _composeClip(…) L33, _buildFilterJob(…) L78, _accumulateFilter(…) L136, _atempoChain(double factor) L314, _buildStandaloneJob(EditOperation op, String inputPath) L329, _buildOpArgs(EditOperation op, String inputPath) L346, _outputExtension(EditOperation op) L458, _paramString(Map<String, dynamic> p, String key, String fallback) L475, _paramNum(Map<String, dynamic> p, String key, double fallback) L482, _paramInt(Map<String, dynamic> p, String key, int fallback) L489, _paramDoubleOrNull(Map<String, dynamic> p, String key) L497
+## lib/data/services/ffmpeg/filter_graph_composer.dart (540 lines)
+- L8  class FilterGraphComposer (_uuid) — compose(…) L11, _composeClip(…) L34, _buildFilterJob(…) L82, _accumulateFilter(…) L140, _atempoChain(double factor) L328, _buildStandaloneJob(EditOperation op, String inputPath) L343, _buildOpArgs(EditOperation op, String inputPath) L360, _outputExtension(EditOperation op) L495, _paramString(Map<String, dynamic> p, String key, String fallback) L512, _paramNum(Map<String, dynamic> p, String key, double fallback) L519, _paramInt(Map<String, dynamic> p, String key, int fallback) L526, _paramDoubleOrNull(Map<String, dynamic> p, String key) L534
+
+## lib/data/services/ffmpeg/procedural_sound_service.dart (111 lines)
+- L11  class ProceduralSoundPreset (id, label, durationSeconds) — ProceduralSoundPreset(…) L16
+- L30  class ProceduralSoundService (_resolver) — Function(String exe, List<String> args) _run L34, presets L36, ProceduralSoundService(…) L61, isKnownPreset(String presetId) L68, lavfiSourceFor(String presetId) L73, generate(…) L82
 
 ## lib/data/services/ffmpeg/scene_detection_service.dart (95 lines)
 - L8  typedef SceneTimestampMs
@@ -86,6 +90,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 
 ## lib/data/services/ffmpeg/srt_builder.dart (41 lines)
 - L10  class SrtBuilder — buildSrt(List<TranscriptSegment> segments) L12, formatTimestamp(int ms) L30
+
+## lib/data/services/fonts/font_resolver.dart (125 lines)
+- L12  class BundledFont (id, label, fileName) — BundledFont(…) L22
+- L36  class FontResolver (_cache) — catalog L37, Function(String key) _loadAsset L69, Function() _supportDir L73, FontResolver(…) L75, isKnownFamily(String familyId) L82, cachedPath(String familyId) L88, resolve(String familyId) L94, invalidateCache() L123
 
 ## lib/data/services/import/gdrive_import_service.dart (127 lines)
 - L9  class GoogleAuthClient (_inner, _headers) — GoogleAuthClient(this._headers) L13, send(http.BaseRequest request) L16, close() L22
@@ -140,7 +148,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L69  class WhisperTranscriptionService — Function(String exe, List<String> args) _run L71, WhisperTranscriptionService(…) L73, findBinary(…) L79, isAvailable(…) L90, transcribe(…) L98, parseTranscriptSegments(String stdout) L134, _toMs(String hh, String mm, String ss, String ms) L166, parseTranscriptText(String stdout) L175, isSafeConfiguredPath(String path) L191, _isAbsolute(String path) L197, _which(String binary) L205
 
 ## lib/data/services/updates/github_release_checker.dart (119 lines)
-- L6  class GithubReleaseChecker (_repo, _apiUrl, _userAgent, _cachedRelease) — checkForUpdate() L13, isNewer(ReleaseInfo latest, String currentVersion) L102, clearCache() L115
+- L6  class GithubReleaseChecker (_repo, _apiUrl, _userAgent, _cachedRelease) — checkForUpdate() L13, _parseTag(String tag) L89, isNewer(ReleaseInfo latest, String currentVersion) L102, clearCache() L115
 
 ## lib/data/services/updates/release_info.dart (22 lines)
 - L1  class ReleaseInfo (tagName, major, minor, patch, releaseNotes, downloadUrl, assetType, publishedAt) — ReleaseInfo(…) L11
