@@ -100,4 +100,9 @@ const Map<String, List<String>> releaseNotes = {
     '* Speed changes re-time the clip range correctly',
     '* Ranged speed restriction (exact for trimmed clips)',
   ],
+  '1.33.0': [
+    '* Fixed composed edits with audio-only ops (volume+speed now render)',
+    '* Fixed silent audio desync in multi-op edits',
+    '* Fixed undefined filter labels in composed graphs',
+  ],
 };

@@ -293,6 +293,137 @@ void main() {
       expect(restored.endMs, equals(40000));
     });
 
+    test('volume+speed compose one chained job (no undefined labels)',
+        () async {
+      final container = makeContainer(startMs: 10000, endMs: 40000);
+      final result = await container
+          .read(manualEditControllerProvider)
+          .submitAdjustments(
+            clipId: 'clip_1',
+            volume: 0.5,
+            speed: 2.0,
+          );
+
+      expect(result.success, isTrue);
+      // ONE composed job for both ops (previously the volume op broke
+      // the v-chain with an undefined v1 → "FFmpeg failed").
+      expect(ffmpeg.jobs, hasLength(1));
+      final args = ffmpeg.jobs.single.args;
+      expect(args, containsAll(['-ss', '10.0', '-i', inputA, '-t', '30.0']));
+      final graph = args[args.indexOf('-filter_complex') + 1];
+      // Volume survives (previously dropped by last-filter-only) and
+      // chains before atempo in op order.
+      expect(
+        graph,
+        contains('[0:a]volume=0.5,atempo=2.0[aout]'),
+      );
+      expect(graph, contains('[v0]null[v1]'));
+      expect(graph, contains('setpts=PTS/2.0'));
+      expect(args, containsAll(['-map', '[aout]']));
+
+      // Two per-step journal rows, both on the composed output; only the
+      // speed op carries the new-range keys.
+      final journal = await db.getEditHistory('p1');
+      expect(journal, hasLength(2));
+      final memoryHistory =
+          container.read(projectProvider).value!.editHistory;
+      expect(memoryHistory, hasLength(2));
+      final composedCommand = args.join(' ');
+      expect(
+        memoryHistory.map((e) => e.ffmpegCommand),
+        everyElement(equals(composedCommand)),
+      );
+      final volumeOp = journal.singleWhere(
+        (e) => e.type == EditOperationType.changeVolume,
+      );
+      expect(volumeOp.params['factor'], equals(0.5));
+      expect(volumeOp.params.containsKey('new_start_ms'), isFalse);
+      final speedOp = journal.singleWhere(
+        (e) => e.type == EditOperationType.changeSpeed,
+      );
+      expect(speedOp.params['new_start_ms'], equals(0));
+      expect(speedOp.params['new_end_ms'], equals(15000));
+
+      final clip = _clipOf(container);
+      expect(clip.sourcePath, equals(result.outputPath));
+      expect(clip.startMs, equals(0));
+      expect(clip.endMs, equals(15000));
+
+      await container.read(undoRedoProvider.notifier).undo();
+      await container.read(undoRedoProvider.notifier).undo();
+      final restored = _clipOf(container);
+      expect(restored.sourcePath, equals(inputA));
+      expect(restored.startMs, equals(10000));
+      expect(restored.endMs, equals(40000));
+    });
+
+    test('brightness+volume+speed compose one chained job', () async {
+      final container = makeContainer(startMs: 10000, endMs: 40000);
+      final result = await container
+          .read(manualEditControllerProvider)
+          .submitAdjustments(
+            clipId: 'clip_1',
+            brightness: 0.2,
+            volume: 0.5,
+            speed: 2.0,
+          );
+
+      expect(result.success, isTrue);
+      // ONE composed job for all three ops.
+      expect(ffmpeg.jobs, hasLength(1));
+      final args = ffmpeg.jobs.single.args;
+      expect(args, containsAll(['-ss', '10.0', '-i', inputA, '-t', '30.0']));
+      final graph = args[args.indexOf('-filter_complex') + 1];
+      expect(graph, contains('eq=brightness=0.2'));
+      expect(graph, contains('setpts=PTS/2.0'));
+      expect(
+        graph,
+        contains('[0:a]volume=0.5,atempo=2.0[aout]'),
+      );
+      expect(args, containsAll(['-map', '[aout]']));
+
+      // Three per-step journal rows, all on the composed output; only the
+      // speed op carries the new-range keys.
+      final journal = await db.getEditHistory('p1');
+      expect(journal, hasLength(3));
+      final memoryHistory =
+          container.read(projectProvider).value!.editHistory;
+      expect(memoryHistory, hasLength(3));
+      final composedCommand = args.join(' ');
+      expect(
+        memoryHistory.map((e) => e.ffmpegCommand),
+        everyElement(equals(composedCommand)),
+      );
+      final brightnessOp = journal.singleWhere(
+        (e) => e.type == EditOperationType.adjustBrightness,
+      );
+      expect(brightnessOp.params['value'], equals(0.2));
+      expect(brightnessOp.params.containsKey('new_start_ms'), isFalse);
+      final volumeOp = journal.singleWhere(
+        (e) => e.type == EditOperationType.changeVolume,
+      );
+      expect(volumeOp.params['factor'], equals(0.5));
+      expect(volumeOp.params.containsKey('new_start_ms'), isFalse);
+      final speedOp = journal.singleWhere(
+        (e) => e.type == EditOperationType.changeSpeed,
+      );
+      expect(speedOp.params['new_start_ms'], equals(0));
+      expect(speedOp.params['new_end_ms'], equals(15000));
+
+      final clip = _clipOf(container);
+      expect(clip.sourcePath, equals(result.outputPath));
+      expect(clip.startMs, equals(0));
+      expect(clip.endMs, equals(15000));
+
+      await container.read(undoRedoProvider.notifier).undo();
+      await container.read(undoRedoProvider.notifier).undo();
+      await container.read(undoRedoProvider.notifier).undo();
+      final restored = _clipOf(container);
+      expect(restored.sourcePath, equals(inputA));
+      expect(restored.startMs, equals(10000));
+      expect(restored.endMs, equals(40000));
+    });
+
     test('volume-only maps the factor param', () async {
       final container = makeContainer();
       final result = await container

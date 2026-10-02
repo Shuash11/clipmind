@@ -1,4 +1,4 @@
-# Code Graph — test (146 files, 34,542 lines; DO NOT EDIT)
+# Code Graph — test (147 files, 35,289 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -509,10 +509,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L28  function _op
 - L42  function main
 
+## test/unit/ffmpeg/combo_live_gates_test.dart (348 lines)
+- L32  function _synthAv
+- L48  function _mapSingleJob
+- L61  function _runJob
+- L69  function main
+
 ## test/unit/ffmpeg/command_builder_test.dart (746 lines)
 - L4  function main
 
-## test/unit/ffmpeg/command_mapper_restriction_test.dart (185 lines)
+## test/unit/ffmpeg/command_mapper_restriction_test.dart (453 lines)
 - L9  function main
 
 ## test/unit/ffmpeg/export_live_gates_test.dart (423 lines)
@@ -627,7 +633,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L124  function _joined
 - L126  function main
 
-## test/unit/state/manual_edit_adjustments_test.dart (399 lines)
+## test/unit/state/manual_edit_adjustments_test.dart (530 lines)
 - L20  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L23, save(Project project) L26
 - L31  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L34, runSync(FfmpegJob job) L37
 - L46  class _FakeFfprobe extends FfprobeService — extractMetadata(String filePath) L48

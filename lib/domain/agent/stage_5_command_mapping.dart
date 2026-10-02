@@ -184,7 +184,10 @@ class CommandMapper {
     double? rangedLen,
   }) {
     final filters = <String>[];
-    final audioFilters = <String>[];
+    // Flat audio fragments in op order, chained once as
+    // `[0:a]f1,f2,…[aout]` (mirrors the video side's op-order chain and
+    // the FilterGraphComposer `[0:a]$aChain[aout]` convention).
+    final audioFragments = <String>[];
     bool hasAudio = true;
     // Hoisted first-wins window (both-or-neither): the input restriction
     // applies to the whole composed graph; only cut ops shift times.
@@ -209,10 +212,10 @@ class CommandMapper {
               : null;
           if (end != null && end.isNotEmpty) {
             filters.add('[$prev]trim=$start:$end,setpts=PTS-STARTPTS[$next]');
-            audioFilters.add('[0:a]atrim=$start:$end,asetpts=PTS-STARTPTS[a$i]');
+            audioFragments.add('atrim=$start:$end,asetpts=PTS-STARTPTS');
           } else {
             filters.add('[$prev]trim=$start,setpts=PTS-STARTPTS[$next]');
-            audioFilters.add('[0:a]atrim=$start,asetpts=PTS-STARTPTS[a$i]');
+            audioFragments.add('atrim=$start,asetpts=PTS-STARTPTS');
           }
           break;
 
@@ -230,7 +233,7 @@ class CommandMapper {
             af /= 0.5;
           }
           atempoParts.add('atempo=$af');
-          audioFilters.add('[0:a]${atempoParts.join(',')}[a$i]');
+          audioFragments.add(atempoParts.join(','));
           break;
 
         case 'resize':
@@ -302,10 +305,17 @@ class CommandMapper {
 
         case 'change_volume':
           final factor = _num(params, 'factor', 1.0);
-          audioFilters.add('[0:a]volume=$factor[a$i]');
+          // Audio-only op: keep the v-chain continuous with a passthrough
+          // so the next video op's [$prev] input label stays defined
+          // (mirrors the `[0:v]null[v0]` convention above).
+          filters.add('[$prev]null[$next]');
+          audioFragments.add('volume=$factor');
           break;
 
         case 'mute':
+          // Audio-only op (same passthrough rule as change_volume); the
+          // audio side is dropped via `-an`, so no fragment is recorded.
+          filters.add('[$prev]null[$next]');
           hasAudio = false;
           break;
 
@@ -322,15 +332,15 @@ class CommandMapper {
             filters.add(
               '[$prev]select=\'not(between(t,$shiftedStart,$shiftedEnd))\',setpts=N/FRAME_RATE/TB[$next]',
             );
-            audioFilters.add(
-              '[0:a]aselect=\'not(between(t,$shiftedStart,$shiftedEnd))\',asetpts=N/SR/TB[a$i]',
+            audioFragments.add(
+              'aselect=\'not(between(t,$shiftedStart,$shiftedEnd))\',asetpts=N/SR/TB',
             );
           } else {
             filters.add(
               '[$prev]select=\'not(between(t,$removeStart,$removeEnd))\',setpts=N/FRAME_RATE/TB[$next]',
             );
-            audioFilters.add(
-              '[0:a]aselect=\'not(between(t,$removeStart,$removeEnd))\',asetpts=N/SR/TB[a$i]',
+            audioFragments.add(
+              'aselect=\'not(between(t,$removeStart,$removeEnd))\',asetpts=N/SR/TB',
             );
           }
           break;
@@ -343,7 +353,11 @@ class CommandMapper {
 
     final lastVideoLabel = 'v${ops.length}';
     final filterStr = filters.join(';');
-    final audioStr = audioFilters.isNotEmpty ? ';${audioFilters.last}' : '';
+    // One chained audio segment, mapped once and exactly once below.
+    // Muted groups drop the audio side entirely (no dangling [aout]).
+    final hasChainedAudio = hasAudio && audioFragments.isNotEmpty;
+    final audioStr =
+        hasChainedAudio ? ';[0:a]${audioFragments.join(',')}[aout]' : '';
 
     final args = <String>[];
     if (rangedClipStart != null && rangedClipLen != null) {
@@ -365,9 +379,8 @@ class CommandMapper {
       '[$lastVideoLabel]',
     ]);
 
-    if (hasAudio && audioFilters.isNotEmpty) {
-      final lastAudioLabel = 'a${ops.length - 1}';
-      args.addAll(['-map', '[$lastAudioLabel]']);
+    if (hasChainedAudio) {
+      args.addAll(['-map', '[aout]']);
     } else if (!hasAudio) {
       args.add('-an');
     } else {
