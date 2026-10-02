@@ -81,4 +81,10 @@ const Map<String, List<String>> releaseNotes = {
     '* Riverpod 3 upgrade with preserved semantics',
     '* Removed unused dependencies',
   ],
+  '1.29.0': [
+    '* Riverpod 3 test hardening (ProviderContainer.test across the suite)',
+    '* Removed dead providers (project metadata, export progress)',
+    '* Provider-platform registry provider renamed; import hides removed',
+    '* Injected settings-repository seams for quieter test logs',
+  ],
 };

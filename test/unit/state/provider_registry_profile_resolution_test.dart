@@ -4,6 +4,8 @@ import 'package:clipmind/data/services/llm/gemini_provider.dart';
 import 'package:clipmind/data/services/llm/nvidia_nim_provider.dart';
 import 'package:clipmind/data/services/llm/ollama_provider.dart';
 import 'package:clipmind/data/services/llm/openai_provider.dart';
+import 'package:clipmind/data/models/app_settings.dart';
+import 'package:clipmind/data/repositories/settings_repository.dart';
 import 'package:clipmind/data/services/llm/provider_registry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,11 +14,22 @@ import 'package:flutter_test/flutter_test.dart';
 /// NOTE: `modelName` is exposed only by the OpenAI-compatible providers
 /// (OpenAI/Ollama/NIM); Gemini/Anthropic are native and assert via `id`,
 /// which embeds the same `config.model`.
+/// Filesystem-free stub: returns exactly what the real fallback returns
+/// when no settings file exists (`const AppSettings()`), so the legacy
+/// path stays genuinely exercised without `MissingPluginException` noise.
+class _StubSettingsRepository extends SettingsRepository {
+  @override
+  Future<AppSettings> load() async => const AppSettings();
+  @override
+  Future<void> save(AppSettings settings) async {}
+}
+
 void main() {
   ProviderRegistry registryWith(ActiveLlmConfig? Function()? resolve) {
     return ProviderRegistry(
       activeProfileResolver:
           resolve == null ? null : () async => resolve(),
+      settingsRepository: _StubSettingsRepository(),
     );
   }
 
@@ -201,6 +214,7 @@ void main() {
     test('throwing resolver falls through to legacy (null)', () async {
       final registry = ProviderRegistry(
         activeProfileResolver: () => throw StateError('store offline'),
+        settingsRepository: _StubSettingsRepository(),
       );
       expect(await registry.getActiveProvider(), isNull);
     });
@@ -262,6 +276,7 @@ void main() {
           resolutions++;
           return const ActiveLlmConfig(providerId: 'openai');
         },
+        settingsRepository: _StubSettingsRepository(),
       );
 
       final first = await registry.getActiveProvider();
@@ -279,6 +294,7 @@ void main() {
           resolutions++;
           return const ActiveLlmConfig(providerId: 'openai');
         },
+        settingsRepository: _StubSettingsRepository(),
       );
 
       await registry.getActiveProvider();

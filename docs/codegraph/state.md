@@ -1,11 +1,11 @@
-# Code Graph — lib/state (13 files, 2,265 lines; DO NOT EDIT)
+# Code Graph — lib/state (13 files, 2,266 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/state/agent_analysis_providers.dart (70 lines)
 - L14  class AgentAnalysisPort (db, projectId, _cache) — AgentAnalysisPort(…) L15, read(String kind) L26, write(String kind, Map<String, dynamic> payload) L29, warmUp(List<String> clipIds) L35, _persist(String kind) L49
 
-## lib/state/agent_providers.dart (189 lines)
-- L153  class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> — ChatMessagesNotifier() : super([]) L154, add(ChatMessage message) L156, replaceAll(List<ChatMessage> messages) L161, addAgentResult(…) L166, clear() L184
+## lib/state/agent_providers.dart (191 lines)
+- L155  class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> — ChatMessagesNotifier() : super([]) L156, add(ChatMessage message) L158, replaceAll(List<ChatMessage> messages) L163, addAgentResult(…) L168, clear() L186
 
 ## lib/state/agent_run_providers.dart (597 lines)
 - L27  enum AgentRunState
@@ -34,7 +34,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/state/settings_providers.dart (53 lines)
 - L19  class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> (_repository, ready) — SettingsNotifier(this._repository) : super(const AsyncValue.loading()) L28, _load() L32, update(AppSettings settings) L38
 
-## lib/state/status_providers.dart (87 lines)
+## lib/state/status_providers.dart (86 lines)
 
 ## lib/state/structural_edit_providers.dart (58 lines)
 - L21  class StructuralEditApplier (_ref) — StructuralEditApplier(this._ref) L24, apply(EditOperation operation) L26

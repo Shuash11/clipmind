@@ -2,8 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_binary_resolver.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/data/services/llm/openai_compatible_provider.dart';
-import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart'
-    hide providerRegistryProvider;
+import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart';
 import 'package:clipmind/state/agent_providers.dart';
 
 /// Resolver used by [ffmpegBinaryAvailableProvider] (overridable in tests).

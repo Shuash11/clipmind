@@ -8,8 +8,7 @@ import 'package:clipmind/data/services/llm/llm_provider.dart';
 import 'package:clipmind/data/services/llm/openai_provider.dart';
 import 'package:clipmind/data/services/llm/provider_registry.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
-import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart'
-    hide providerRegistryProvider;
+import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart';
 import 'package:clipmind/features/providers/domain/contracts/credential_store.dart';
 import 'package:clipmind/features/providers/domain/contracts/model_provider_adapter.dart';
 import 'package:clipmind/features/providers/domain/contracts/provider_profile_repository.dart';

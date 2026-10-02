@@ -1,4 +1,4 @@
-# Code Graph — test (138 files, 32,535 lines; DO NOT EDIT)
+# Code Graph — test (138 files, 32,561 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -642,24 +642,26 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L58  function _op
 - L65  function main
 
-## test/unit/state/provider_registry_profile_resolution_test.dart (293 lines)
-- L15  function main
+## test/unit/state/provider_registry_profile_resolution_test.dart (309 lines)
+- L20  class _StubSettingsRepository extends SettingsRepository — load() L22, save(AppSettings settings) L24
+- L27  function main
 
-## test/unit/state/runtime_provider_wiring_test.dart (296 lines)
-- L32  class _FakeGenBRegistry — definitions L34, definitionFor(String providerId) L37, adapterFor(String providerId) L40
-- L43  class _FakeRepository (document) — _FakeRepository(this.document) L44, load() L49, save(ProviderProfilesDocument document) L53, deleteProfile(…) L57, resumePendingDeletions(…) L63
-- L68  class _FakeCredentials — read(String credentialId) L70, write(String credentialId, String secret) L74, delete(String credentialId) L78
-- L82  function main
-- L281  class _WritingFfmpeg extends FfmpegService — _WritingFfmpeg() : super(tempDir: Directory.systemTemp.path) L282, runSync(FfmpegJob job) L285
+## test/unit/state/runtime_provider_wiring_test.dart (307 lines)
+- L33  class _FakeGenBRegistry — definitions L35, definitionFor(String providerId) L38, adapterFor(String providerId) L41
+- L44  class _FakeRepository (document) — _FakeRepository(this.document) L45, load() L50, save(ProviderProfilesDocument document) L54, deleteProfile(…) L58, resumePendingDeletions(…) L64
+- L69  class _FakeCredentials — read(String credentialId) L71, write(String credentialId, String secret) L75, delete(String credentialId) L79
+- L83  class _StubSettingsRepository extends SettingsRepository — load() L85, save(AppSettings settings) L88
+- L91  function main
+- L292  class _WritingFfmpeg extends FfmpegService — _WritingFfmpeg() : super(tempDir: Directory.systemTemp.path) L293, runSync(FfmpegJob job) L296
 
-## test/unit/state/status_providers_test.dart (308 lines)
-- L25  class _ScriptProvider extends LlmProvider — health L26, id L30, availableModels() L33, parseCommand(AgentRequest request) L36, watchConnection() L40
-- L43  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L45, getActiveProvider() L48
-- L51  class _FakeGenBRegistry — definitions L53, definitionFor(String providerId) L56, adapterFor(String providerId) L59
-- L62  class _FakeProfileRepository (document) — _FakeProfileRepository(this.document) L63, load() L68, save(ProviderProfilesDocument document) L72, deleteProfile(…) L76, resumePendingDeletions(…) L82
-- L87  class _FakeCredentials — read(String credentialId) L89, write(String credentialId, String secret) L93, delete(String credentialId) L97
-- L101  class _StubResolver extends FfmpegBinaryResolver (value, throws) — _StubResolver(…) L104, resolveFfmpeg(…) L107
-- L113  function main
+## test/unit/state/status_providers_test.dart (307 lines)
+- L24  class _ScriptProvider extends LlmProvider — health L25, id L29, availableModels() L32, parseCommand(AgentRequest request) L35, watchConnection() L39
+- L42  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L44, getActiveProvider() L47
+- L50  class _FakeGenBRegistry — definitions L52, definitionFor(String providerId) L55, adapterFor(String providerId) L58
+- L61  class _FakeProfileRepository (document) — _FakeProfileRepository(this.document) L62, load() L67, save(ProviderProfilesDocument document) L71, deleteProfile(…) L75, resumePendingDeletions(…) L81
+- L86  class _FakeCredentials — read(String credentialId) L88, write(String credentialId, String secret) L92, delete(String credentialId) L96
+- L100  class _StubResolver extends FfmpegBinaryResolver (value, throws) — _StubResolver(…) L103, resolveFfmpeg(…) L106
+- L112  function main
 
 ## test/unit/state/structural_edit_flow_test.dart (342 lines)
 - L20  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L23, save(Project project) L26

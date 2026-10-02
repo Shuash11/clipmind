@@ -10,8 +10,7 @@ import 'package:clipmind/data/services/llm/provider_registry.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/data/models/chat_message.dart';
-import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart'
-    hide providerRegistryProvider;
+import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/settings_providers.dart';
 import 'package:clipmind/state/undo_redo_providers.dart';
@@ -63,6 +62,9 @@ final resolveFontProvider = Provider<Future<String?> Function(String)>(
 /// Resolver failure falls through to the legacy path (never throws here).
 final providerRegistryProvider = Provider<ProviderRegistry>((ref) {
   final registry = ProviderRegistry(
+    // Single shared settings repository; a container-level override of
+    // settingsRepositoryProvider stubs the registry's fallback too.
+    settingsRepository: ref.watch(settingsRepositoryProvider),
     activeProfileResolver: () async {
       final state = ref.read(providerProfileNotifierProvider);
       final profile = state.activeProfile;

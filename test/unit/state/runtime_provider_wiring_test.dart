@@ -6,14 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:clipmind/core/results/result.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
+import 'package:clipmind/data/models/app_settings.dart';
 import 'package:clipmind/data/models/chat_message.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/track.dart';
+import 'package:clipmind/data/repositories/settings_repository.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/llm/openai_provider.dart';
-import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart'
-    hide providerRegistryProvider;
+import 'package:clipmind/features/providers/data/provider_platform_riverpod.dart';
 import 'package:clipmind/features/providers/domain/contracts/credential_store.dart';
 import 'package:clipmind/features/providers/domain/contracts/model_provider_adapter.dart';
 import 'package:clipmind/features/providers/domain/contracts/provider_profile_repository.dart';
@@ -77,6 +78,14 @@ class _FakeCredentials implements CredentialStore {
   @override
   Future<Result<void>> delete(String credentialId) async =>
       const Success(null);
+}
+
+class _StubSettingsRepository extends SettingsRepository {
+  @override
+  Future<AppSettings> load() async => const AppSettings();
+
+  @override
+  Future<void> save(AppSettings settings) async {}
 }
 
 void main() {
@@ -202,6 +211,8 @@ void main() {
       final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider
+              .overrideWithValue(_StubSettingsRepository()),
           ffmpegServiceProvider.overrideWithValue(_WritingFfmpeg()),
           providerPlatformBootstrapResultProvider.overrideWithValue(
             Success(

@@ -94,7 +94,7 @@ class _ProviderProfileFormState extends ConsumerState<ProviderProfileForm> {
 
   @override
   Widget build(BuildContext context) {
-    final registry = ref.watch(providerRegistryProvider);
+    final registry = ref.watch(providerPlatformRegistryProvider);
     final state = ref.watch(providerProfileNotifierProvider);
     final definitions = registry.definitions.toList(growable: false);
     final pending = widget.profile?.deletionPending ?? false;
@@ -429,7 +429,7 @@ class _ProviderProfileFormState extends ConsumerState<ProviderProfileForm> {
     if (profile == null ||
         !profile.enabled ||
         profile.deletionPending ||
-        !modelDiscoverySupported(ref.read(providerRegistryProvider), profile)) {
+        !modelDiscoverySupported(ref.read(providerPlatformRegistryProvider), profile)) {
       return;
     }
     await ref

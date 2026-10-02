@@ -47,7 +47,7 @@ final providerCredentialStoreProvider = Provider<CredentialStore>((ref) {
   return const _UnavailableCredentials();
 });
 
-final providerRegistryProvider = Provider<ProviderRegistry>((ref) {
+final providerPlatformRegistryProvider = Provider<ProviderRegistry>((ref) {
   final result = ref.watch(providerPlatformRuntimeProvider);
   if (result case Success<ProviderPlatformBootstrapResult>(:final value)) {
     return value.registry;
@@ -90,7 +90,7 @@ final providerProfileNotifierProvider =
       final notifier = ProviderProfileNotifier(
         repository: ref.watch(providerProfileRepositoryProvider),
         credentials: ref.watch(providerCredentialStoreProvider),
-        registry: ref.watch(providerRegistryProvider),
+        registry: ref.watch(providerPlatformRegistryProvider),
         cancellationControllerFactory: ref.watch(
           providerCancellationControllerFactoryProvider,
         ),

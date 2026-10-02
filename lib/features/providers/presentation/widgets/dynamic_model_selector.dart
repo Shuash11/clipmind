@@ -111,7 +111,7 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
     // list when it settles.
     if (state.action != ProviderProfileAction.idle) return;
     if ((state.discoveredModels[profile.id] ?? const []).isNotEmpty) return;
-    if (!modelDiscoverySupported(ref.read(providerRegistryProvider), profile)) {
+    if (!modelDiscoverySupported(ref.read(providerPlatformRegistryProvider), profile)) {
       return;
     }
     ref
@@ -137,7 +137,7 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
         .where((model) => !manualIds.contains(model.id))
         .toList(growable: false);
     final canDiscover = modelDiscoverySupported(
-      ref.watch(providerRegistryProvider),
+      ref.watch(providerPlatformRegistryProvider),
       profile,
     );
     return SafeArea(
