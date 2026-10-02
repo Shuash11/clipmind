@@ -18,7 +18,7 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
     _ToolItem(icon: Icons.text_fields_rounded, label: 'Text', tab: LeftPanelTab.text),
     _ToolItem(icon: Icons.graphic_eq_rounded, label: 'Audio', tab: LeftPanelTab.audio),
     _ToolItem(icon: Icons.auto_fix_high_outlined, label: 'Effects', tab: LeftPanelTab.effects),
-    _ToolItem(icon: Icons.blur_on_outlined, label: 'Transitions', comingSoon: true),
+    _ToolItem(icon: Icons.blur_on_outlined, label: 'Transitions', tab: LeftPanelTab.transitions),
     _ToolItem(icon: Icons.tune_rounded, label: 'Adjustments', comingSoon: true),
     _ToolItem(icon: Icons.file_download_outlined, label: 'Export'),
   ];
@@ -28,8 +28,8 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
   void _selectTool(int index) {
     final tool = _tools[index];
     if (tool.comingSoon) {
-      // Unwired this phase (the immediate next work): a coming-soon
-      // heads-up instead of a dead click.
+      // Unwired this phase: a coming-soon heads-up instead of a dead
+      // click (Adjustments only — Transitions is now a real tab).
       _showMessage('${tool.label} are coming soon.');
       return;
     }
@@ -46,8 +46,8 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
       );
       return;
     }
-    // Media/Text/Audio/Effects open the left panel on their tab; clicking
-    // the active tool again collapses it (CapCut behavior).
+    // Media/Text/Audio/Effects/Transitions open the left panel on their
+    // tab; clicking the active tool again collapses it (CapCut behavior).
     setState(() => _selectedIndex = index);
     ref.read(leftPanelProvider.notifier).toggle(tool.tab!);
   }
@@ -94,7 +94,7 @@ class _ToolItem {
   final String label;
 
   /// The left-panel tab this tool opens; null for the action/unwired
-  /// tools (Export, Transitions, Adjustments).
+  /// tools (Export, Adjustments).
   final LeftPanelTab? tab;
 
   final bool comingSoon;

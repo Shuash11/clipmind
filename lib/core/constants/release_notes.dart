@@ -91,4 +91,8 @@ const Map<String, List<String>> releaseNotes = {
     '* Update verification: release digests checked before install',
     '* Fixed the broken ZIP update path',
   ],
+  '1.31.0': [
+    '* Transitions panel: one-click cross-fades between clips',
+    '* Release-body download names fixed; digest gate added',
+  ],
 };

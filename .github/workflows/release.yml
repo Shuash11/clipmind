@@ -69,6 +69,13 @@ jobs:
           name: ClipMind-Setup
           path: build\installer\ClipMind-Setup-*.exe
 
+      - name: Compute version (strip leading v)
+        id: ver
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart("v")
+          "ver=$ver" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -79,8 +86,12 @@ jobs:
             See [CHANGELOG](CHANGELOG.md) for details.
 
             ### Downloads
-            - **Windows Installer** — `ClipMind-Setup-${{ github.ref_name }}.exe` (recommended)
+            - **Windows Installer** — `ClipMind-Setup-${{ steps.ver.outputs.ver }}.exe` (recommended)
             - **Portable ZIP** — `clipmind-windows-${{ github.ref_name }}.zip` (extract and run)
+          # Note: GitHub auto-populates each asset's `digest`
+          # (`sha256:<hex>`) server-side on upload — no workflow emission
+          # step needed. The verifier contract is pinned by
+          # test/unit/updates/release_digest_live_gate_test.dart.
           files: |
             build\installer\ClipMind-Setup-*.exe
             build\clipmind-windows-*.zip

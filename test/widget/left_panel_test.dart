@@ -132,6 +132,31 @@ Project _project() {
   );
 }
 
+/// A two-clip track so a transition pair (the selected clip + the next
+/// clip on its track by `positionMs`) exists for the transitions test.
+Project _twoClipProject() {
+  final base = _project();
+  final track = base.tracks.first;
+  return base.copyWith(
+    tracks: [
+      track.copyWith(
+        clips: [
+          track.clips.first,
+          const Clip(
+            id: 'clip-2',
+            trackId: 'track-1',
+            sourcePath: 'C:/media/sample.mp4',
+            startMs: 0,
+            endMs: 30000,
+            positionMs: 30000,
+            label: 'second.mp4',
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
 void main() {
   late AppDatabase db;
   Directory? tempDir;
@@ -187,7 +212,7 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('LeftPanel renders the four tabs and the collapse affordance', (
+  testWidgets('LeftPanel renders the five tabs and the collapse affordance', (
     WidgetTester tester,
   ) async {
     final container = ProviderContainer.test();
@@ -196,6 +221,7 @@ void main() {
 
     expect(find.text('Media'), findsOneWidget);
     expect(find.text('Effects'), findsOneWidget);
+    expect(find.text('Transitions'), findsOneWidget);
     expect(find.text('Text'), findsOneWidget);
     expect(find.text('Audio'), findsOneWidget);
     expect(find.byIcon(Icons.keyboard_arrow_left), findsOneWidget);
@@ -463,32 +489,123 @@ void main() {
     expect(container.read(selectedClipIdProvider), isNull);
   });
 
-  testWidgets('Transitions and Adjustments stay unwired with a coming-soon '
-      'heads-up', (WidgetTester tester) async {
+  testWidgets('Transitions opens the panel on the transitions tab; '
+      'Adjustments stays a coming-soon heads-up', (WidgetTester tester) async {
     final container = ProviderContainer.test();
     addTearDown(container.dispose);
+    // Desktop viewport (the project_hub_test pattern): the 800x600 default
+    // test surface leaves the last grid row unbuilt (the lazy GridView);
+    // a real desktop window shows all 8 preset cards.
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: Scaffold(body: LeftToolRail())),
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                LeftToolRail(),
+                SizedBox(width: 10),
+                LeftPanel(),
+              ],
+            ),
+          ),
+        ),
       ),
     );
     await tester.pump();
-
-    await tester.tap(find.byIcon(Icons.blur_on_outlined));
-    await tester.pump();
-    expect(find.text('Transitions are coming soon.'), findsOneWidget);
     expect(container.read(leftPanelProvider).open, isFalse);
 
-    // Snackbars queue and the duration timer starts only after the
-    // entrance completes: pump through entrance → duration → exit before
-    // the second tap's snackbar can show.
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pump(const Duration(milliseconds: 2000));
-    await tester.pump(const Duration(milliseconds: 500));
+    // Transitions opens the panel on the transitions tab: no more
+    // coming-soon dead click — the preset grid renders with its notice
+    // and hint states.
+    await tester.tap(find.byIcon(Icons.blur_on_outlined));
+    await tester.pumpAndSettle();
+    expect(container.read(leftPanelProvider).open, isTrue);
+    expect(container.read(leftPanelProvider).tab, LeftPanelTab.transitions);
+    expect(find.text('Transitions are coming soon.'), findsNothing);
+    expect(find.text('Open a project first.'), findsOneWidget);
+    expect(find.text('Fade'), findsOneWidget);
+    expect(find.text('Dissolve'), findsOneWidget);
+    expect(find.text('Wipe Left'), findsOneWidget);
+    expect(find.text('Fade to Black'), findsOneWidget);
+    expect(find.textContaining('undo removes the merge'), findsOneWidget);
+
+    // Adjustments is still unwired: the coming-soon heads-up stays and
+    // the panel does not navigate away from the transitions tab.
     await tester.tap(find.byIcon(Icons.tune_rounded));
     await tester.pump();
     expect(find.text('Adjustments are coming soon.'), findsOneWidget);
-    expect(container.read(leftPanelProvider).open, isFalse);
+    expect(container.read(leftPanelProvider).open, isTrue);
+    expect(container.read(leftPanelProvider).tab, LeftPanelTab.transitions);
+  });
+
+  testWidgets('a transition preset click applies through the applier '
+      '(pair merge, undoable + journaled)', (WidgetTester tester) async {
+    makeOutputDir();
+    final harness = TaggingWidgetHarness();
+    final container = panelContainer(harness: harness, stubSound: true);
+    addTearDown(container.dispose);
+    container
+        .read(projectProvider.notifier)
+        .setProject(_twoClipProject().copyWith(outputDir: tempDir!.path));
+    container.read(selectedClipIdProvider.notifier).state = 'clip-1';
+    // The panel mounts on the transitions tab (initialIndex from the
+    // provider); the first clip has a following clip so no last-clip
+    // notice shows.
+    container.read(leftPanelProvider.notifier).open(LeftPanelTab.transitions);
+    await pumpPanel(tester, container);
+    await tester.pump();
+
+    expect(find.text('Selected clip: sample.mp4'), findsOneWidget);
+    expect(
+      find.textContaining('needs a following clip'),
+      findsNothing,
+    );
+
+    // A double tap is blocked by the busy guard; exactly one submit lands.
+    await tester.tap(find.text('Fade'));
+    await tester.tap(find.text('Fade'));
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.text('Transition "Fade" applied between "clip-1" and "clip-2".'),
+      findsOneWidget,
+    );
+    expect(container.read(undoRedoProvider).canUndo, isTrue);
+    // The single-step recipe journals as one op.
+    expect(container.read(undoRedoProvider).historyCount, equals(1));
+    // Pair replacement: the first clip is repointed at the merged output,
+    // the second is removed.
+    final updated = container.read(projectProvider).value!;
+    final clips = updated.tracks.first.clips;
+    expect(clips.length, equals(1));
+    expect(clips.single.id, equals('clip-1'));
+    expect(clips.single.sourcePath, contains('.mp4'));
+  });
+
+  testWidgets('the transitions tab shows the last-clip notice for a '
+      'trailing selection', (WidgetTester tester) async {
+    final container = panelContainer();
+    addTearDown(container.dispose);
+    container.read(projectProvider.notifier).setProject(_project());
+    container.read(selectedClipIdProvider.notifier).state = 'clip-1';
+    // The panel mounts on the transitions tab; the only clip on the track
+    // is the selection (no following clip by positionMs).
+    container.read(leftPanelProvider.notifier).open(LeftPanelTab.transitions);
+    await pumpPanel(tester, container);
+    await tester.pump();
+
+    expect(find.text('Selected clip: sample.mp4'), findsOneWidget);
+    expect(
+      find.textContaining('needs a following clip'),
+      findsOneWidget,
+    );
   });
 }

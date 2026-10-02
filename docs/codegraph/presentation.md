@@ -1,4 +1,4 @@
-# Code Graph — lib/presentation (32 files, 7,977 lines; DO NOT EDIT)
+# Code Graph — lib/presentation (33 files, 8,224 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/presentation/editor/editor_screen.dart (248 lines)
@@ -67,9 +67,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L9  class TrackRow extends StatefulWidget (trackType, clips, zoom, selectedClipId, onClipSelected, scrollController) — Function(String clipId, String? afterClipId)? onMoveClip L15, Function(String clipId, bool isStart, int newLocalMs)? onTrimEdge L16, TrackRow(…) L24, createState() L37
 - L40  class _TrackRowState extends State<TrackRow> (_ownScrollController) — _scrollController L45, dispose() L49, _trackColor L56, _icon L69, _label L82, build(BuildContext context) L96, _buildClipWidgets() L170, _sorted L205, _afterClipIdFor(double localX) L215, _clipDurationMs(Clip clip) L242, _clipWidth(int durationMs) L250, _gapWidth(int durationMs) L254, _durationLabel(Clip clip) L258, _fileNameFromPath(String path) L270
 
-## lib/presentation/editor/widgets/toolbar/left_panel.dart (134 lines)
-- L16  class LeftPanel extends ConsumerStatefulWidget — LeftPanel(…) L17, createState() L20
-- L23  class _LeftPanelState extends ConsumerState<LeftPanel> (_tabController) — initState() L28, dispose() L39, _onTabChanged() L47, build(BuildContext context) L56
+## lib/presentation/editor/widgets/toolbar/left_panel.dart (138 lines)
+- L18  class LeftPanel extends ConsumerStatefulWidget — LeftPanel(…) L19, createState() L22
+- L25  class _LeftPanelState extends ConsumerState<LeftPanel> (_tabController) — initState() L30, dispose() L41, _onTabChanged() L49, build(BuildContext context) L58
 
 ## lib/presentation/editor/widgets/toolbar/left_tool_rail.dart (181 lines)
 - L8  class LeftToolRail extends ConsumerStatefulWidget — LeftToolRail(…) L9, createState() L12
@@ -95,6 +95,11 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L25  class _TextTabState extends ConsumerState<TextTab> (_textController, _engineLoaded, _loadedFonts, _unavailableFonts, _fontsLoading, _selectedPresetIndex, _isApplying) — _stylePresets L30, _selectedFont L43, initState() L48, dispose() L54, _loadFonts() L64, build(BuildContext context) L100, _apply() L198, _showMessage(String message) L229
 - L239  class _TextStylePreset (label, position, fontSize) — _TextStylePreset(…) L244
 - L251  class _FontTile extends StatelessWidget (label, fontFamily, available, pending, selected, onSelect) — _FontTile(…) L259, build(BuildContext context) L269
+
+## lib/presentation/editor/widgets/toolbar/panels/transitions_tab.dart (243 lines)
+- L20  class TransitionsTab extends ConsumerStatefulWidget — TransitionsTab(…) L21, createState() L24
+- L27  class _TransitionsTabState extends ConsumerState<TransitionsTab> (_busyPresetId) — _descriptions L29, _icons L41, _hasFollowingClip(Project? project, Clip selectedClip) L59, build(BuildContext context) L71, _apply(TransitionPreset preset) L143, _showMessage(String message) L162
+- L172  class _TransitionCard extends StatelessWidget (preset, description, icon, busy, enabled, onApply) — _TransitionCard(…) L180, build(BuildContext context) L190
 
 ## lib/presentation/editor/widgets/toolbar/top_action_bar.dart (201 lines)
 - L12  class TopActionBar extends ConsumerWidget — TopActionBar(…) L13, build(BuildContext context, WidgetRef ref) L16, _openExportDialog(BuildContext context, Project project) L115, _undo(BuildContext context, WidgetRef ref) L123, _redo(BuildContext context, WidgetRef ref) L135, _opLabel(EditOperation op) L147

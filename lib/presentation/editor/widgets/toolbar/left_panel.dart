@@ -6,9 +6,11 @@ import 'package:clipmind/presentation/editor/providers/left_panel_provider.dart'
 import 'panels/audio_tab.dart';
 import 'panels/effects_tab.dart';
 import 'panels/text_tab.dart';
+import 'panels/transitions_tab.dart';
 
 /// The CapCut-style collapsible left panel (~300px): Media | Effects |
-/// Text | Audio tabs hosted next to the tool rail. The open/tab state
+/// Transitions | Text | Audio tabs hosted next to the tool rail. The
+/// open/tab state
 /// lives in [leftPanelProvider] so the rail, the editor layout and the
 /// panel stay in sync; the editor row includes the panel only while open,
 /// so the workspace shrinks accordingly and the last tab is remembered
@@ -95,6 +97,7 @@ class _LeftPanelState extends ConsumerState<LeftPanel>
                     tabs: const [
                       Tab(text: 'Media'),
                       Tab(text: 'Effects'),
+                      Tab(text: 'Transitions'),
                       Tab(text: 'Text'),
                       Tab(text: 'Audio'),
                     ],
@@ -121,6 +124,7 @@ class _LeftPanelState extends ConsumerState<LeftPanel>
               children: const [
                 MediaPanel(),
                 EffectsTab(),
+                TransitionsTab(),
                 TextTab(),
                 AudioTab(),
               ],

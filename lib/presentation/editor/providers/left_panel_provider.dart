@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/legacy.dart';
 
 /// The tabs of the CapCut-style left panel, in display order.
-enum LeftPanelTab { media, effects, text, audio }
+enum LeftPanelTab { media, effects, transitions, text, audio }
 
 /// Open/tab state of the left panel. The single source of truth shared by
 /// the tool rail (opens/toggles), the editor layout (includes the panel

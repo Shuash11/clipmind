@@ -1,16 +1,20 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:clipmind/core/constants/effect_presets.dart';
+import 'package:clipmind/core/constants/transition_presets.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/models/project.dart';
+import 'package:clipmind/data/models/track.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_service.dart';
 import 'package:clipmind/data/services/ffmpeg/procedural_sound_service.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
 import 'package:clipmind/domain/agent/stage_6_execution.dart';
+import 'package:clipmind/domain/agent/tools/tool_executors.dart';
 import 'package:clipmind/state/agent_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/structural_edit_providers.dart';
@@ -68,6 +72,11 @@ class ManualCutResult {
 /// - `submitRecipe(presetId, {clipId})` — one-click effect preset; ids and
 ///   labels come from `effectPresets` (`noir`, `vintage`, `cinematic`,
 ///   `warm`, `cool`, `brighten`, `soften`, `dramatic`).
+/// - `submitTransition(presetId, {clipId})` — one-click xfade transition;
+///   ids and labels come from `transitionPresets` (`fade`, `dissolve`,
+///   `wipeleft`, `wiperight`, `slideup`, `slidedown`, `circleopen`,
+///   `fadeblack`). Runs from [clipId] into the next clip on the same
+///   track through the existing `add_transition` op.
 /// - `submitOverlayText({clipId, text, fontFamily, position, fontSize,
 ///   color, start, end})` — text overlay; `fontFamily` is a bundled family
 ///   id/label (`Inter` … `EB Garamond`) or null for the system default.
@@ -323,6 +332,250 @@ class ManualEditController {
       return ManualCutResult.okWith(
         outputPath,
         'Effect "${preset.label}" applied.',
+      );
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  /// Apply the one-click transition preset [presetId] starting at [clipId].
+  ///
+  /// Clip-pair semantics: the transition runs from [clipId] (outgoing)
+  /// into the NEXT clip on the same track — the first clip on
+  /// `clip.trackId` with `positionMs > clip.positionMs`. A trailing clip
+  /// with no follower fails actionably (add the incoming clip first).
+  ///
+  /// Validation mirrors the agent executor's `add_transition`: matching
+  /// resolution (else a resize-first fail) and matching fps (|Δ| ≤ 0.01),
+  /// both probed via `ffprobeService`. Unverifiable probes degrade to a
+  /// caution on the success message and fail loud at FFmpeg, never a
+  /// crash here. Audio auto-detects to `crossfade`/`first`/`second`/`none`
+  /// exactly as the executor. `offset` is
+  /// `max(0, firstSrcDurSec − duration)` where the xfade input is the raw
+  /// source file (the executor's convention): the probed source duration,
+  /// falling back to the clip's `(endMs − startMs)` range.
+  ///
+  /// Null-inverse hint (UI-level): the merged output replaces the pair —
+  /// the first clip is repointed, the second is removed — and undo does
+  /// NOT restore the removed clip (the existing documented merge
+  /// behavior). The Transitions tab surfaces this as a one-line hint.
+  ///
+  /// Trim-handle limitation: xfade operates on the raw source files, so
+  /// handle-trimmed ranges do not narrow the crossfade window.
+  Future<ManualCutResult> submitTransition(
+    String presetId, {
+    required String clipId,
+  }) async {
+    TransitionPreset? preset;
+    for (final candidate in transitionPresets) {
+      if (candidate.id == presetId) {
+        preset = candidate;
+        break;
+      }
+    }
+    if (preset == null) {
+      return ManualCutResult.fail(
+        'Unknown transition preset "$presetId". Available: '
+        '${transitionPresets.map((p) => p.id).join(', ')}.',
+      );
+    }
+    if (preset.recipe.length != 1) {
+      return ManualCutResult.fail(
+        'Transition preset "$presetId" must carry exactly one step.',
+      );
+    }
+    final step = preset.recipe.single;
+    if (step.opType != 'add_transition') {
+      return ManualCutResult.fail(
+        'Transition preset "$presetId" uses unsupported op "${step.opType}".',
+      );
+    }
+    final rawName =
+        step.params['transition']?.toString().trim().toLowerCase() ?? '';
+    final transition = rawName.isEmpty ? 'fade' : rawName;
+    if (!EditToolExecutor.supportedTransitions.contains(transition)) {
+      return ManualCutResult.fail(
+        'Unknown transition "$transition". Supported: '
+        '${EditToolExecutor.supportedTransitions.join(', ')}.',
+      );
+    }
+    final rawDuration = step.params['duration'];
+    var duration = rawDuration is num ? rawDuration.toDouble() : 0.5;
+    if (!duration.isFinite || duration <= 0) {
+      return ManualCutResult.fail(
+        'Transition preset "$presetId" has an invalid duration '
+        '("$rawDuration"): must be a positive number of seconds (0–60).',
+      );
+    }
+    if (duration > 60) duration = 60;
+
+    final target = _resolveTarget(clipId);
+    if (target.failure != null) {
+      return ManualCutResult.fail(target.failure!);
+    }
+    final project = target.project!;
+    final clip = target.clip!;
+
+    Track? track;
+    for (final candidate in project.tracks) {
+      if (candidate.id == clip.trackId) {
+        track = candidate;
+        break;
+      }
+    }
+    if (track == null) {
+      return ManualCutResult.fail(
+        'Clip "$clipId" is not on a known track. '
+        'Re-select a timeline clip and retry.',
+      );
+    }
+    final followers = track.clips
+        .where((c) => c.positionMs > clip.positionMs)
+        .toList()
+      ..sort((a, b) => a.positionMs.compareTo(b.positionMs));
+    if (followers.isEmpty) {
+      return ManualCutResult.fail(
+        'Clip "$clipId" is the last clip on its track — a transition '
+        'needs a following clip. Add the incoming clip after it, then retry.',
+      );
+    }
+    final next = followers.first;
+
+    final clipPathMap = _clipPathMap(project);
+    final firstPath = clipPathMap[clipId];
+    final secondPath = clipPathMap[next.id];
+    if (firstPath == null ||
+        firstPath.isEmpty ||
+        secondPath == null ||
+        secondPath.isEmpty) {
+      return ManualCutResult.fail(
+        'Transition pair "$clipId" → "${next.id}" has no source file in '
+        'the project. Re-import the media and retry.',
+      );
+    }
+
+    final ffprobe = _ref.read(ffprobeServiceProvider);
+    final meta1 = await ffprobe.extractMetadata(firstPath);
+    final meta2 = await ffprobe.extractMetadata(secondPath);
+    var caution = '';
+    var audioMode = 'crossfade';
+    if (meta1 == null || meta2 == null) {
+      caution =
+          ' Inputs could not be verified — the transition may fail if the '
+          'clips differ in resolution/fps.';
+    } else {
+      if (meta1.width != meta2.width || meta1.height != meta2.height) {
+        return ManualCutResult.fail(
+          'Clips differ in resolution '
+          '(${meta1.width}x${meta1.height} vs ${meta2.width}x${meta2.height}) '
+          '— resize both to the same resolution first (resize_clip), '
+          'then retry add_transition.',
+        );
+      }
+      if ((meta1.fps - meta2.fps).abs() > 0.01) {
+        return ManualCutResult.fail(
+          'Clips differ in frame rate (${meta1.fps} vs ${meta2.fps} fps) — '
+          'use clips with matching frame rates, then retry add_transition.',
+        );
+      }
+      if (meta1.hasAudio && meta2.hasAudio) {
+        audioMode = 'crossfade';
+      } else if (meta1.hasAudio) {
+        audioMode = 'first';
+        caution =
+            ' Only "$clipId" has audio — the audio crossfade is skipped '
+            "and that clip's audio plays unchanged (it may end before "
+            'the video).';
+      } else if (meta2.hasAudio) {
+        audioMode = 'second';
+        caution =
+            ' Only "${next.id}" has audio — the audio crossfade is skipped '
+            "and that clip's audio plays unchanged (it may end before "
+            'the video).';
+      } else {
+        audioMode = 'none';
+      }
+    }
+
+    final probedMs =
+        meta1 != null && meta1.durationMs > 0 ? meta1.durationMs : 0;
+    final rangeMs = clip.endMs - clip.startMs;
+    final firstMs = probedMs > 0 ? probedMs : rangeMs;
+    if (firstMs <= 0) {
+      return ManualCutResult.fail(
+        'Could not determine the duration of clip "$clipId" — run '
+        'probe_video first, then retry add_transition.',
+      );
+    }
+    final offset = math.max(0.0, firstMs / 1000.0 - duration);
+
+    final params = <String, dynamic>{
+      'second_clip_id': next.id,
+      'transition': transition,
+      'duration': duration,
+      'offset': offset,
+      'audio_mode': audioMode,
+      'clip_ids': [clipId, next.id],
+    };
+    final opId = _uuid.v4();
+    late final List<FfmpegJob> jobs;
+    try {
+      jobs = CommandMapper.mapOperations(
+        EditOperationSet(
+          operations: [
+            EditOperationRequest(
+              id: opId,
+              type: 'add_transition',
+              targetClipId: clipId,
+              params: params,
+            ),
+          ],
+          summary: 'Transition "$clipId" into "${next.id}".',
+        ),
+        clipPathMap,
+        project.outputDir,
+        defaultPath: firstPath,
+      );
+    } catch (e) {
+      return ManualCutResult.fail(
+        'Could not map transition "${preset.label}": $e',
+      );
+    }
+    if (jobs.length != 1) {
+      return ManualCutResult.fail(
+        'Transition mapping produced ${jobs.length} jobs; expected 1.',
+      );
+    }
+
+    final engine = ExecutionEngine(_ref.read(ffmpegServiceProvider));
+    try {
+      final result = await engine.execute(jobs, '');
+      if (!result.success) {
+        return ManualCutResult.fail(
+          'FFmpeg failed: ${result.errorMessage ?? result.summary}',
+        );
+      }
+      final outputPath = result.outputPaths.isNotEmpty
+          ? result.outputPaths.first
+          : jobs.first.outputPath;
+      await _ref.read(agentEditApplierProvider).apply(
+            EditOperation(
+              id: opId,
+              type: EditOperationType.addTransition,
+              targetClipIds: [clipId, next.id],
+              params: Map<String, dynamic>.from(params),
+              createdAt: DateTime.now(),
+              ffmpegCommand: jobs.first.args.join(' '),
+            ),
+            outputPath,
+            // Pair replacement (the executor's convention): the first clip
+            // is repointed at the merged output, the second is removed.
+            removeClipIds: [next.id],
+          );
+      return ManualCutResult.okWith(
+        outputPath,
+        'Transition "${preset.label}" applied '
+        'between "$clipId" and "${next.id}".$caution',
       );
     } finally {
       engine.dispose();

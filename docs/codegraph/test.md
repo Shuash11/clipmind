@@ -1,4 +1,4 @@
-# Code Graph — test (140 files, 32,904 lines; DO NOT EDIT)
+# Code Graph — test (144 files, 33,726 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -468,6 +468,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/core/effect_presets_test.dart (101 lines)
 - L15  function main
 
+## test/unit/core/transition_presets_test.dart (127 lines)
+- L26  function main
+
 ## test/unit/data/chat_step_test.dart (100 lines)
 - L5  function main
 
@@ -525,6 +528,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L7  class _NoFfmpeg extends FfmpegBinaryResolver — resolveFfmpeg(…) L9
 - L16  class _FakeResolver extends FfmpegBinaryResolver — resolveFfmpeg(…) L18
 - L29  function main
+
+## test/unit/ffmpeg/transition_live_gates_test.dart (113 lines)
+- L31  function _synthAv
+- L45  function main
 
 ## test/unit/fonts/font_resolver_test.dart (134 lines)
 - L7  function main
@@ -627,6 +634,14 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L118  function _sourceOf
 - L126  function main
 
+## test/unit/state/manual_edit_transition_test.dart (353 lines)
+- L20  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L23, save(Project project) L26
+- L31  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L34, runSync(FfmpegJob job) L37
+- L46  class _FakeFfprobe extends FfprobeService — _FakeFfprobe(this.resolve) L47, Function(String path) resolve L49, extractMetadata(String filePath) L52
+- L56  function _meta
+- L73  function _project
+- L116  function main
+
 ## test/unit/state/manual_trim_split_test.dart (331 lines)
 - L26  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L29, save(Project project) L32
 - L37  function _project
@@ -683,6 +698,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/updates/asset_verifier_test.dart (112 lines)
 - L8  function main
 
+## test/unit/updates/release_digest_live_gate_test.dart (112 lines)
+- L26  function main
+
 ## test/unit/updates/update_downloader_test.dart (231 lines)
 - L8  class _StarterCall (executable, arguments) — _StarterCall(this.executable, this.arguments) L9
 - L15  class _RecordingStarter (calls) — call(String executable, List<String> arguments) L18
@@ -716,14 +734,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L131  function _deleteFiles
 - L138  function main
 
-## test/widget/left_panel_test.dart (495 lines)
+## test/widget/left_panel_test.dart (612 lines)
 - L33  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L34, save(Project project) L37
 - L42  class _FakeFfmpegService extends FfmpegService — _FakeFfmpegService() : super(resolver: _StubResolver('C:/fake/ffmpeg.exe')) L43, runSync(FfmpegJob job) L46, cancel() L57
 - L62  class _StubFfprobeService extends FfprobeService — _StubFfprobeService() : super(resolver: _StubResolver('C:/fake/ffprobe.exe')) L63, extractMetadata(String filePath) L66
 - L81  class _StubProceduralSoundService extends ProceduralSoundService (_outputDir) — _StubProceduralSoundService(this._outputDir) L82, generate(…) L87
 - L98  class _StubResolver extends FfmpegBinaryResolver (path) — _StubResolver(this.path) L99, resolveFfmpeg(…) L104
 - L107  function _project
-- L135  function main
+- L137  function _twoClipProject
+- L160  function main
 
 ## test/widget/project_hub_test.dart (325 lines)
 - L19  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L20, createNew(…) L28, save(Project project) L45, listRecent() L48
