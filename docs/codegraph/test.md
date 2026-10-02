@@ -1,4 +1,4 @@
-# Code Graph — test (144 files, 33,726 lines; DO NOT EDIT)
+# Code Graph — test (146 files, 34,542 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -509,8 +509,11 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L28  function _op
 - L42  function main
 
-## test/unit/ffmpeg/command_builder_test.dart (669 lines)
+## test/unit/ffmpeg/command_builder_test.dart (746 lines)
 - L4  function main
+
+## test/unit/ffmpeg/command_mapper_restriction_test.dart (185 lines)
+- L9  function main
 
 ## test/unit/ffmpeg/export_live_gates_test.dart (423 lines)
 - L36  function _synthAv
@@ -624,6 +627,14 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L124  function _joined
 - L126  function main
 
+## test/unit/state/manual_edit_adjustments_test.dart (399 lines)
+- L20  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L23, save(Project project) L26
+- L31  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L34, runSync(FfmpegJob job) L37
+- L46  class _FakeFfprobe extends FfprobeService — extractMetadata(String filePath) L48
+- L51  function _project
+- L85  function _clipOf
+- L92  function main
+
 ## test/unit/state/manual_edit_panels_test.dart (389 lines)
 - L23  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L26, save(Project project) L29
 - L34  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L37, runSync(FfmpegJob job) L40
@@ -734,7 +745,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L131  function _deleteFiles
 - L138  function main
 
-## test/widget/left_panel_test.dart (612 lines)
+## test/widget/left_panel_test.dart (767 lines)
 - L33  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L34, save(Project project) L37
 - L42  class _FakeFfmpegService extends FfmpegService — _FakeFfmpegService() : super(resolver: _StubResolver('C:/fake/ffmpeg.exe')) L43, runSync(FfmpegJob job) L46, cancel() L57
 - L62  class _StubFfprobeService extends FfprobeService — _StubFfprobeService() : super(resolver: _StubResolver('C:/fake/ffprobe.exe')) L63, extractMetadata(String filePath) L66

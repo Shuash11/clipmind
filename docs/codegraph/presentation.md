@@ -1,4 +1,4 @@
-# Code Graph — lib/presentation (33 files, 8,224 lines; DO NOT EDIT)
+# Code Graph — lib/presentation (34 files, 8,512 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/presentation/editor/editor_screen.dart (248 lines)
@@ -9,10 +9,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L172  class _EditorPanel extends StatelessWidget (child) — _EditorPanel(…) L175, build(BuildContext context) L178
 - L193  class _ProjectStateMessage extends StatelessWidget (icon, title, message, actionLabel, onAction) — _ProjectStateMessage(…) L200, build(BuildContext context) L209
 
-## lib/presentation/editor/providers/left_panel_provider.dart (54 lines)
-- L4  enum LeftPanelTab
-- L9  class LeftPanelState (open, tab, LeftPanelState) — LeftPanelState(…) L13, operator L18, hashCode L22
-- L28  class LeftPanelController extends StateNotifier<LeftPanelState> — LeftPanelController() : super(const LeftPanelState.closed()) L29, open(LeftPanelTab tab) L33, close() L37, toggle(LeftPanelTab tab) L41
+## lib/presentation/editor/providers/left_panel_provider.dart (57 lines)
+- L7  enum LeftPanelTab
+- L12  class LeftPanelState (open, tab, LeftPanelState) — LeftPanelState(…) L16, operator L21, hashCode L25
+- L31  class LeftPanelController extends StateNotifier<LeftPanelState> — LeftPanelController() : super(const LeftPanelState.closed()) L32, open(LeftPanelTab tab) L36, close() L40, toggle(LeftPanelTab tab) L44
 
 ## lib/presentation/editor/providers/selected_clip_provider.dart (33 lines)
 - L14  function resolveSelectedClip
@@ -67,15 +67,20 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L9  class TrackRow extends StatefulWidget (trackType, clips, zoom, selectedClipId, onClipSelected, scrollController) — Function(String clipId, String? afterClipId)? onMoveClip L15, Function(String clipId, bool isStart, int newLocalMs)? onTrimEdge L16, TrackRow(…) L24, createState() L37
 - L40  class _TrackRowState extends State<TrackRow> (_ownScrollController) — _scrollController L45, dispose() L49, _trackColor L56, _icon L69, _label L82, build(BuildContext context) L96, _buildClipWidgets() L170, _sorted L205, _afterClipIdFor(double localX) L215, _clipDurationMs(Clip clip) L242, _clipWidth(int durationMs) L250, _gapWidth(int durationMs) L254, _durationLabel(Clip clip) L258, _fileNameFromPath(String path) L270
 
-## lib/presentation/editor/widgets/toolbar/left_panel.dart (138 lines)
-- L18  class LeftPanel extends ConsumerStatefulWidget — LeftPanel(…) L19, createState() L22
-- L25  class _LeftPanelState extends ConsumerState<LeftPanel> (_tabController) — initState() L30, dispose() L41, _onTabChanged() L49, build(BuildContext context) L58
+## lib/presentation/editor/widgets/toolbar/left_panel.dart (141 lines)
+- L19  class LeftPanel extends ConsumerStatefulWidget — LeftPanel(…) L20, createState() L23
+- L26  class _LeftPanelState extends ConsumerState<LeftPanel> (_tabController) — initState() L31, dispose() L42, _onTabChanged() L50, build(BuildContext context) L59
 
-## lib/presentation/editor/widgets/toolbar/left_tool_rail.dart (181 lines)
+## lib/presentation/editor/widgets/toolbar/left_tool_rail.dart (168 lines)
 - L8  class LeftToolRail extends ConsumerStatefulWidget — LeftToolRail(…) L9, createState() L12
-- L15  class _LeftToolRailState extends ConsumerState<LeftToolRail> (_selectedIndex) — _tools L16, _selectTool(int index) L28, _showMessage(String message) L55, build(BuildContext context) L65
-- L92  class _ToolItem (icon, label, tab, comingSoon) — _ToolItem(…) L102
-- L110  class _ToolButton extends StatelessWidget (icon, label, selected, comingSoon, onPressed) — _ToolButton(…) L117, build(BuildContext context) L126
+- L15  class _LeftToolRailState extends ConsumerState<LeftToolRail> (_selectedIndex) — _tools L16, _selectTool(int index) L28, _showMessage(String message) L50, build(BuildContext context) L60
+- L86  class _ToolItem (icon, label, tab) — _ToolItem(…) L94
+- L101  class _ToolButton extends StatelessWidget (icon, label, selected, onPressed) — _ToolButton(…) L107, build(BuildContext context) L115
+
+## lib/presentation/editor/widgets/toolbar/panels/adjustments_tab.dart (295 lines)
+- L16  class AdjustmentsTab extends ConsumerStatefulWidget — AdjustmentsTab(…) L17, createState() L20
+- L23  class _AdjustmentsTabState extends ConsumerState<AdjustmentsTab> (_neutralBrightness, _neutralContrast, _neutralSaturation, _neutralSpeed, _neutralVolume, _brightness, _contrast, _saturation) — build(BuildContext context) L45, _apply() L171, _reset() L209, _resetSliders() L211, _formatValue(…) L224, _showMessage(String message) L233
+- L247  class _AdjustmentSlider extends StatelessWidget (label, value, valueText, min, max, onChanged) — _AdjustmentSlider(…) L255, build(BuildContext context) L265
 
 ## lib/presentation/editor/widgets/toolbar/panels/audio_tab.dart (256 lines)
 - L17  class AudioTab extends ConsumerStatefulWidget — AudioTab(…) L18, createState() L21

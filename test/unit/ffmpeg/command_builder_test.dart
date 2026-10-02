@@ -195,6 +195,83 @@ void main() {
         containsAll(['-filter_complex', '-map', '[vout]', '-map', '[aout]']),
       );
     });
+
+    test('without restriction the args are byte-identical to legacy', () {
+      expect(
+        CommandBuilder.changeSpeed('input.mp4', 1.5),
+        equals([
+          '-i',
+          'input.mp4',
+          '-filter_complex',
+          '[0:v]setpts=PTS/1.5[vout];[0:a]atempo=1.5[aout]',
+          '-map',
+          '[vout]',
+          '-map',
+          '[aout]',
+        ]),
+      );
+    });
+
+    test('half-set restriction falls back to the legacy path', () {
+      final onlyStart = CommandBuilder.changeSpeed(
+        'input.mp4',
+        1.5,
+        clipStartSec: 5.0,
+      );
+      expect(onlyStart.contains('-ss'), isFalse);
+      expect(onlyStart.sublist(0, 2), equals(['-i', 'input.mp4']));
+      final onlyLen = CommandBuilder.changeSpeed(
+        'input.mp4',
+        1.5,
+        clipDurationSec: 55.0,
+      );
+      expect(onlyLen.contains('-t'), isFalse);
+      expect(onlyLen.sublist(0, 2), equals(['-i', 'input.mp4']));
+    });
+
+    test('with restriction builds -ss/-i/-t before the filter args', () {
+      final args = CommandBuilder.changeSpeed(
+        'input.mp4',
+        2.0,
+        clipStartSec: 5.0,
+        clipDurationSec: 55.0,
+      );
+      // Input-side restriction: -ss 5.0 -i input -t 55.0, same shape as cut.
+      expect(
+        args,
+        equals([
+          '-ss',
+          '5.0',
+          '-i',
+          'input.mp4',
+          '-t',
+          '55.0',
+          '-filter_complex',
+          '[0:v]setpts=PTS/2.0[vout];[0:a]atempo=2.0[aout]',
+          '-map',
+          '[vout]',
+          '-map',
+          '[aout]',
+        ]),
+      );
+      expect(args.indexOf('-ss'), lessThan(args.indexOf('-i')));
+      expect(args.indexOf('-i'), lessThan(args.indexOf('-t')));
+      expect(args.indexOf('-t'), lessThan(args.indexOf('-filter_complex')));
+    });
+
+    test('restricted atempo chain matches the unrestricted chain', () {
+      final legacy = CommandBuilder.changeSpeed('input.mp4', 4.0);
+      final ranged = CommandBuilder.changeSpeed(
+        'input.mp4',
+        4.0,
+        clipStartSec: 5.0,
+        clipDurationSec: 55.0,
+      );
+      final legacyGraph = legacy[legacy.indexOf('-filter_complex') + 1];
+      final rangedGraph = ranged[ranged.indexOf('-filter_complex') + 1];
+      expect(rangedGraph, equals(legacyGraph));
+      expect(rangedGraph, contains('atempo=2.0,atempo=2.0'));
+    });
   });
 
   group('CommandBuilder.mute', () {

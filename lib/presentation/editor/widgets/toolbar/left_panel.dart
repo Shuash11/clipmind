@@ -3,14 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/features/tagging/presentation/widgets/media_panel.dart';
 import 'package:clipmind/presentation/editor/providers/left_panel_provider.dart';
+import 'panels/adjustments_tab.dart';
 import 'panels/audio_tab.dart';
 import 'panels/effects_tab.dart';
 import 'panels/text_tab.dart';
 import 'panels/transitions_tab.dart';
 
 /// The CapCut-style collapsible left panel (~300px): Media | Effects |
-/// Transitions | Text | Audio tabs hosted next to the tool rail. The
-/// open/tab state
+/// Transitions | Text | Audio | Adjustments tabs hosted next to the
+/// tool rail. The open/tab state
 /// lives in [leftPanelProvider] so the rail, the editor layout and the
 /// panel stay in sync; the editor row includes the panel only while open,
 /// so the workspace shrinks accordingly and the last tab is remembered
@@ -100,6 +101,7 @@ class _LeftPanelState extends ConsumerState<LeftPanel>
                       Tab(text: 'Transitions'),
                       Tab(text: 'Text'),
                       Tab(text: 'Audio'),
+                      Tab(text: 'Adjustments'),
                     ],
                   ),
                 ),
@@ -127,6 +129,7 @@ class _LeftPanelState extends ConsumerState<LeftPanel>
                 TransitionsTab(),
                 TextTab(),
                 AudioTab(),
+                AdjustmentsTab(),
               ],
             ),
           ),

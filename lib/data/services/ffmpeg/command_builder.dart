@@ -100,7 +100,22 @@ class CommandBuilder {
     return args;
   }
 
-  static List<String> changeSpeed(String input, double factor) {
+  /// Re-time a clip by [factor] via `setpts` + an `atempo` chain.
+  ///
+  /// Ranged-input restriction (same shape as [cut]): when the clip's range
+  /// is known, pass [clipStartSec] (the clip's in-point in seconds) and
+  /// [clipDurationSec] (the clip span in seconds). The input is then
+  /// restricted with input-seeking `-ss clipStartSec -i input -t
+  /// clipDurationSec` and the `setpts`/`atempo` filters apply after the
+  /// restriction — no time shifting is needed (correct by construction).
+  /// When the range is unknown both stay null and the legacy whole-file
+  /// path runs byte-identical.
+  static List<String> changeSpeed(
+    String input,
+    double factor, {
+    double? clipStartSec,
+    double? clipDurationSec,
+  }) {
     final audioFilters = <String>[];
     var remaining = factor;
     while (remaining > 2.0) {
@@ -114,9 +129,7 @@ class CommandBuilder {
     audioFilters.add('atempo=$remaining');
     final audioFilterStr = audioFilters.join(',');
 
-    return [
-      '-i',
-      input,
+    final filterArgs = <String>[
       '-filter_complex',
       '[0:v]setpts=PTS/$factor[vout];[0:a]$audioFilterStr[aout]',
       '-map',
@@ -124,6 +137,18 @@ class CommandBuilder {
       '-map',
       '[aout]',
     ];
+    if (clipStartSec != null && clipDurationSec != null) {
+      return [
+        '-ss',
+        clipStartSec.toString(),
+        '-i',
+        input,
+        '-t',
+        clipDurationSec.toString(),
+        ...filterArgs,
+      ];
+    }
+    return ['-i', input, ...filterArgs];
   }
 
   static List<String> mute(String input) {

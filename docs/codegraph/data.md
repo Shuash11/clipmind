@@ -1,4 +1,4 @@
-# Code Graph — lib/data (41 files, 6,590 lines; DO NOT EDIT)
+# Code Graph — lib/data (41 files, 6,615 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -55,8 +55,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/repositories/settings_repository.dart (54 lines)
 - L8  class SettingsRepository (_cached, _controller, _disposed) — stream L13, load() L15, save(AppSettings settings) L32, getActiveProviderId() L44, dispose() L49
 
-## lib/data/services/ffmpeg/command_builder.dart (573 lines)
-- L7  class CommandBuilder — trim(String input, String start, String end) L8, cut(…) L25, shiftedCutTime(String removeTime, double clipStartSec) L68, _cutTimeToSeconds(String time) L76, merge(List<String> inputs) L85, changeSpeed(String input, double factor) L103, mute(String input) L129, overlayText(…) L133, resize(String input, int width, int height, String fit) L196, rotate(String input, double degrees) L217, burnCaptions(…) L239, burnCaptionsFilter(…) L261, transition(…) L294, effectFilter(…) L354, effect(…) L379, extractAudio(String input, String outputFormat) L398, generateThumbnail(String input, String timestamp) L410, changeFormat(…) L414, adjustBrightness(String input, double value) L434, changeVolume(String input, double factor) L439, overlayWatermark(…) L443, addAudio(…) L494, proceduralSoundSource(String presetId) L554, lavfiToWav(String source) L569
+## lib/data/services/ffmpeg/command_builder.dart (598 lines)
+- L7  class CommandBuilder — trim(String input, String start, String end) L8, cut(…) L25, shiftedCutTime(String removeTime, double clipStartSec) L68, _cutTimeToSeconds(String time) L76, merge(List<String> inputs) L85, changeSpeed(…) L113, mute(String input) L154, overlayText(…) L158, resize(String input, int width, int height, String fit) L221, rotate(String input, double degrees) L242, burnCaptions(…) L264, burnCaptionsFilter(…) L286, transition(…) L319, effectFilter(…) L379, effect(…) L404, extractAudio(String input, String outputFormat) L423, generateThumbnail(String input, String timestamp) L435, changeFormat(…) L439, adjustBrightness(String input, double value) L459, changeVolume(String input, double factor) L464, overlayWatermark(…) L468, addAudio(…) L519, proceduralSoundSource(String presetId) L579, lavfiToWav(String source) L594
 
 ## lib/data/services/ffmpeg/ffmpeg_binary_resolver.dart (62 lines)
 - L3  class FfmpegBinaryResolver (_cachedFfmpeg, _cachedFfprobe) — resolveFfmpeg(…) L7, resolveFfprobe(…) L13, _resolve(String binary,…) L19, _bundledPath(String binary) L29, _executablePlatform() L35, _which(String binary) L42, invalidateCache() L57

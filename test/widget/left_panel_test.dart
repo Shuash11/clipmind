@@ -212,7 +212,7 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('LeftPanel renders the five tabs and the collapse affordance', (
+  testWidgets('LeftPanel renders the six tabs and the collapse affordance', (
     WidgetTester tester,
   ) async {
     final container = ProviderContainer.test();
@@ -224,6 +224,7 @@ void main() {
     expect(find.text('Transitions'), findsOneWidget);
     expect(find.text('Text'), findsOneWidget);
     expect(find.text('Audio'), findsOneWidget);
+    expect(find.text('Adjustments'), findsOneWidget);
     expect(find.byIcon(Icons.keyboard_arrow_left), findsOneWidget);
     // The Media tab hosts the migrated MediaPanel.
     expect(find.byType(MediaPanel), findsOneWidget);
@@ -490,7 +491,7 @@ void main() {
   });
 
   testWidgets('Transitions opens the panel on the transitions tab; '
-      'Adjustments stays a coming-soon heads-up', (WidgetTester tester) async {
+      'Adjustments opens the adjustments tab', (WidgetTester tester) async {
     final container = ProviderContainer.test();
     addTearDown(container.dispose);
     // Desktop viewport (the project_hub_test pattern): the 800x600 default
@@ -533,13 +534,20 @@ void main() {
     expect(find.text('Fade to Black'), findsOneWidget);
     expect(find.textContaining('undo removes the merge'), findsOneWidget);
 
-    // Adjustments is still unwired: the coming-soon heads-up stays and
-    // the panel does not navigate away from the transitions tab.
+    // Adjustments is wired too: the tune icon opens the panel on the
+    // adjustments tab — no coming-soon slot remains, the notice/hint
+    // and the 5 slider labels render.
     await tester.tap(find.byIcon(Icons.tune_rounded));
-    await tester.pump();
-    expect(find.text('Adjustments are coming soon.'), findsOneWidget);
-    expect(container.read(leftPanelProvider).open, isTrue);
-    expect(container.read(leftPanelProvider).tab, LeftPanelTab.transitions);
+    await tester.pumpAndSettle();
+    expect(container.read(leftPanelProvider).tab, LeftPanelTab.adjustments);
+    expect(find.text('Adjustments are coming soon.'), findsNothing);
+    expect(find.text('Open a project first.'), findsOneWidget);
+    expect(find.textContaining('as one render'), findsOneWidget);
+    expect(find.text('Brightness'), findsOneWidget);
+    expect(find.text('Contrast'), findsOneWidget);
+    expect(find.text('Saturation'), findsOneWidget);
+    expect(find.text('Speed'), findsOneWidget);
+    expect(find.text('Volume'), findsOneWidget);
   });
 
   testWidgets('a transition preset click applies through the applier '
@@ -607,5 +615,152 @@ void main() {
       find.textContaining('needs a following clip'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('the Adjustments tab renders the five sliders with neutral '
+      'defaults', (WidgetTester tester) async {
+    final container = panelContainer();
+    addTearDown(container.dispose);
+    container.read(projectProvider.notifier).setProject(_project());
+    container.read(selectedClipIdProvider.notifier).state = 'clip-1';
+    // The panel mounts on the adjustments tab (initialIndex from the
+    // provider).
+    container.read(leftPanelProvider.notifier).open(LeftPanelTab.adjustments);
+    await pumpPanel(tester, container);
+    await tester.pump();
+
+    expect(find.text('Selected clip: sample.mp4'), findsOneWidget);
+    expect(find.textContaining('as one render'), findsOneWidget);
+    expect(find.text('Apply adjustments'), findsOneWidget);
+    expect(find.text('Reset'), findsOneWidget);
+
+    // The 5 sliders render in order with the neutral defaults
+    // (brightness −1..1 at 0.0; contrast/saturation 0..3 at 1.0; speed
+    // 0.25..4 at 1.0; volume 0..2 at 1.0).
+    final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
+    expect(sliders.length, equals(5));
+    expect(sliders[0].value, equals(0.0));
+    expect(sliders[1].value, equals(1.0));
+    expect(sliders[2].value, equals(1.0));
+    expect(sliders[3].value, equals(1.0));
+    expect(sliders[4].value, equals(1.0));
+    // The live readouts show the neutral values (brightness unsigned at
+    // 0, speed with the × suffix).
+    expect(find.text('0.00'), findsOneWidget);
+    expect(find.text('1.00'), findsNWidgets(3));
+    expect(find.text('1.00×'), findsOneWidget);
+  });
+
+  testWidgets('an adjustments Apply with non-neutral sliders submits one '
+      'composed job and resets to neutral (busy-guarded)',
+      (WidgetTester tester) async {
+    makeOutputDir();
+    final harness = TaggingWidgetHarness();
+    final container = panelContainer(harness: harness);
+    addTearDown(container.dispose);
+    container
+        .read(projectProvider.notifier)
+        .setProject(_project().copyWith(outputDir: tempDir!.path));
+    container.read(selectedClipIdProvider.notifier).state = 'clip-1';
+    container.read(leftPanelProvider.notifier).open(LeftPanelTab.adjustments);
+    await pumpPanel(tester, container);
+    await tester.pump();
+
+    expect(find.text('Selected clip: sample.mp4'), findsOneWidget);
+
+    // Drag the brightness slider up: the display updates live.
+    await tester.ensureVisible(find.byType(Slider).first);
+    await tester.drag(find.byType(Slider).first, const Offset(60, 0));
+    await tester.pump();
+    expect(
+      tester.widget<Slider>(find.byType(Slider).first).value,
+      greaterThan(0.0),
+    );
+
+    // A double tap is blocked by the busy guard; exactly one submit
+    // lands.
+    await tester.tap(find.text('Apply adjustments'));
+    await tester.tap(find.text('Apply adjustments'));
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Adjustments applied.'), findsOneWidget);
+    // The sliders reset to neutral: after the successful render the
+    // clip state is the new baseline (deltas-from-state semantics).
+    expect(
+      tester.widget<Slider>(find.byType(Slider).first).value,
+      equals(0.0),
+    );
+    expect(container.read(undoRedoProvider).canUndo, isTrue);
+    // One non-neutral slider → one journaled op in the composed job.
+    expect(container.read(undoRedoProvider).historyCount, equals(1));
+    // The clip repointed to the composed output.
+    final updated = container.read(projectProvider).value!;
+    final clip = updated.tracks.first.clips.single;
+    expect(clip.sourcePath, contains('.mp4'));
+  });
+
+  testWidgets('an all-neutral adjustments Apply is a no-op '
+      '(Nothing to adjust.)', (WidgetTester tester) async {
+    final container = panelContainer();
+    addTearDown(container.dispose);
+    container.read(projectProvider.notifier).setProject(_project());
+    container.read(selectedClipIdProvider.notifier).state = 'clip-1';
+    container.read(leftPanelProvider.notifier).open(LeftPanelTab.adjustments);
+    await pumpPanel(tester, container);
+    await tester.pump();
+
+    // All sliders at their neutrals: the submit lands but produces no
+    // op, no FFmpeg run and no undo entry.
+    await tester.tap(find.text('Apply adjustments'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Nothing to adjust.'), findsOneWidget);
+    expect(container.read(undoRedoProvider).canUndo, isFalse);
+    expect(container.read(undoRedoProvider).historyCount, equals(0));
+  });
+
+  testWidgets('the adjustments Reset clears all sliders to neutral '
+      'without applying', (WidgetTester tester) async {
+    final container = panelContainer();
+    addTearDown(container.dispose);
+    container.read(projectProvider.notifier).setProject(_project());
+    container.read(selectedClipIdProvider.notifier).state = 'clip-1';
+    container.read(leftPanelProvider.notifier).open(LeftPanelTab.adjustments);
+    await pumpPanel(tester, container);
+    await tester.pump();
+
+    // Drag brightness and volume off-neutral.
+    await tester.ensureVisible(find.byType(Slider).first);
+    await tester.drag(find.byType(Slider).first, const Offset(60, 0));
+    await tester.ensureVisible(find.byType(Slider).last);
+    await tester.drag(find.byType(Slider).last, const Offset(40, 0));
+    await tester.pump();
+    expect(
+      tester.widget<Slider>(find.byType(Slider).first).value,
+      greaterThan(0.0),
+    );
+    expect(
+      tester.widget<Slider>(find.byType(Slider).last).value,
+      greaterThan(1.0),
+    );
+
+    // Reset clears the displays without a render (no snackbar, no undo
+    // entry).
+    await tester.tap(find.text('Reset'));
+    await tester.pump();
+    await tester.pump();
+
+    final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
+    expect(sliders.length, equals(5));
+    expect(sliders[0].value, equals(0.0));
+    expect(sliders[4].value, equals(1.0));
+    expect(find.text('Adjustments applied.'), findsNothing);
+    expect(container.read(undoRedoProvider).canUndo, isFalse);
+    expect(container.read(undoRedoProvider).historyCount, equals(0));
   });
 }

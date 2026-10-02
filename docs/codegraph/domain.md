@@ -1,4 +1,4 @@
-# Code Graph — lib/domain (22 files, 5,961 lines; DO NOT EDIT)
+# Code Graph — lib/domain (22 files, 6,031 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/domain/agent/agent_activity.dart (42 lines)
@@ -52,9 +52,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/domain/agent/stage_4_output_validation.dart (191 lines)
 - L5  class OutputValidator — validTypes L6, requiredParams L13, validateJson(String rawJson) L30, validate(…) L122, buildRetryPrompt(String originalCommand, List<String> errors) L160
 
-## lib/domain/agent/stage_5_command_mapping.dart (697 lines)
+## lib/domain/agent/stage_5_command_mapping.dart (767 lines)
 - L9  class CommandMappingException (message) — CommandMappingException(this.message) L11, toString() L14
-- L17  class CommandMapper — _composableTypes L18, _singlePassTypes L24, _structuralTypes L32, mapOperations(…) L46, _clipIdOf(EditOperationRequest op) L120, _composeMultiOp(…) L124, _composeFilterGraph(…) L146, _buildMergeJob(…) L355, _buildTransitionJob(…) L395, _buildSingleJob(…) L441, _str(Map<String, dynamic> params, String key, String fallback) L628, _num(Map<String, dynamic> params, String key, double fallback) L635, _int(Map<String, dynamic> params, String key, int fallback) L642, _numOrNull(Map<String, dynamic> params, String key) L650, _cutRangeParam(Map<String, dynamic> params, String key) L660, _validatedColor(String color) L667, _outputPathFor(…) L675, _dirOf(String path) L686
+- L17  class CommandMapper — _composableTypes L18, _singlePassTypes L24, _structuralTypes L32, mapOperations(…) L54, _clipIdOf(EditOperationRequest op) L138, _composeMultiOp(…) L142, _composeFilterGraph(…) L178, _buildMergeJob(…) L387, _buildTransitionJob(…) L427, _buildSingleJob(…) L480, _str(Map<String, dynamic> params, String key, String fallback) L680, _num(Map<String, dynamic> params, String key, double fallback) L687, _int(Map<String, dynamic> params, String key, int fallback) L694, _numOrNull(Map<String, dynamic> params, String key) L702, _firstRangedRestriction(…) L715, _cutRangeParam(Map<String, dynamic> params, String key) L730, _validatedColor(String color) L737, _outputPathFor(…) L745, _dirOf(String path) L756
 
 ## lib/domain/agent/stage_6_execution.dart (219 lines)
 - L6  class ExecutionProgress (jobId, operationType, percent, status, message) — ExecutionProgress(…) L13

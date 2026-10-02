@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:clipmind/core/constants/app_constants.dart';
 import 'package:clipmind/core/constants/effect_presets.dart';
 import 'package:clipmind/core/constants/transition_presets.dart';
 import 'package:clipmind/data/models/clip.dart';
@@ -72,6 +73,14 @@ class ManualCutResult {
 /// - `submitRecipe(presetId, {clipId})` — one-click effect preset; ids and
 ///   labels come from `effectPresets` (`noir`, `vintage`, `cinematic`,
 ///   `warm`, `cool`, `brighten`, `soften`, `dramatic`).
+/// - `submitAdjustments({clipId, brightness, contrast, saturation, speed,
+///   volume})` — Adjustments-tab sliders on the selected clip; bounds are
+///   `brightness` −1.0…1.0 (0.0 neutral), `contrast`/`saturation` 0…3
+///   (1.0 neutral), `speed` 0.25…4.0 (1.0 neutral), `volume` 0…2
+///   (1.0 neutral); null means unchanged. Only non-neutral values become
+///   ops, composed into ONE FFmpeg job; a speed change carries the
+///   ranged-input restriction plus `new_start_ms`/`new_end_ms` so the
+///   clip's range is normalized like a cut.
 /// - `submitTransition(presetId, {clipId})` — one-click xfade transition;
 ///   ids and labels come from `transitionPresets` (`fade`, `dissolve`,
 ///   `wipeleft`, `wiperight`, `slideup`, `slidedown`, `circleopen`,
@@ -333,6 +342,222 @@ class ManualEditController {
         outputPath,
         'Effect "${preset.label}" applied.',
       );
+    } finally {
+      engine.dispose();
+    }
+  }
+
+  /// Apply the Adjustments-tab sliders to [clipId] as one composed edit.
+  ///
+  /// Each non-null, non-neutral value becomes an op over the same clip, so
+  /// `CommandMapper` composes them into ONE filter-graph job (the recipe
+  /// pattern): `brightness` → `adjust_brightness` (`{'value': v}`),
+  /// `contrast`/`saturation` → `apply_effect`
+  /// (`{'effect': 'contrast', 'contrast': v}` /
+  /// `{'effect': 'saturation', 'saturation': v}`), `speed` →
+  /// `change_speed` (`{'factor': v}` plus the ranged-input restriction),
+  /// `volume` → `change_volume` (`{'factor': v}`). Each step is journaled
+  /// as its own `EditOperation` pointing at the composed output, exactly
+  /// like `submitRecipe`.
+  ///
+  /// Bounds (reject, never clamp — the executor conventions): `brightness`
+  /// −1.0…1.0 (`AppConstants.min/maxBrightness`, 0.0 neutral),
+  /// `contrast`/`saturation` 0…3 (1.0 neutral, mirroring the `apply_effect`
+  /// vocabulary), `speed` 0.25…4.0 (`AppConstants.min/maxSpeedFactor`,
+  /// 1.0 neutral), `volume` 0…2 (1.0 neutral). Non-finite values fail the
+  /// same way. An all-neutral call (every arg null or neutral) is a
+  /// graceful no-op (`okStructural('Nothing to adjust.')`) that never
+  /// runs FFmpeg.
+  ///
+  /// Speed new-range math: a speed change re-times the clip's live range,
+  /// so the composed output covers that range at the NEW speed —
+  /// `newLen = (endMs − startMs) / factor`. The speed op's journaled
+  /// params carry `new_start_ms: 0` / `new_end_ms: newLen.round()`
+  /// (mirroring `_cutNewRange`'s convention) so `applyEdit`'s range
+  /// normalization + repin fire on the manual path too. The ranged-input
+  /// restriction (`clip_start_s`/`clip_len_s` from the clip's live range,
+  /// omitted when degenerate) rides the same speed op, making it the
+  /// first-wins window for the whole composed job.
+  Future<ManualCutResult> submitAdjustments({
+    required String clipId,
+    double? brightness,
+    double? contrast,
+    double? saturation,
+    double? speed,
+    double? volume,
+  }) async {
+    final target = _resolveTarget(clipId);
+    if (target.failure != null) {
+      return ManualCutResult.fail(target.failure!);
+    }
+    final project = target.project!;
+    final clip = target.clip!;
+
+    if (brightness != null &&
+        (!brightness.isFinite ||
+            brightness < AppConstants.minBrightness ||
+            brightness > AppConstants.maxBrightness)) {
+      return ManualCutResult.fail(
+        'Brightness "value" must be between '
+        '${AppConstants.minBrightness} and ${AppConstants.maxBrightness}. '
+        'Got "$brightness".',
+      );
+    }
+    if (contrast != null &&
+        (!contrast.isFinite || contrast < 0 || contrast > 3)) {
+      return ManualCutResult.fail(
+        'Contrast must be between 0.0 and 3.0 (1.0 unchanged). '
+        'Got "$contrast".',
+      );
+    }
+    if (saturation != null &&
+        (!saturation.isFinite || saturation < 0 || saturation > 3)) {
+      return ManualCutResult.fail(
+        'Saturation must be between 0.0 and 3.0 (1.0 unchanged). '
+        'Got "$saturation".',
+      );
+    }
+    if (speed != null &&
+        (!speed.isFinite ||
+            speed < AppConstants.minSpeedFactor ||
+            speed > AppConstants.maxSpeedFactor)) {
+      return ManualCutResult.fail(
+        'Speed factor must be between ${AppConstants.minSpeedFactor} and '
+        '${AppConstants.maxSpeedFactor} (1.0 unchanged). Got "$speed".',
+      );
+    }
+    if (volume != null &&
+        (!volume.isFinite || volume < 0 || volume > 2)) {
+      return ManualCutResult.fail(
+        'Volume factor must be between 0.0 and 2.0 (1.0 unchanged). '
+        'Got "$volume".',
+      );
+    }
+
+    // Slider order, speed last: its journal step carries the new-range
+    // keys, so the range normalization lands as the final apply.
+    final requests = <EditOperationRequest>[];
+    if (brightness != null && brightness != 0.0) {
+      requests.add(
+        EditOperationRequest(
+          id: _uuid.v4(),
+          type: 'adjust_brightness',
+          targetClipId: clipId,
+          params: {'value': brightness},
+        ),
+      );
+    }
+    if (contrast != null && contrast != 1.0) {
+      requests.add(
+        EditOperationRequest(
+          id: _uuid.v4(),
+          type: 'apply_effect',
+          targetClipId: clipId,
+          params: {'effect': 'contrast', 'contrast': contrast},
+        ),
+      );
+    }
+    if (saturation != null && saturation != 1.0) {
+      requests.add(
+        EditOperationRequest(
+          id: _uuid.v4(),
+          type: 'apply_effect',
+          targetClipId: clipId,
+          params: {'effect': 'saturation', 'saturation': saturation},
+        ),
+      );
+    }
+    if (volume != null && volume != 1.0) {
+      requests.add(
+        EditOperationRequest(
+          id: _uuid.v4(),
+          type: 'change_volume',
+          targetClipId: clipId,
+          params: {'factor': volume},
+        ),
+      );
+    }
+    if (speed != null && speed != 1.0) {
+      final speedParams = <String, dynamic>{'factor': speed};
+      final clipLen = clip.endMs - clip.startMs;
+      if (clipLen > 0) {
+        speedParams['clip_start_s'] = clip.startMs / 1000.0;
+        speedParams['clip_len_s'] = clipLen / 1000.0;
+        speedParams['new_start_ms'] = 0;
+        speedParams['new_end_ms'] = (clipLen / speed).round();
+      }
+      requests.add(
+        EditOperationRequest(
+          id: _uuid.v4(),
+          type: 'change_speed',
+          targetClipId: clipId,
+          params: speedParams,
+        ),
+      );
+    }
+    if (requests.isEmpty) {
+      return ManualCutResult.okStructural('Nothing to adjust.');
+    }
+    for (final request in requests) {
+      if (_adjustmentsJournalType(request.type) == null) {
+        return ManualCutResult.fail(
+          'Unsupported adjustment op "${request.type}".',
+        );
+      }
+    }
+
+    final clipPathMap = _clipPathMap(project);
+    final defaultPath = _defaultPath(project, clipPathMap);
+    if (defaultPath == null) {
+      return ManualCutResult.fail('No video file in project.');
+    }
+
+    late final List<FfmpegJob> jobs;
+    try {
+      jobs = CommandMapper.mapOperations(
+        EditOperationSet(
+          operations: requests,
+          summary: 'Manual adjustments',
+        ),
+        clipPathMap,
+        project.outputDir,
+        defaultPath: defaultPath,
+      );
+    } catch (e) {
+      return ManualCutResult.fail('Could not map the adjustments: $e');
+    }
+    if (jobs.length != 1) {
+      return ManualCutResult.fail(
+        'Adjustments mapping produced ${jobs.length} jobs; expected 1.',
+      );
+    }
+
+    final engine = ExecutionEngine(_ref.read(ffmpegServiceProvider));
+    try {
+      final result = await engine.execute(jobs, '');
+      if (!result.success) {
+        return ManualCutResult.fail(
+          'FFmpeg failed: ${result.errorMessage ?? result.summary}',
+        );
+      }
+      final outputPath = result.outputPaths.isNotEmpty
+          ? result.outputPaths.first
+          : jobs.first.outputPath;
+      final ffmpegCommand = jobs.first.args.join(' ');
+      for (final request in requests) {
+        await _ref.read(agentEditApplierProvider).apply(
+              EditOperation(
+                id: request.id,
+                type: _adjustmentsJournalType(request.type)!,
+                targetClipIds: [clipId],
+                params: Map<String, dynamic>.from(request.params),
+                createdAt: DateTime.now(),
+                ffmpegCommand: ffmpegCommand,
+              ),
+              outputPath,
+            );
+      }
+      return ManualCutResult.okWith(outputPath, 'Adjustments applied.');
     } finally {
       engine.dispose();
     }
@@ -930,6 +1155,24 @@ class ManualEditController {
         return EditOperationType.applyEffect;
       case 'adjust_brightness':
         return EditOperationType.adjustBrightness;
+      default:
+        return null;
+    }
+  }
+
+  /// Journal type for an adjustments op. Null when the op falls outside
+  /// the adjustments contract (`adjust_brightness`/`apply_effect`/
+  /// `change_speed`/`change_volume`).
+  static EditOperationType? _adjustmentsJournalType(String opType) {
+    switch (opType) {
+      case 'adjust_brightness':
+        return EditOperationType.adjustBrightness;
+      case 'apply_effect':
+        return EditOperationType.applyEffect;
+      case 'change_speed':
+        return EditOperationType.changeSpeed;
+      case 'change_volume':
+        return EditOperationType.changeVolume;
       default:
         return null;
     }

@@ -19,7 +19,7 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
     _ToolItem(icon: Icons.graphic_eq_rounded, label: 'Audio', tab: LeftPanelTab.audio),
     _ToolItem(icon: Icons.auto_fix_high_outlined, label: 'Effects', tab: LeftPanelTab.effects),
     _ToolItem(icon: Icons.blur_on_outlined, label: 'Transitions', tab: LeftPanelTab.transitions),
-    _ToolItem(icon: Icons.tune_rounded, label: 'Adjustments', comingSoon: true),
+    _ToolItem(icon: Icons.tune_rounded, label: 'Adjustments', tab: LeftPanelTab.adjustments),
     _ToolItem(icon: Icons.file_download_outlined, label: 'Export'),
   ];
 
@@ -27,12 +27,6 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
 
   void _selectTool(int index) {
     final tool = _tools[index];
-    if (tool.comingSoon) {
-      // Unwired this phase: a coming-soon heads-up instead of a dead
-      // click (Adjustments only — Transitions is now a real tab).
-      _showMessage('${tool.label} are coming soon.');
-      return;
-    }
     if (tool.label == 'Export') {
       // An action, not content: stays a dialog.
       final project = ref.read(projectProvider).value;
@@ -46,8 +40,9 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
       );
       return;
     }
-    // Media/Text/Audio/Effects/Transitions open the left panel on their
-    // tab; clicking the active tool again collapses it (CapCut behavior).
+    // Media/Text/Audio/Effects/Transitions/Adjustments open the left
+    // panel on their tab; clicking the active tool again collapses it
+    // (CapCut behavior).
     setState(() => _selectedIndex = index);
     ref.read(leftPanelProvider.notifier).toggle(tool.tab!);
   }
@@ -80,7 +75,6 @@ class _LeftToolRailState extends ConsumerState<LeftToolRail> {
             icon: tool.icon,
             label: tool.label,
             selected: index == _selectedIndex,
-            comingSoon: tool.comingSoon,
             onPressed: () => _selectTool(index),
           );
         },
@@ -93,17 +87,14 @@ class _ToolItem {
   final IconData icon;
   final String label;
 
-  /// The left-panel tab this tool opens; null for the action/unwired
-  /// tools (Export, Adjustments).
+  /// The left-panel tab this tool opens; null for the action tool
+  /// (Export).
   final LeftPanelTab? tab;
-
-  final bool comingSoon;
 
   const _ToolItem({
     required this.icon,
     required this.label,
     this.tab,
-    this.comingSoon = false,
   });
 }
 
@@ -111,21 +102,19 @@ class _ToolButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
-  final bool comingSoon;
   final VoidCallback onPressed;
 
   const _ToolButton({
     required this.icon,
     required this.label,
     required this.selected,
-    required this.comingSoon,
     required this.onPressed,
   });
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: comingSoon ? '$label — coming soon' : label,
+      message: label,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 7),
         child: InkWell(
@@ -164,11 +153,9 @@ class _ToolButton extends StatelessWidget {
                 Icon(
                   icon,
                   size: 20,
-                  color: comingSoon
-                      ? ClipMindColors.textMuted
-                      : selected
-                          ? ClipMindColors.accentPrimary
-                          : ClipMindColors.textSecondary,
+                  color: selected
+                      ? ClipMindColors.accentPrimary
+                      : ClipMindColors.textSecondary,
                 ),
               ],
             ),

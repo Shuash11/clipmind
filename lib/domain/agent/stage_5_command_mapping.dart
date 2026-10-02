@@ -43,6 +43,14 @@ class CommandMapper {
   /// [outputDir] is the project output directory; when empty the input
   /// file's parent directory is used. [defaultPath] is the fallback input
   /// for `_default` targets. [projectDir] scopes watermark validation.
+  ///
+  /// Ranged-input restriction (first ranged op wins, any composable type):
+  /// per clip group the FIRST op carrying `clip_start_s`/`clip_len_s`
+  /// fixes the job's input window (`-ss`/`-t`); cut ops additionally
+  /// shift their `between()` times to that window while non-cut ops
+  /// (setpts/atempo apply after the restriction) need no shift — correct
+  /// by construction. Groups with no ranged op run the legacy whole-file
+  /// path unchanged.
   static List<FfmpegJob> mapOperations(
     EditOperationSet operationSet,
     Map<String, String> clipPathMap,
@@ -88,17 +96,27 @@ class CommandMapper {
       if (ops.isEmpty) continue;
       final inputPath = resolve(entry.key);
 
+      // Walk-order detection: the first op carrying the range wins for
+      // the whole group, regardless of op type.
+      final restriction = _firstRangedRestriction(ops);
+      final rangedStart = restriction?.$1;
+      final rangedLen = restriction?.$2;
+
       final composable =
           ops.where((o) => _composableTypes.contains(o.type)).toList();
       if (composable.length >= 2) {
         jobs.addAll(
           _composeMultiOp(composable, inputPath, outputDir,
-              projectDir: projectDir),
+              projectDir: projectDir,
+              rangedStart: rangedStart,
+              rangedLen: rangedLen),
         );
       } else {
         for (final op in ops) {
           jobs.add(_buildSingleJob(op, resolve(_clipIdOf(op)), outputDir,
-              projectDir: projectDir));
+              projectDir: projectDir,
+              rangedStart: rangedStart,
+              rangedLen: rangedLen));
         }
       }
     }
@@ -126,6 +144,8 @@ class CommandMapper {
     String inputPath,
     String outputDir, {
     String? projectDir,
+    double? rangedStart,
+    double? rangedLen,
   }) {
     final hasOverlayWatermark = ops.any((o) => o.type == 'overlay_watermark');
     final hasMute = ops.any((o) => o.type == 'mute');
@@ -134,30 +154,44 @@ class CommandMapper {
     if (hasOverlayWatermark && (hasOverlayText || hasMute)) {
       return ops
           .map((o) => _buildSingleJob(o, inputPath, outputDir,
-              projectDir: projectDir))
+              projectDir: projectDir,
+              rangedStart: rangedStart,
+              rangedLen: rangedLen))
           .toList();
     }
 
     return [
-      _composeFilterGraph(ops, inputPath, outputDir, projectDir: projectDir)
+      _composeFilterGraph(ops, inputPath, outputDir,
+          projectDir: projectDir,
+          rangedStart: rangedStart,
+          rangedLen: rangedLen)
     ];
   }
 
+  /// Compose one filter-graph job from same-clip ops.
+  ///
+  /// [rangedStart]/[rangedLen] is the walk-order first-wins restriction
+  /// pre-detected by [mapOperations] (any composable type may carry it):
+  /// the whole composed input is restricted with `-ss`/`-t`, cut ops
+  /// additionally shift their `between()` times to that window, and
+  /// non-cut carriers ignore the shift. Both null → legacy whole-file.
   static FfmpegJob _composeFilterGraph(
     List<EditOperationRequest> ops,
     String inputPath,
     String outputDir, {
     String? projectDir,
+    double? rangedStart,
+    double? rangedLen,
   }) {
     final filters = <String>[];
     final audioFilters = <String>[];
     bool hasAudio = true;
-    // Ranged-cut input restriction (first cut op wins): when a cut carries
-    // `clip_start_s`/`clip_len_s` the whole composed input is restricted
-    // with `-ss`/`-t` and the cut's `between()` times shift to the
-    // clip-span-relative base (same composition as CommandBuilder.cut).
-    double? rangedClipStart;
-    double? rangedClipLen;
+    // Hoisted first-wins window (both-or-neither): the input restriction
+    // applies to the whole composed graph; only cut ops shift times.
+    final double? rangedClipStart =
+        (rangedStart != null && rangedLen != null) ? rangedStart : null;
+    final double? rangedClipLen =
+        (rangedStart != null && rangedLen != null) ? rangedLen : null;
 
     filters.add('[0:v]null[v0]');
 
@@ -278,21 +312,19 @@ class CommandMapper {
         case 'cut':
           final removeStart = _str(params, 'remove_start', '0');
           final removeEnd = _str(params, 'remove_end', '0');
-          final cutClipStart = _cutRangeParam(params, 'clip_start_s');
-          final cutClipLen = _cutRangeParam(params, 'clip_len_s');
-          if (cutClipStart != null && cutClipLen != null) {
+          if (rangedClipStart != null && rangedClipLen != null) {
+            // Shift to the hoisted first-wins window (same composition
+            // as CommandBuilder.cut): file times minus the window start.
             final shiftedStart =
-                CommandBuilder.shiftedCutTime(removeStart, cutClipStart);
+                CommandBuilder.shiftedCutTime(removeStart, rangedClipStart);
             final shiftedEnd =
-                CommandBuilder.shiftedCutTime(removeEnd, cutClipStart);
+                CommandBuilder.shiftedCutTime(removeEnd, rangedClipStart);
             filters.add(
               '[$prev]select=\'not(between(t,$shiftedStart,$shiftedEnd))\',setpts=N/FRAME_RATE/TB[$next]',
             );
             audioFilters.add(
               '[0:a]aselect=\'not(between(t,$shiftedStart,$shiftedEnd))\',asetpts=N/SR/TB[a$i]',
             );
-            rangedClipStart ??= cutClipStart;
-            rangedClipLen ??= cutClipLen;
           } else {
             filters.add(
               '[$prev]select=\'not(between(t,$removeStart,$removeEnd))\',setpts=N/FRAME_RATE/TB[$next]',
@@ -438,14 +470,32 @@ class CommandMapper {
     );
   }
 
+  /// Build one single-op job.
+  ///
+  /// [rangedStart]/[rangedLen] is the walk-order first-wins restriction
+  /// pre-detected by [mapOperations]; when both are set they are passed
+  /// through to the ranged-input builders ([CommandBuilder.cut],
+  /// [CommandBuilder.changeSpeed]). Both null → each op falls back to
+  /// its own params (single-op groups: identical to the hoisted pair).
   static FfmpegJob _buildSingleJob(
     EditOperationRequest op,
     String inputPath,
     String outputDir, {
     String? projectDir,
+    double? rangedStart,
+    double? rangedLen,
   }) {
     final params = op.params;
     final List<String> args;
+    // Both-or-neither: a half-set hoisted pair defers to the op's own
+    // params, exactly like an absent restriction.
+    final hasHoistedRange = rangedStart != null && rangedLen != null;
+    double? rangeStartOf(Map<String, dynamic> p) => hasHoistedRange
+        ? rangedStart
+        : _cutRangeParam(p, 'clip_start_s');
+    double? rangeLenOf(Map<String, dynamic> p) => hasHoistedRange
+        ? rangedLen
+        : _cutRangeParam(p, 'clip_len_s');
 
     switch (op.type) {
       case 'trim':
@@ -460,14 +510,16 @@ class CommandMapper {
           inputPath,
           _str(params, 'remove_start', '0'),
           _str(params, 'remove_end', '0'),
-          clipStartSec: _cutRangeParam(params, 'clip_start_s'),
-          clipDurationSec: _cutRangeParam(params, 'clip_len_s'),
+          clipStartSec: rangeStartOf(params),
+          clipDurationSec: rangeLenOf(params),
         );
         break;
       case 'change_speed':
         args = CommandBuilder.changeSpeed(
           inputPath,
           _num(params, 'factor', 1.0),
+          clipStartSec: rangeStartOf(params),
+          clipDurationSec: rangeLenOf(params),
         );
         break;
       case 'mute':
@@ -653,10 +705,28 @@ class CommandMapper {
     return null;
   }
 
-  /// Null-safe double read for the ranged-cut `clip_start_s`/`clip_len_s`
-  /// params (the executor writes doubles; the manual path may write
-  /// decimal strings). Absent/unparseable → null → the legacy whole-file
-  /// cut path, unchanged behavior.
+  /// Walk-order first-wins range: the `clip_start_s`/`clip_len_s` pair
+  /// from the FIRST op in [ops] that carries both (any composable type —
+  /// cut, change_speed, or a future ranged op), or null when no op does.
+  ///
+  /// The params stay internal (never model-provided — the `font_file`
+  /// convention): the executor stamps them when the clip's range is
+  /// known. Absent/unparseable/half-set → null → legacy whole-file.
+  static (double, double)? _firstRangedRestriction(
+    List<EditOperationRequest> ops,
+  ) {
+    for (final op in ops) {
+      final start = _cutRangeParam(op.params, 'clip_start_s');
+      final len = _cutRangeParam(op.params, 'clip_len_s');
+      if (start != null && len != null) return (start, len);
+    }
+    return null;
+  }
+
+  /// Null-safe double read for the ranged-input `clip_start_s`/
+  /// `clip_len_s` params (the executor writes doubles; the manual path
+  /// may write decimal strings). Absent/unparseable → null → the legacy
+  /// whole-file path, unchanged behavior.
   static double? _cutRangeParam(Map<String, dynamic> params, String key) {
     final value = params[key];
     if (value is num) return value.toDouble();

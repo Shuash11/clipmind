@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/legacy.dart';
 
-/// The tabs of the CapCut-style left panel, in display order.
-enum LeftPanelTab { media, effects, transitions, text, audio }
+/// The tabs of the CapCut-style left panel, in display order. The rail
+/// lists Adjustments as the last content tool (before the Export
+/// action), so the tab is appended last rather than re-shuffling the
+/// established Media/Effects/Transitions/Text/Audio order.
+enum LeftPanelTab { media, effects, transitions, text, audio, adjustments }
 
 /// Open/tab state of the left panel. The single source of truth shared by
 /// the tool rail (opens/toggles), the editor layout (includes the panel

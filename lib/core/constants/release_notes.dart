@@ -95,4 +95,9 @@ const Map<String, List<String>> releaseNotes = {
     '* Transitions panel: one-click cross-fades between clips',
     '* Release-body download names fixed; digest gate added',
   ],
+  '1.32.0': [
+    '* Adjustments panel: brightness, contrast, saturation, speed, volume',
+    '* Speed changes re-time the clip range correctly',
+    '* Ranged speed restriction (exact for trimmed clips)',
+  ],
 };
