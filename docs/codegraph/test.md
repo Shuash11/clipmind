@@ -1,4 +1,4 @@
-# Code Graph — test (138 files, 32,561 lines; DO NOT EDIT)
+# Code Graph — test (140 files, 32,904 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -679,6 +679,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L64  function _sourceOf
 - L74  function main
 - L172  function _sourceOfProject
+
+## test/unit/updates/asset_verifier_test.dart (112 lines)
+- L8  function main
+
+## test/unit/updates/update_downloader_test.dart (231 lines)
+- L8  class _StarterCall (executable, arguments) — _StarterCall(this.executable, this.arguments) L9
+- L15  class _RecordingStarter (calls) — call(String executable, List<String> arguments) L18
+- L24  function _serveBytes
+- L34  function _updateTempDirs
+- L41  function main
 
 ## test/widget/agent_chat_panel_test.dart (1056 lines)
 - L39  class _StubProvider extends LlmProvider — id L41, availableModels() L44, parseCommand(AgentRequest request) L47, watchConnection() L51

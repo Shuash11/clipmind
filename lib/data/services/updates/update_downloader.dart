@@ -2,16 +2,61 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import 'asset_verifier.dart';
+
+/// Launches a detached process (installer or post-extraction script).
+/// Injectable so tests can record invocations without spawning processes.
+typedef UpdateProcessStarter =
+    Future<void> Function(String executable, List<String> arguments);
+
+Future<void> _defaultProcessStarter(
+  String executable,
+  List<String> arguments,
+) async {
+  await Process.start(
+    executable,
+    arguments,
+    mode: ProcessStartMode.detached,
+  );
+}
+
+/// Thrown when a downloaded update fails artifact verification. The
+/// download is deleted and no install step runs.
+class UpdateVerificationException implements Exception {
+  final String message;
+  final AssetVerificationResult result;
+
+  const UpdateVerificationException(this.message, {required this.result});
+
+  @override
+  String toString() => 'UpdateVerificationException: $message';
+}
+
 class UpdateDownloader {
   final String downloadUrl;
   final String assetType;
+  final String? digest;
   final void Function(double? progress, String status)? onProgress;
+  final ReleaseAssetVerifier verifier;
+  final UpdateProcessStarter processStarter;
+  final void Function(int code) exitApp;
+  final String? appDirOverride;
 
   UpdateDownloader({
     required this.downloadUrl,
     this.assetType = 'zip',
     this.onProgress,
-  });
+    this.digest,
+    ReleaseAssetVerifier? verifier,
+    UpdateProcessStarter? processStarter,
+    void Function(int code)? exitApp,
+    this.appDirOverride,
+  }) : verifier = verifier ?? const ReleaseAssetVerifier(),
+       processStarter = processStarter ?? _defaultProcessStarter,
+       exitApp = exitApp ?? exit;
+
+  String get _appDir =>
+      appDirOverride ?? File(Platform.resolvedExecutable).parent.path;
 
   Future<void> downloadAndInstall() async {
     if (downloadUrl.isEmpty) {
@@ -28,6 +73,15 @@ class UpdateDownloader {
 
     try {
       await _downloadFile(downloadUrl, filePath, isInstaller);
+
+      onProgress?.call(isInstaller ? 0.9 : 0.7, 'Verifying download...');
+      final outcome = verifier.verify(File(filePath), digest);
+      if (!outcome.passed) {
+        throw UpdateVerificationException(
+          'The update failed a security check and was not installed.',
+          result: outcome,
+        );
+      }
 
       if (isInstaller) {
         await _runInstaller(filePath);
@@ -99,6 +153,7 @@ class UpdateDownloader {
 
   Future<void> _extractAndInstallZip(String zipPath, String tempPath) async {
     onProgress?.call(0.7, 'Extracting...');
+    final newDirPath = '$tempPath\\new';
     final result = await Process.run('powershell', [
       '-NoProfile',
       '-Command',
@@ -106,46 +161,49 @@ class UpdateDownloader {
       '-Path',
       zipPath,
       '-DestinationPath',
-      r'$tempPath\new',
+      newDirPath,
       '-Force',
     ]);
     if (result.exitCode != 0) {
-      throw Exception('Extraction failed: \${result.stderr}');
+      throw Exception('Extraction failed: ${result.stderr}');
     }
-    final extractedDir = Directory(r'$tempPath\new');
+    final extractedDir = Directory(newDirPath);
     if (!extractedDir.existsSync() || extractedDir.listSync().isEmpty) {
       throw Exception('Extraction produced no files');
     }
     onProgress?.call(0.85, 'Installing...');
-    final appDir = File(Platform.resolvedExecutable).parent.path;
-    final tempEscaped = tempPath.replaceAll(r'\', '\\\\');
-    final appEscaped = appDir.replaceAll(r'\', '\\\\');
+    final appDir = _appDir;
 
-    const script =
-        r"powershell -NoProfile -Command 'Start-Sleep -Seconds 3; \$p = Get-Process clipmind -ErrorAction SilentlyContinue; if (\$p) { Stop-Process -Name clipmind -Force }; Copy-Item ''{0}\new\*'' ''{1}'' -Recurse -Force -ErrorAction Stop; Start-Process ''{1}\clipmind.exe'' '";
-    final scriptFilled = script
-        .replaceAll('{0}', tempEscaped)
-        .replaceAll('{1}', appEscaped);
+    // Single-quoted PowerShell literals treat backslashes as literal, so
+    // the Dart-interpolated paths below are substituted exactly once and
+    // need no backslash doubling. The doubled '' inside the outer
+    // -Command '...' yields the inner single quotes PowerShell executes.
+    final script =
+        'powershell -NoProfile -Command \'Start-Sleep -Seconds 3; '
+        '\$p = Get-Process clipmind -ErrorAction SilentlyContinue; '
+        'if (\$p) { Stop-Process -Name clipmind -Force }; '
+        "Copy-Item ''$newDirPath\\*'' ''$appDir'' -Recurse -Force -ErrorAction Stop; "
+        "Start-Process ''$appDir\\clipmind.exe'' '";
 
-    const scriptPath = r'$appDir\update.ps1';
-    await File(scriptPath).writeAsString(scriptFilled);
-    await Process.start('powershell', [
+    final scriptPath = '$appDir\\update.ps1';
+    await File(scriptPath).writeAsString(script);
+    await processStarter('powershell', [
       '-NoProfile',
       '-ExecutionPolicy',
       'Bypass',
       '-File',
       scriptPath,
-    ], mode: ProcessStartMode.detached);
-    exit(0);
+    ]);
+    exitApp(0);
   }
 
   Future<void> _runInstaller(String exePath) async {
     onProgress?.call(0.9, 'Running installer...');
-    await Process.start(exePath, [
+    await processStarter(exePath, [
       '/VERYSILENT',
       '/NORESTART',
       '/CLOSEAPPLICATIONS',
-    ], mode: ProcessStartMode.detached);
-    exit(0);
+    ]);
+    exitApp(0);
   }
 }

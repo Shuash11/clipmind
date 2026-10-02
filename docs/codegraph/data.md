@@ -1,4 +1,4 @@
-# Code Graph — lib/data (40 files, 6,412 lines; DO NOT EDIT)
+# Code Graph — lib/data (41 files, 6,590 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -147,11 +147,19 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L41  class WhisperTranscript (text, segments) — WhisperTranscript(…) L45, charCount L47, isEmpty L48
 - L69  class WhisperTranscriptionService — Function(String exe, List<String> args) _run L71, WhisperTranscriptionService(…) L73, findBinary(…) L79, isAvailable(…) L90, transcribe(…) L98, parseTranscriptSegments(String stdout) L134, _toMs(String hh, String mm, String ss, String ms) L166, parseTranscriptText(String stdout) L175, isSafeConfiguredPath(String path) L191, _isAbsolute(String path) L197, _which(String binary) L205
 
-## lib/data/services/updates/github_release_checker.dart (119 lines)
-- L6  class GithubReleaseChecker (_repo, _apiUrl, _userAgent, _cachedRelease) — checkForUpdate() L13, _parseTag(String tag) L89, isNewer(ReleaseInfo latest, String currentVersion) L102, clearCache() L115
+## lib/data/services/updates/asset_verifier.dart (115 lines)
+- L7  class AssetVerificationResult (reason, passed, expectedDigest, actualDigest) — AssetVerificationResult(…) L16
+- L34  class ReleaseAssetVerifier (_chunkSize, _hexPattern) — ReleaseAssetVerifier() L38, verify(File file, String? digest) L40, _parseSha256Hex(String digest) L77, _hashFile(File file) L86
+- L104  class _DigestCollector (digest) — add(Digest data) L108, close() L113
 
-## lib/data/services/updates/release_info.dart (22 lines)
-- L1  class ReleaseInfo (tagName, major, minor, patch, releaseNotes, downloadUrl, assetType, publishedAt) — ReleaseInfo(…) L11
+## lib/data/services/updates/github_release_checker.dart (122 lines)
+- L6  class GithubReleaseChecker (_repo, _apiUrl, _userAgent, _cachedRelease) — checkForUpdate() L13, _parseTag(String tag) L92, isNewer(ReleaseInfo latest, String currentVersion) L105, clearCache() L118
 
-## lib/data/services/updates/update_downloader.dart (152 lines)
-- L5  class UpdateDownloader (downloadUrl, assetType) — Function(double? progress, String status)? onProgress L8, UpdateDownloader(…) L10, downloadAndInstall() L16, _downloadFile(…) L45, _formatSize(int bytes) L94, _extractAndInstallZip(String zipPath, String tempPath) L100, _runInstaller(String exePath) L142
+## lib/data/services/updates/release_info.dart (24 lines)
+- L1  class ReleaseInfo (tagName, major, minor, patch, releaseNotes, downloadUrl, assetType, publishedAt) — ReleaseInfo(…) L12
+
+## lib/data/services/updates/update_downloader.dart (210 lines)
+- L9  typedef UpdateProcessStarter
+- L12  function _defaultProcessStarter
+- L25  class UpdateVerificationException (message, result) — UpdateVerificationException(this.message,…) L29, toString() L32
+- L35  class UpdateDownloader (downloadUrl, assetType, digest, verifier, processStarter, appDirOverride) — Function(double? progress, String status)? onProgress L39, Function(int code) exitApp L42, UpdateDownloader(…) L45, _appDir L58, downloadAndInstall() L61, _downloadFile(…) L99, _formatSize(int bytes) L148, _extractAndInstallZip(String zipPath, String tempPath) L154, _runInstaller(String exePath) L200

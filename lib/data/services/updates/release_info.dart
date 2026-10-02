@@ -7,6 +7,7 @@ class ReleaseInfo {
   final String downloadUrl;
   final String assetType;
   final DateTime publishedAt;
+  final String? digest;
 
   const ReleaseInfo({
     required this.tagName,
@@ -17,5 +18,6 @@ class ReleaseInfo {
     required this.downloadUrl,
     required this.assetType,
     required this.publishedAt,
+    this.digest,
   });
 }

@@ -42,6 +42,7 @@ class GithubReleaseChecker {
       final assets = json['assets'] as List<dynamic>? ?? [];
       String downloadUrl = '';
       String assetType = '';
+      String? digest;
       if (assets.isNotEmpty) {
         final typed = assets.cast<Map<String, dynamic>>();
         final setups = typed.where(
@@ -62,6 +63,7 @@ class GithubReleaseChecker {
           assetType = 'unknown';
         }
         downloadUrl = asset['browser_download_url'] as String? ?? '';
+        digest = asset['digest'] as String?;
         if (downloadUrl.isEmpty) {
           debugPrint('GithubReleaseChecker: asset has no browser_download_url');
         }
@@ -75,6 +77,7 @@ class GithubReleaseChecker {
         releaseNotes: json['body'] as String? ?? '',
         downloadUrl: downloadUrl,
         assetType: assetType,
+        digest: digest,
         publishedAt:
             DateTime.tryParse(json['published_at'] as String? ?? '') ??
             DateTime.now(),

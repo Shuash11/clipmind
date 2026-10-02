@@ -107,6 +107,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
     if (error.contains('timeout') || error.contains('Timeout')) {
       return 'The download timed out. Please check your internet connection and try again.';
     }
+    if (error.contains('security check')) {
+      return 'The update failed a security check and was not installed. Please try again or download from the official website.';
+    }
     if (error.contains('Extraction failed')) {
       return 'The downloaded file was corrupted. Please try downloading again.';
     }
@@ -129,6 +132,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
       final downloader = UpdateDownloader(
         downloadUrl: widget.release.downloadUrl,
         assetType: widget.release.assetType,
+        digest: widget.release.digest,
         onProgress: (progress, status) {
           if (mounted) {
             setState(() {

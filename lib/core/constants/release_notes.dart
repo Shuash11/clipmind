@@ -87,4 +87,8 @@ const Map<String, List<String>> releaseNotes = {
     '* Provider-platform registry provider renamed; import hides removed',
     '* Injected settings-repository seams for quieter test logs',
   ],
+  '1.30.0': [
+    '* Update verification: release digests checked before install',
+    '* Fixed the broken ZIP update path',
+  ],
 };

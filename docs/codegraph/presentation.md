@@ -1,4 +1,4 @@
-# Code Graph — lib/presentation (32 files, 7,973 lines; DO NOT EDIT)
+# Code Graph — lib/presentation (32 files, 7,977 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/presentation/editor/editor_screen.dart (248 lines)
@@ -135,9 +135,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L16  class SettingsScreen extends ConsumerStatefulWidget — SettingsScreen(…) L17, createState() L19
 - L22  class _SettingsScreenState extends ConsumerState<SettingsScreen> (_appVersion, _checkOnStartup, _binaryController, _modelController, _binaryFocus, _modelFocus) — initState() L31, dispose() L40, _onBinaryFocusLost() L49, _onModelFocusLost() L54, _loadVersion() L59, _persistWhisper() L65, _syncWhisperFields(AppSettings? settings) L76, _updateSettings(AppSettings Function(AppSettings) mutate) L90, build(BuildContext context) L99, _updateSubtitle(UpdateState state) L283
 
-## lib/presentation/settings/widgets/update_dialog.dart (152 lines)
+## lib/presentation/settings/widgets/update_dialog.dart (156 lines)
 - L5  class UpdateDialog extends StatefulWidget (release) — UpdateDialog(…) L8, show(BuildContext context, ReleaseInfo release) L10, createState() L19
-- L22  class _UpdateDialogState extends State<UpdateDialog> (_isDownloading, _progress, _status, _error) — build(BuildContext context) L29, _buildInitialDialog() L39, _buildProgressDialog() L57, _buildErrorDialog() L75, _userFriendlyError(String error) L100, _startUpdate() L121
+- L22  class _UpdateDialogState extends State<UpdateDialog> (_isDownloading, _progress, _status, _error) — build(BuildContext context) L29, _buildInitialDialog() L39, _buildProgressDialog() L57, _buildErrorDialog() L75, _userFriendlyError(String error) L100, _startUpdate() L124
 
 ## lib/presentation/shared_widgets/dashed_border.dart (87 lines)
 - L6  class DashedRRectPainter extends CustomPainter (color, strokeWidth, radius, dash, gap) — DashedRRectPainter(…) L7, paint(Canvas canvas, Size size) L22, shouldRepaint(covariant DashedRRectPainter oldDelegate) L44
