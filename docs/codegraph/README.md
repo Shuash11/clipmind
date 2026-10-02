@@ -17,7 +17,7 @@ so `git diff --exit-code -- docs/codegraph` detects staleness.
 | `lib` | 2 | 81 | `docs/codegraph/lib.md` |
 | `presentation` | 34 | 8,512 | `docs/codegraph/presentation.md` |
 | `state` | 13 | 2,762 | `docs/codegraph/state.md` |
-| `test` | 147 | 35,289 | `docs/codegraph/test.md` |
+| `test` | 147 | 35,297 | `docs/codegraph/test.md` |
 | `tool` | 2 | 621 | `docs/codegraph/tool.md` |
 
-_Total: 399 files, 75,420 lines indexed._
+_Total: 399 files, 75,428 lines indexed._

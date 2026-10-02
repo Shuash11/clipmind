@@ -1,4 +1,4 @@
-# Code Graph — test (147 files, 35,289 lines; DO NOT EDIT)
+# Code Graph — test (147 files, 35,297 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -509,7 +509,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L28  function _op
 - L42  function main
 
-## test/unit/ffmpeg/combo_live_gates_test.dart (348 lines)
+## test/unit/ffmpeg/combo_live_gates_test.dart (356 lines)
 - L32  function _synthAv
 - L48  function _mapSingleJob
 - L61  function _runJob

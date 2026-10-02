@@ -87,16 +87,18 @@ void main() {
       }
     });
 
-    /// Skip guard shared by every gate (the live-gate convention).
-    String requireReady() {
+    /// Skip guard shared by every gate (the live-gate convention:
+    /// `markTestSkipped` + early `return` — flutter_test's markTestSkipped
+    /// marks the skip but does not terminate the test body).
+    String? requireReady() {
       final resolved = binary;
       if (resolved == null) {
         markTestSkipped('ffmpeg not on PATH');
-        throw StateError('unreachable');
+        return null;
       }
       if (!ready) {
         markTestSkipped('could not synthesize test clip');
-        throw StateError('unreachable');
+        return null;
       }
       return resolved;
     }
@@ -106,6 +108,7 @@ void main() {
       timeout: const Timeout(Duration(minutes: 2)),
       () async {
         final resolved = requireReady();
+        if (resolved == null) return;
         final job = _mapSingleJob(clip, tmp.path, const [
           EditOperationRequest(
             id: 'op_vol',
@@ -147,6 +150,7 @@ void main() {
       timeout: const Timeout(Duration(minutes: 2)),
       () async {
         final resolved = requireReady();
+        if (resolved == null) return;
         final job = _mapSingleJob(clip, tmp.path, const [
           EditOperationRequest(
             id: 'op_bright',
@@ -186,6 +190,7 @@ void main() {
       timeout: const Timeout(Duration(minutes: 2)),
       () async {
         final resolved = requireReady();
+        if (resolved == null) return;
         final job = _mapSingleJob(clip, tmp.path, const [
           EditOperationRequest(
             id: 'op_trim',
@@ -229,6 +234,7 @@ void main() {
       timeout: const Timeout(Duration(minutes: 2)),
       () async {
         final resolved = requireReady();
+        if (resolved == null) return;
         // Downscale target (same 4:3 aspect as the 320x240 synth clip):
         // the composer's `scale+crop` resize is shared verbatim with the
         // shipped single-op path, which likewise rejects upscaling a
@@ -274,6 +280,7 @@ void main() {
       timeout: const Timeout(Duration(minutes: 2)),
       () async {
         final resolved = requireReady();
+        if (resolved == null) return;
         // Downscale target — same rationale as the trim+resize gate above:
         // the live clip is 320x240, so the gate renders the downscale
         // direction the shipped resize supports.
@@ -310,6 +317,7 @@ void main() {
       timeout: const Timeout(Duration(minutes: 2)),
       () async {
         final resolved = requireReady();
+        if (resolved == null) return;
         final job = _mapSingleJob(clip, tmp.path, const [
           EditOperationRequest(
             id: 'op_mute',
