@@ -175,6 +175,14 @@ class CommandMapper {
   /// the whole composed input is restricted with `-ss`/`-t`, cut ops
   /// additionally shift their `between()` times to that window, and
   /// non-cut carriers ignore the shift. Both null → legacy whole-file.
+  ///
+  /// Watermark inputs: each unique `overlay_watermark` image becomes an
+  /// extra `-i` input at index 1..N (the main input stays index 0;
+  /// repeated paths reuse one index). The image leg is pre-chained as
+  /// `[N:v]format=rgba,colorchannelmixer=aa=<opacity>[wmN]` and composited
+  /// with `[$prev][wmN]overlay=<pos>[$next]`; the audio map is unaffected.
+  /// Single-frame PNGs are safe: framesync `eof_action` defaults to
+  /// `repeat`, so the still holds for the whole output.
   static FfmpegJob _composeFilterGraph(
     List<EditOperationRequest> ops,
     String inputPath,
@@ -188,6 +196,10 @@ class CommandMapper {
     // `[0:a]f1,f2,…[aout]` (mirrors the video side's op-order chain and
     // the FilterGraphComposer `[0:a]$aChain[aout]` convention).
     final audioFragments = <String>[];
+    // Unique watermark image paths in op order (deduped so a repeated
+    // image reuses one `-i` index) plus their pre-chained image legs.
+    final extraInputs = <String>[];
+    final wmChains = <String>[];
     bool hasAudio = true;
     // Hoisted first-wins window (both-or-neither): the input restriction
     // applies to the whole composed graph; only cut ops shift times.
@@ -346,13 +358,38 @@ class CommandMapper {
           break;
 
         case 'overlay_watermark':
+          // Lexical validation only (no IO — the mapper stays pure),
+          // exactly as `_buildSingleJob` does: empty, traversal, and
+          // out-of-project absolute paths throw before any job is built.
+          final imagePath = FilterEscaping.validateImagePath(
+            _str(params, 'image_path', ''),
+            projectDir: projectDir ?? _dirOf(outputDir),
+          );
+          final isNewImage = !extraInputs.contains(imagePath);
+          if (isNewImage) extraInputs.add(imagePath);
+          final n = extraInputs.indexOf(imagePath) + 1;
+          final opacity = _num(params, 'opacity', 0.7).clamp(0.0, 1.0);
+          if (isNewImage) {
+            wmChains.add(
+              '[$n:v]format=rgba,colorchannelmixer=aa=$opacity[wm$n]',
+            );
+          }
+          final overlayPos = CommandBuilder.overlayPosition(
+            _str(params, 'position', 'bottom-right'),
+          );
+          filters.add('[$prev][wm$n]overlay=$overlayPos[$next]');
+          break;
         default:
           break;
       }
     }
 
     final lastVideoLabel = 'v${ops.length}';
-    final filterStr = filters.join(';');
+    final videoStr = filters.join(';');
+    // Image legs first, then the op-order v-chain (every [$prev] input
+    // label stays defined, so `-map [vN]` below always resolves).
+    final filterStr =
+        wmChains.isEmpty ? videoStr : '${wmChains.join(';')};$videoStr';
     // One chained audio segment, mapped once and exactly once below.
     // Muted groups drop the audio side entirely (no dangling [aout]).
     final hasChainedAudio = hasAudio && audioFragments.isNotEmpty;
@@ -361,16 +398,16 @@ class CommandMapper {
 
     final args = <String>[];
     if (rangedClipStart != null && rangedClipLen != null) {
-      args.addAll([
-        '-ss',
-        rangedClipStart.toString(),
-        '-i',
-        inputPath,
-        '-t',
-        rangedClipLen.toString(),
-      ]);
+      args.addAll(['-ss', rangedClipStart.toString(), '-i', inputPath]);
+      for (final extra in extraInputs) {
+        args.addAll(['-i', extra]);
+      }
+      args.addAll(['-t', rangedClipLen.toString()]);
     } else {
       args.addAll(['-i', inputPath]);
+      for (final extra in extraInputs) {
+        args.addAll(['-i', extra]);
+      }
     }
     args.addAll([
       '-filter_complex',

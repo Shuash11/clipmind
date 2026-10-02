@@ -1,4 +1,4 @@
-# Code Graph — lib/core (14 files, 1,164 lines; DO NOT EDIT)
+# Code Graph — lib/core (14 files, 1,168 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/core/async/cancellation_token.dart (34 lines)
@@ -13,7 +13,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L9  class EffectPresetStep (opType, params) — EffectPresetStep(…) L16
 - L19  class EffectPreset (id, label, icon, recipe) — EffectPreset(…) L28
 
-## lib/core/constants/release_notes.dart (109 lines)
+## lib/core/constants/release_notes.dart (113 lines)
 
 ## lib/core/constants/transition_presets.dart (130 lines)
 - L11  class TransitionPresetStep (opType, params) — TransitionPresetStep(…) L18

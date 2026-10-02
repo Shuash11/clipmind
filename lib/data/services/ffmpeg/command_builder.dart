@@ -465,6 +465,25 @@ class CommandBuilder {
     return ['-i', input, '-af', 'volume=$factor'];
   }
 
+  /// Maps a watermark position name to an FFmpeg overlay expression.
+  ///
+  /// Pure helper shared by [overlayWatermark] and the composed
+  /// filter-graph path. Unknown names fall back to bottom-right.
+  static String overlayPosition(String position) {
+    switch (position) {
+      case 'top-left':
+        return '10:10';
+      case 'top-right':
+        return 'W-w-10:10';
+      case 'bottom-left':
+        return '10:H-h-10';
+      case 'center':
+        return '(W-w)/2:(H-h)/2';
+      default:
+        return 'W-w-10:H-h-10';
+    }
+  }
+
   static List<String> overlayWatermark(
     String input,
     String watermarkPath,
@@ -472,23 +491,7 @@ class CommandBuilder {
     double opacity,
   ) {
     final clampedOpacity = opacity.clamp(0.0, 1.0);
-    String overlayPos;
-    switch (position) {
-      case 'top-left':
-        overlayPos = '10:10';
-        break;
-      case 'top-right':
-        overlayPos = 'W-w-10:10';
-        break;
-      case 'bottom-left':
-        overlayPos = '10:H-h-10';
-        break;
-      case 'center':
-        overlayPos = '(W-w)/2:(H-h)/2';
-        break;
-      default:
-        overlayPos = 'W-w-10:H-h-10';
-    }
+    final overlayPos = overlayPosition(position);
 
     return [
       '-i',

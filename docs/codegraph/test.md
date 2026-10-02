@@ -1,4 +1,4 @@
-# Code Graph — test (147 files, 35,297 lines; DO NOT EDIT)
+# Code Graph — test (149 files, 35,972 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -521,6 +521,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/ffmpeg/command_mapper_restriction_test.dart (453 lines)
 - L9  function main
 
+## test/unit/ffmpeg/composed_watermark_mapping_test.dart (347 lines)
+- L14  function main
+
 ## test/unit/ffmpeg/export_live_gates_test.dart (423 lines)
 - L36  function _synthAv
 - L56  function _synthDark
@@ -541,6 +544,13 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/ffmpeg/transition_live_gates_test.dart (113 lines)
 - L31  function _synthAv
 - L45  function main
+
+## test/unit/ffmpeg/watermark_live_gates_test.dart (328 lines)
+- L29  function _synthAv
+- L47  function _synthWatermark
+- L61  function _mapSingleJob
+- L79  function _runJob
+- L87  function main
 
 ## test/unit/fonts/font_resolver_test.dart (134 lines)
 - L7  function main

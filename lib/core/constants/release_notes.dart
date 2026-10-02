@@ -105,4 +105,8 @@ const Map<String, List<String>> releaseNotes = {
     '* Fixed silent audio desync in multi-op edits',
     '* Fixed undefined filter labels in composed graphs',
   ],
+  '1.34.0': [
+    '* Fixed composed watermark edits (watermark + other ops now render)',
+    '* Watermark live-verified through real FFmpeg',
+  ],
 };
