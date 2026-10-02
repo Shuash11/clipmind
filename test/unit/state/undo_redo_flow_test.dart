@@ -86,7 +86,7 @@ void main() {
     });
 
     ProviderContainer makeContainer() {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(repository),
@@ -152,7 +152,7 @@ void main() {
     });
 
     test('no project -> undo/redo are no-ops', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(repository),

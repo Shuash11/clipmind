@@ -1,11 +1,11 @@
-# Code Graph — lib/state (13 files, 2,277 lines; DO NOT EDIT)
+# Code Graph — lib/state (13 files, 2,265 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/state/agent_analysis_providers.dart (70 lines)
 - L14  class AgentAnalysisPort (db, projectId, _cache) — AgentAnalysisPort(…) L15, read(String kind) L26, write(String kind, Map<String, dynamic> payload) L29, warmUp(List<String> clipIds) L35, _persist(String kind) L49
 
-## lib/state/agent_providers.dart (196 lines)
-- L160  class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> — ChatMessagesNotifier() : super([]) L161, add(ChatMessage message) L163, replaceAll(List<ChatMessage> messages) L168, addAgentResult(…) L173, clear() L191
+## lib/state/agent_providers.dart (189 lines)
+- L153  class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> — ChatMessagesNotifier() : super([]) L154, add(ChatMessage message) L156, replaceAll(List<ChatMessage> messages) L161, addAgentResult(…) L166, clear() L184
 
 ## lib/state/agent_run_providers.dart (597 lines)
 - L27  enum AgentRunState
@@ -17,7 +17,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L168  class AgentRunController extends StateNotifier<AgentRunState> (_ref, _uuid, _cancel, _feedSub, _gate) — AgentRunController(this._ref) : super(AgentRunState.idle) L175, isBusy L177, loadHistory(String projectId) L181, submit(String command) L201, _completeAsPlan(…) L329, _postReply(…) L376, approvePlan() L412, discardPlan() L464, approvePendingConfirmation(bool approved) L489, cancel() L497, _toolKinds L511, _toChatStep(AgentToolCallRecord record) L515, _recentHistory() L530, _replyError(Project? project, String text) L550
 - L576  class AgentActivityFeed extends StateNotifier<List<AgentActivityEvent>> (maxEvents) — AgentActivityFeed() : super(const []) L579, push(AgentActivityEvent event) L581, clear() L588
 
-## lib/state/export_providers.dart (19 lines)
+## lib/state/export_providers.dart (14 lines)
 
 ## lib/state/ffmpeg_providers.dart (34 lines)
 - L19  class ActiveJobsNotifier extends StateNotifier<List<FfmpegJob>> — ActiveJobsNotifier() : super([]) L20, add(FfmpegJob job) L22, remove(String jobId) L26, clear() L30

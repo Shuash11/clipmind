@@ -229,7 +229,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final pipeline = _CapturingPipeline();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
@@ -282,7 +282,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final pipeline = _CapturingPipeline();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
@@ -329,7 +329,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final pipeline = _CapturingPipeline();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
@@ -374,7 +374,7 @@ void main() {
       final input = File('${tmp.path}/in.mp4')..writeAsStringSync('src');
       final outDir = Directory('${tmp.path}/out')..createSync();
       final applied = <EditOperation>[];
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
@@ -453,7 +453,7 @@ void main() {
         gate,
       );
       final ffmpeg = _FakeFfmpeg();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
@@ -497,7 +497,7 @@ void main() {
       });
       final input = File('${tmp.path}/in.mp4')..writeAsStringSync('src');
       final outDir = Directory('${tmp.path}/out')..createSync();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
@@ -563,7 +563,7 @@ void main() {
 
   group('AgentConfirmEditsFlag persistence', () {
     Future<ProviderContainer> makeContainer() async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(
             AppDatabase(NativeDatabase.memory()),
@@ -641,7 +641,7 @@ void main() {
     test('no provider configured replies with an error bubble', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
@@ -686,7 +686,7 @@ void main() {
       _ScriptTools script, {
       bool perEdit = false,
     }) async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
@@ -963,7 +963,7 @@ void main() {
     Future<ProviderContainer> makePlanContainer({
       AgentEditApplier? applier,
     }) async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
@@ -1121,7 +1121,7 @@ void main() {
             ),
           ],
         );
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWithValue(

@@ -66,7 +66,7 @@ void main() {
   group('ProjectNotifier.applyEdit', () {
     test('removeClipIds drops clips, repoints first, appends history',
         () async {
-      final container = ProviderContainer();
+      final container = ProviderContainer.test();
       addTearDown(container.dispose);
       container.read(projectProvider.notifier).setProject(_project());
 
@@ -90,7 +90,7 @@ void main() {
     });
 
     test('empty default repoints only, removes nothing', () async {
-      final container = ProviderContainer();
+      final container = ProviderContainer.test();
       addTearDown(container.dispose);
       container.read(projectProvider.notifier).setProject(_project());
 

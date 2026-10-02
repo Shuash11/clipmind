@@ -156,7 +156,7 @@ void main() {
     FontResolver? fontResolver,
     bool stubSound = false,
   }) {
-    return ProviderContainer(
+    return ProviderContainer.test(
       overrides: [
         projectRepositoryProvider.overrideWithValue(
           _FakeProjectRepository(db: db),
@@ -190,7 +190,7 @@ void main() {
   testWidgets('LeftPanel renders the four tabs and the collapse affordance', (
     WidgetTester tester,
   ) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer.test();
     addTearDown(container.dispose);
     await pumpPanel(tester, container);
 
@@ -205,7 +205,7 @@ void main() {
 
   testWidgets('the rail opens the panel on the clicked tab; a second click '
       'collapses it', (WidgetTester tester) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer.test();
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -465,7 +465,7 @@ void main() {
 
   testWidgets('Transitions and Adjustments stay unwired with a coming-soon '
       'heads-up', (WidgetTester tester) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer.test();
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(

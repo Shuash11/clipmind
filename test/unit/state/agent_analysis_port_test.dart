@@ -27,7 +27,7 @@ void main() {
           'scenes': [1, 2],
         },
       );
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [appDatabaseProvider.overrideWithValue(db)],
       );
       addTearDown(container.dispose);
@@ -43,7 +43,7 @@ void main() {
     });
 
     test('write caches immediately and persists best-effort', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [appDatabaseProvider.overrideWithValue(db)],
       );
       addTearDown(container.dispose);
@@ -66,7 +66,7 @@ void main() {
     });
 
     test('provider is scoped per project id', () {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [appDatabaseProvider.overrideWithValue(db)],
       );
       addTearDown(container.dispose);

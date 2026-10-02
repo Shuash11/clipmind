@@ -127,7 +127,7 @@ void main() {
     final repo = _RecordingSettingsRepository(
       const AppSettings(lastSeenVersion: '1.21.0'),
     );
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         settingsRepositoryProvider.overrideWithValue(repo),
         projectRepositoryProvider.overrideWithValue(_FakeProjectRepository(db)),
@@ -166,7 +166,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     final repo = _RecordingSettingsRepository(const AppSettings());
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         settingsRepositoryProvider.overrideWithValue(repo),
         projectRepositoryProvider.overrideWithValue(_FakeProjectRepository(db)),
@@ -204,7 +204,7 @@ void main() {
     final repo = _RecordingSettingsRepository(
       const AppSettings(lastSeenVersion: '1.21.0'),
     );
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         settingsRepositoryProvider.overrideWithValue(repo),
         projectRepositoryProvider.overrideWithValue(_FakeProjectRepository(db)),

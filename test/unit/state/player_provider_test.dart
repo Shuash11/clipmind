@@ -18,7 +18,7 @@ void main() {
     });
 
     test('existing playback providers keep their defaults', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer.test();
       addTearDown(container.dispose);
 
       expect(container.read(currentVideoPathProvider), isNull);
@@ -28,7 +28,7 @@ void main() {
     });
 
     test('exposes one shared Player with the seek-path surface', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer.test();
       late final Player player;
       try {
         player = container.read(playerProvider);
@@ -54,8 +54,8 @@ void main() {
 
     test('each container owns its Player (lifetime is provider-scoped)',
         () {
-      final first = ProviderContainer();
-      final second = ProviderContainer();
+      final first = ProviderContainer.test();
+      final second = ProviderContainer.test();
       try {
         final a = first.read(playerProvider);
         final b = second.read(playerProvider);

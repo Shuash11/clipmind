@@ -101,13 +101,6 @@ final nl2vecPipelineProvider = Provider<Nl2VecPipeline>((ref) {
   return Nl2VecPipeline(ffmpegService: ffmpeg, ffprobeService: ffprobe);
 });
 
-/// ffprobe metadata for an arbitrary file path (cached per path).
-final projectMetadataForPathProvider =
-    FutureProvider.family<VideoMetadata?, String>((ref, path) async {
-  if (path.trim().isEmpty) return null;
-  return ref.watch(ffprobeServiceProvider).extractMetadata(path);
-});
-
 /// ffprobe metadata for the current project's first source file.
 ///
 /// Cached by Riverpod; falls back to null when ffprobe is unavailable or

@@ -231,7 +231,7 @@ void main() {
 
     testWidgets('drag on a clip fires the moveClip op; the arena keeps the '
         'scroll still', (WidgetTester tester) async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(
@@ -302,7 +302,7 @@ void main() {
       makeOutputDir();
       final harness = TaggingWidgetHarness();
       final project = _project().copyWith(outputDir: tempDir!.path);
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           projectRepositoryProvider.overrideWithValue(
             _FakeProjectRepository(db: db),
@@ -376,7 +376,7 @@ void main() {
       makeOutputDir();
       final harness = TaggingWidgetHarness();
       final project = _project().copyWith(outputDir: tempDir!.path);
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           projectRepositoryProvider.overrideWithValue(
             _FakeProjectRepository(db: db),
@@ -437,7 +437,7 @@ void main() {
       required Project project,
       required ProjectRepository repository,
     }) async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [projectRepositoryProvider.overrideWithValue(repository)],
       );
       addTearDown(container.dispose);
@@ -540,7 +540,7 @@ void main() {
     testWidgets('dragging a selected block\'s start handle fires the '
         'trimClip op; the arena keeps the scroll still',
         (WidgetTester tester) async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(
@@ -601,7 +601,7 @@ void main() {
 
     testWidgets('the trim handle beats the block\'s middle drag (the arena '
         'proof): the middle keeps reorder-drag', (WidgetTester tester) async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(
@@ -665,7 +665,7 @@ void main() {
     testWidgets('the split button at the playhead splits the clip via one '
         'splitClip op', (WidgetTester tester) async {
       final harness = TaggingWidgetHarness();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           projectRepositoryProvider.overrideWithValue(
             _FakeProjectRepository(db: db),
@@ -731,7 +731,7 @@ void main() {
       required media_kit.Player? player,
     }) async {
       final harness = TaggingWidgetHarness();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           projectRepositoryProvider.overrideWithValue(
             _FakeProjectRepository(db: db),

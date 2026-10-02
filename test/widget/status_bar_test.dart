@@ -26,7 +26,7 @@ ProviderContainer _container({
   String? model,
   bool modelLoading = false,
 }) {
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       providerHealthProvider.overrideWith((ref) => Stream.value(health)),
       ffmpegBinaryResolverProvider.overrideWithValue(

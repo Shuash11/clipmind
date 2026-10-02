@@ -98,7 +98,7 @@ void main() {
   });
 
   ProviderContainer makeContainer({bool withProject = true}) {
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         appDatabaseProvider.overrideWithValue(db),
         projectRepositoryProvider.overrideWithValue(repository),

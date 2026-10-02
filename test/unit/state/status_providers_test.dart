@@ -115,7 +115,7 @@ void main() {
     test('emits the active provider connection status', () async {
       final provider = _ScriptProvider();
       addTearDown(provider.health.close);
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           providerRegistryProvider.overrideWithValue(
             _FakeRegistry(provider),
@@ -147,7 +147,7 @@ void main() {
     });
 
     test('null provider yields disconnected without throwing', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           providerRegistryProvider.overrideWithValue(_FakeRegistry(null)),
         ],
@@ -172,7 +172,7 @@ void main() {
 
   group('resolvedModelNameProvider', () {
     test('returns the active OpenAI-compatible model name', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           providerRegistryProvider.overrideWithValue(
             _FakeRegistry(
@@ -195,7 +195,7 @@ void main() {
     });
 
     test('null when there is no active provider', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           providerRegistryProvider.overrideWithValue(_FakeRegistry(null)),
         ],
@@ -218,7 +218,7 @@ void main() {
         manualModelIds: const ['m1', 'm2'],
         selectedModelId: 'm1',
       );
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           providerPlatformBootstrapResultProvider.overrideWithValue(
             Success(
@@ -257,7 +257,7 @@ void main() {
 
   group('ffmpegBinaryAvailableProvider', () {
     test('true when the resolver finds a binary', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           ffmpegBinaryResolverProvider.overrideWithValue(
             _StubResolver(value: '/usr/bin/ffmpeg'),
@@ -273,7 +273,7 @@ void main() {
     });
 
     test('false when no binary is found', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           ffmpegBinaryResolverProvider.overrideWithValue(
             _StubResolver(value: null),
@@ -289,7 +289,7 @@ void main() {
     });
 
     test('resolver failure reads as unavailable, never throws', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           ffmpegBinaryResolverProvider.overrideWithValue(
             _StubResolver(throws: true),

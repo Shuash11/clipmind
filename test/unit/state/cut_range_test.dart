@@ -170,7 +170,7 @@ void main() {
     });
 
     ProviderContainer makeContainer() {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(repository),
@@ -316,7 +316,7 @@ void main() {
     });
 
     ProviderContainer makeContainer({bool trimmed = false, bool ranged = false}) {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(repository),
@@ -491,7 +491,7 @@ void main() {
     });
 
     test('deleting the head clip repins the follower to 0', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(repository),

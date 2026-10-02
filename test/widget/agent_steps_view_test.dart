@@ -341,7 +341,7 @@ void main() {
     testWidgets('shows header, steps in order, and round progress', (
       tester,
     ) async {
-      final container = ProviderContainer();
+      final container = ProviderContainer.test();
       addTearDown(container.dispose);
       final feed = container.read(agentActivityFeedProvider.notifier);
       feed.push(AgentActivityEvent(kind: AgentActivityKind.runStarted));
@@ -377,7 +377,7 @@ void main() {
     testWidgets('renders confirmation state distinctly while paused', (
       tester,
     ) async {
-      final container = ProviderContainer();
+      final container = ProviderContainer.test();
       addTearDown(container.dispose);
       final feed = container.read(agentActivityFeedProvider.notifier);
       feed.push(started('call_1', 'trim_clip'));
@@ -409,7 +409,7 @@ void main() {
     testWidgets('auto-scrolls to the newest step on new events', (
       tester,
     ) async {
-      final container = ProviderContainer();
+      final container = ProviderContainer.test();
       addTearDown(container.dispose);
 
       // Mount first (empty feed), then let events stream in — the real
@@ -460,7 +460,7 @@ void main() {
     });
 
     testWidgets('empty feed shows a waiting placeholder', (tester) async {
-      final container = ProviderContainer();
+      final container = ProviderContainer.test();
       addTearDown(container.dispose);
 
       await tester.pumpWidget(

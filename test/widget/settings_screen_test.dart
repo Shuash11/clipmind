@@ -66,7 +66,7 @@ void main() {
   ) async {
     _mockPackageInfo();
     final repo = _RecordingSettingsRepository();
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [settingsRepositoryProvider.overrideWithValue(repo)],
     );
     addTearDown(container.dispose);
@@ -87,7 +87,7 @@ void main() {
   ) async {
     _mockPackageInfo();
     final repo = _RecordingSettingsRepository();
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [settingsRepositoryProvider.overrideWithValue(repo)],
     );
     addTearDown(container.dispose);
@@ -112,7 +112,7 @@ void main() {
   ) async {
     _mockPackageInfo();
     final repo = _RecordingSettingsRepository();
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [settingsRepositoryProvider.overrideWithValue(repo)],
     );
     addTearDown(container.dispose);
@@ -135,7 +135,7 @@ void main() {
   ) async {
     _mockPackageInfo();
     final repo = _RecordingSettingsRepository();
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [settingsRepositoryProvider.overrideWithValue(repo)],
     );
     addTearDown(container.dispose);

@@ -14,7 +14,7 @@ void main() {
       // The Media tool opens the left panel's Media tab (the migrated
       // dialog content hosts MediaPanel); the layout keeps the rail and
       // the panel in one row.
-      final container = ProviderContainer();
+      final container = ProviderContainer.test();
       addTearDown(container.dispose);
       await tester.binding.setSurfaceSize(const Size(1280, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));

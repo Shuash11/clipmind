@@ -21,8 +21,12 @@ Future<void> main(List<String> arguments) async {
   runApp(
     ProviderScope(
       // Preserves Riverpod 2.x behavior (3.x enables automatic retry by
-      // default with exponential backoff). Phase 2 will evaluate
-      // per-provider adoption.
+      // default with exponential backoff). Decision (Cycle 7 Phase 2):
+      // keep the global kill-switch — ffprobe/DB failures are environmental
+      // (missing binary → null, not throw) and the status/health providers
+      // never throw, so automatic retry has no benefit; `provider.future`
+      // also skips intermediate error states while retrying, which would
+      // stall the agent run's metadata await.
       retry: (retryCount, error) => null,
       overrides: [
         providerPlatformBootstrapResultProvider.overrideWithValue(

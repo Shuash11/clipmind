@@ -117,7 +117,7 @@ void main() {
       db: db,
       recent: [_project(durationMs: 154000)],
     );
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [projectRepositoryProvider.overrideWithValue(repo)],
     );
     addTearDown(container.dispose);
@@ -163,7 +163,7 @@ void main() {
       db: db,
       recent: [_project(durationMs: 154000)],
     );
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [projectRepositoryProvider.overrideWithValue(repo)],
     );
     addTearDown(container.dispose);
@@ -179,7 +179,7 @@ void main() {
 
   testWidgets('blank card creates and opens an empty project', (tester) async {
     final repo = _FakeProjectRepository(db: db, recent: [_project()]);
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [projectRepositoryProvider.overrideWithValue(repo)],
     );
     addTearDown(container.dispose);
@@ -308,7 +308,7 @@ void main() {
     tester,
   ) async {
     final repo = _FakeProjectRepository(db: db);
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [projectRepositoryProvider.overrideWithValue(repo)],
     );
     addTearDown(container.dispose);

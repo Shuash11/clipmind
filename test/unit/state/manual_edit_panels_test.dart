@@ -154,7 +154,7 @@ void main() {
       );
 
   ProviderContainer makeContainer({VideoMetadata? meta}) {
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         appDatabaseProvider.overrideWithValue(db),
         projectRepositoryProvider.overrideWithValue(repository),

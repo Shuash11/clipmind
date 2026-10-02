@@ -11,8 +11,3 @@ final exportUseCaseProvider = Provider<ExportProjectUseCase>((ref) {
 final isExportingProvider = StateProvider<bool>((ref) => false);
 
 final lastExportResultProvider = StateProvider<ExportResult?>((ref) => null);
-
-final exportProgressProvider = StreamProvider<double>((ref) {
-  final useCase = ref.watch(exportUseCaseProvider);
-  return useCase.progressStream;
-});

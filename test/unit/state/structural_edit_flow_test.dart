@@ -131,7 +131,7 @@ void main() {
     });
 
     ProviderContainer makeContainer() {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(repository),
@@ -249,7 +249,7 @@ void main() {
     });
 
     ProviderContainer makeContainer() {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(repository),
@@ -285,7 +285,7 @@ void main() {
     });
 
     test('no project fails gracefully', () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           projectRepositoryProvider.overrideWithValue(repository),

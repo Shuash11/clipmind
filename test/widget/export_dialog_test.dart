@@ -141,7 +141,7 @@ void main() {
         (WidgetTester tester) async {
       final fake = _FastFfmpeg();
       addTearDown(() => _deleteFiles(fake.createdFiles));
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [ffmpegServiceProvider.overrideWithValue(fake)],
       );
       addTearDown(container.dispose);
@@ -163,7 +163,7 @@ void main() {
         (WidgetTester tester) async {
       final fake = _GatedFfmpeg();
       addTearDown(() => _deleteFiles(fake.createdFiles));
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [ffmpegServiceProvider.overrideWithValue(fake)],
       );
       addTearDown(container.dispose);
@@ -191,7 +191,7 @@ void main() {
         (WidgetTester tester) async {
       final fake = _GatedFfmpeg();
       addTearDown(() => _deleteFiles(fake.createdFiles));
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [ffmpegServiceProvider.overrideWithValue(fake)],
       );
       addTearDown(container.dispose);
@@ -226,7 +226,7 @@ void main() {
         (WidgetTester tester) async {
       final fake = _FastFfmpeg();
       addTearDown(() => _deleteFiles(fake.createdFiles));
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [ffmpegServiceProvider.overrideWithValue(fake)],
       );
       addTearDown(container.dispose);

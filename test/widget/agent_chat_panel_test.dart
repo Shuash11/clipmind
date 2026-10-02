@@ -282,7 +282,7 @@ void main() {
       LlmProvider? active,
       bool planPreview = false,
     }) {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           settingsRepositoryProvider.overrideWith(

@@ -92,7 +92,7 @@ void main() {
         credentialId: 'cred-1',
         selectedModelId: 'test-model',
       );
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           providerPlatformBootstrapResultProvider.overrideWithValue(
             Success(
@@ -199,7 +199,7 @@ void main() {
         credentialId: 'cred-1',
         selectedModelId: 'loopback-model',
       );
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           ffmpegServiceProvider.overrideWithValue(_WritingFfmpeg()),
