@@ -1,4 +1,4 @@
-# Code Graph — lib/data (41 files, 6,639 lines; DO NOT EDIT)
+# Code Graph — lib/data (41 files, 6,656 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -158,8 +158,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/services/updates/release_info.dart (24 lines)
 - L1  class ReleaseInfo (tagName, major, minor, patch, releaseNotes, downloadUrl, assetType, publishedAt) — ReleaseInfo(…) L12
 
-## lib/data/services/updates/update_downloader.dart (231 lines)
-- L9  typedef UpdateProcessStarter
-- L12  function _defaultProcessStarter
-- L25  class UpdateVerificationException (message, result) — UpdateVerificationException(this.message,…) L29, toString() L32
-- L35  class UpdateDownloader (downloadUrl, assetType, digest, verifier, processStarter, appDirOverride) — Function(double? progress, String status)? onProgress L39, Function(int code) exitApp L42, UpdateDownloader(…) L45, _appDir L58, downloadAndInstall() L61, _downloadFile(…) L99, _formatSize(int bytes) L148, _extractAndInstallZip(String zipPath, String tempPath) L154, _runInstaller(String exePath, String tempPath) L206
+## lib/data/services/updates/update_downloader.dart (248 lines)
+- L10  typedef UpdateProcessStarter
+- L13  function _defaultProcessStarter
+- L27  function psSingleQuoted
+- L31  class UpdateVerificationException (message, result) — UpdateVerificationException(this.message,…) L35, toString() L38
+- L41  class UpdateDownloader (downloadUrl, assetType, digest, verifier, processStarter, appDirOverride) — Function(double? progress, String status)? onProgress L45, Function(int code) exitApp L48, UpdateDownloader(…) L51, _appDir L64, downloadAndInstall() L67, _downloadFile(…) L105, _formatSize(int bytes) L154, _extractAndInstallZip(String zipPath, String tempPath) L160, _runInstaller(String exePath, String tempPath) L219

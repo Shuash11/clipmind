@@ -1,4 +1,4 @@
-# Code Graph — test (149 files, 35,980 lines; DO NOT EDIT)
+# Code Graph — test (150 files, 36,292 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -728,7 +728,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/updates/release_digest_live_gate_test.dart (112 lines)
 - L26  function main
 
-## test/unit/updates/update_downloader_test.dart (239 lines)
+## test/unit/updates/update_downloader_test.dart (303 lines)
 - L8  class _StarterCall (executable, arguments) — _StarterCall(this.executable, this.arguments) L9
 - L15  class _RecordingStarter (calls) — call(String executable, List<String> arguments) L18
 - L24  function _serveBytes
@@ -771,7 +771,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L137  function _twoClipProject
 - L160  function main
 
-## test/widget/project_hub_test.dart (325 lines)
+## test/widget/project_hub_test.dart (368 lines)
 - L19  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L20, createNew(…) L28, save(Project project) L45, listRecent() L48
 - L51  function _project
 - L63  function _testRouter
@@ -800,6 +800,13 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L82  function _project
 - L110  function twoClipProject
 - L148  function main
+
+## test/widget/update_dialog_test.dart (205 lines)
+- L13  class _ThrowingDownloader extends UpdateDownloader (error) — _ThrowingDownloader(this.error) : super(downloadUrl: '') L14, downloadAndInstall() L19
+- L22  function _dialog
+- L41  function _pumpDialog
+- L49  function _driveError
+- L56  function main
 
 ## test/widget/whats_new_dialog_test.dart (231 lines)
 - L19  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(super.db) L20, save(Project project) L23

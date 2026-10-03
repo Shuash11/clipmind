@@ -113,4 +113,10 @@ const Map<String, List<String>> releaseNotes = {
     '* Fixed the update install failing while ClipMind was running',
     '* New ClipMind branding: app icon, installer icon, wizard images',
   ],
+  '1.36.0': [
+    '* ZIP updates work on default installs (script moved to temp)',
+    '* App relaunches automatically after updates',
+    '* Clear error guidance when the install folder is write-protected',
+    '* Hub logo now uses the ClipMind brand mark',
+  ],
 };

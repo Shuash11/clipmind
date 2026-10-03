@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -19,6 +20,11 @@ Future<void> _defaultProcessStarter(
     mode: ProcessStartMode.detached,
   );
 }
+
+/// Wraps [value] in PowerShell single quotes, doubling embedded
+/// apostrophes so paths like `C:\Users\O'Brien\...` stay one literal.
+@visibleForTesting
+String psSingleQuoted(String value) => "'${value.replaceAll("'", "''")}'";
 
 /// Thrown when a downloaded update fails artifact verification. The
 /// download is deleted and no install step runs.
@@ -176,16 +182,19 @@ class UpdateDownloader {
 
     // Single-quoted PowerShell literals treat backslashes as literal, so
     // the Dart-interpolated paths below are substituted exactly once and
-    // need no backslash doubling. The doubled '' inside the outer
-    // -Command '...' yields the inner single quotes PowerShell executes.
+    // need no backslash doubling. psSingleQuoted doubles embedded
+    // apostrophes so usernames like O'Brien cannot break quoting.
+    final quotedSource = psSingleQuoted('$newDirPath\\*');
+    final quotedAppDir = psSingleQuoted(appDir);
+    final quotedExe = psSingleQuoted('$appDir\\clipmind.exe');
     final script =
-        'powershell -NoProfile -Command \'Start-Sleep -Seconds 3; '
-        '\$p = Get-Process clipmind -ErrorAction SilentlyContinue; '
-        'if (\$p) { Stop-Process -Name clipmind -Force }; '
-        "Copy-Item ''$newDirPath\\*'' ''$appDir'' -Recurse -Force -ErrorAction Stop; "
-        "Start-Process ''$appDir\\clipmind.exe'' '";
+        'Start-Sleep -Seconds 3\n'
+        '\$p = Get-Process clipmind -ErrorAction SilentlyContinue\n'
+        'if (\$p) { Stop-Process -Name clipmind -Force }\n'
+        'Copy-Item $quotedSource $quotedAppDir -Recurse -Force -ErrorAction Stop\n'
+        'Start-Process $quotedExe\n';
 
-    final scriptPath = '$appDir\\update.ps1';
+    final scriptPath = '$tempPath\\update.ps1';
     await File(scriptPath).writeAsString(script);
     await processStarter('powershell', [
       '-NoProfile',
@@ -201,20 +210,28 @@ class UpdateDownloader {
   /// first. A running process holds `libmpv-2.dll` open, so an installer
   /// launched while ClipMind is alive fails its DeleteFile with code 5
   /// (Access is denied). The script waits briefly, force-stops the
-  /// `clipmind` process, then launches setup.exe silently.
-  /// `/CLOSEAPPLICATIONS` remains as a backstop for other processes.
+  /// `clipmind` process, then launches setup.exe silently and relaunches
+  /// ClipMind on a successful install (exit 0). The relaunch runs
+  /// non-elevated from this helper, not from the installer's elevated
+  /// `[Run]` section. `/CLOSEAPPLICATIONS` remains as a backstop for
+  /// other processes. `/RESTARTAPPLICATIONS` was rejected: it is a no-op
+  /// for Flutter apps, which never call `RegisterApplicationRestart`.
   Future<void> _runInstaller(String exePath, String tempPath) async {
     onProgress?.call(0.9, 'Running installer...');
 
     // Single-quoted PowerShell literals treat backslashes as literal, so
     // the Dart-interpolated paths below are substituted exactly once and
-    // need no backslash doubling. The doubled '' inside the outer
-    // -Command '...' yields the inner single quotes PowerShell executes.
+    // need no backslash doubling. psSingleQuoted doubles embedded
+    // apostrophes so usernames like O'Brien cannot break quoting.
+    final appDir = _appDir;
+    final quotedExePath = psSingleQuoted(exePath);
+    final quotedAppExe = psSingleQuoted('$appDir\\clipmind.exe');
     final script =
-        'powershell -NoProfile -Command \'Start-Sleep -Seconds 3; '
-        '\$p = Get-Process clipmind -ErrorAction SilentlyContinue; '
-        'if (\$p) { Stop-Process -Name clipmind -Force }; '
-        "Start-Process -FilePath ''$exePath'' -ArgumentList ''/VERYSILENT /NORESTART /CLOSEAPPLICATIONS'' '";
+        'Start-Sleep -Seconds 3\n'
+        '\$p = Get-Process clipmind -ErrorAction SilentlyContinue\n'
+        'if (\$p) { Stop-Process -Name clipmind -Force }\n'
+        "\$installer = Start-Process -FilePath $quotedExePath -ArgumentList '/VERYSILENT /NORESTART /CLOSEAPPLICATIONS' -Wait -PassThru\n"
+        'if (\$installer.ExitCode -eq 0) { Start-Process -FilePath $quotedAppExe }\n';
 
     final scriptPath = '$tempPath\\update-installer.ps1';
     await File(scriptPath).writeAsString(script);

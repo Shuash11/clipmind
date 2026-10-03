@@ -5,7 +5,16 @@ import 'package:clipmind/data/services/updates/update_downloader.dart';
 class UpdateDialog extends StatefulWidget {
   final ReleaseInfo release;
 
-  const UpdateDialog({super.key, required this.release});
+  /// Test-only: replaces the internally created downloader so error paths
+  /// are drivable without a real network or an admin-owned install folder.
+  @visibleForTesting
+  final UpdateDownloader? overrideDownloader;
+
+  const UpdateDialog({
+    super.key,
+    required this.release,
+    this.overrideDownloader,
+  });
 
   static Future<void> show(BuildContext context, ReleaseInfo release) {
     return showDialog(
@@ -110,6 +119,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
     if (error.contains('security check')) {
       return 'The update failed a security check and was not installed. Please try again or download from the official website.';
     }
+    if (error.contains('Access is denied') ||
+        error.contains('Access to the path')) {
+      // Non-elevated ZIP installs into the admin-owned install folder
+      // (e.g. C:\Program Files\ClipMind) fail at Copy-Item with an
+      // access-denied error, which surfaces here either as a Dart
+      // FileSystemException ("Access is denied") or wrapped in
+      // "Extraction failed" with PowerShell's "Access to the path" stderr.
+      return 'ClipMind could not write to the installation folder. Try running the app as administrator, or reinstall to a per-user folder.';
+    }
     if (error.contains('Extraction failed')) {
       return 'The downloaded file was corrupted. Please try downloading again.';
     }
@@ -129,19 +147,20 @@ class _UpdateDialogState extends State<UpdateDialog> {
     });
 
     try {
-      final downloader = UpdateDownloader(
-        downloadUrl: widget.release.downloadUrl,
-        assetType: widget.release.assetType,
-        digest: widget.release.digest,
-        onProgress: (progress, status) {
-          if (mounted) {
-            setState(() {
-              _progress = progress;
-              _status = status;
-            });
-          }
-        },
-      );
+      final downloader = widget.overrideDownloader ??
+          UpdateDownloader(
+            downloadUrl: widget.release.downloadUrl,
+            assetType: widget.release.assetType,
+            digest: widget.release.digest,
+            onProgress: (progress, status) {
+              if (mounted) {
+                setState(() {
+                  _progress = progress;
+                  _status = status;
+                });
+              }
+            },
+          );
       await downloader.downloadAndInstall();
     } catch (e) {
       if (mounted) {

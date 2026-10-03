@@ -91,6 +91,16 @@ void main() {
       expect(script, contains('${created.single}\\setup.exe'));
       expect(script, contains('/VERYSILENT'));
       expect(script, contains('/CLOSEAPPLICATIONS'));
+      expect(script, contains('Start-Sleep -Seconds 3'));
+      expect(script, contains('\$p = Get-Process'));
+      expect(
+        script,
+        contains('\$installer = Start-Process -FilePath'),
+      );
+      expect(script, contains('-Wait -PassThru'));
+      expect(script, contains('ExitCode -eq 0'));
+      expect(script, contains('clipmind.exe'));
+      expect(script, isNot(contains('powershell -NoProfile -Command')));
 
       expect(exitCodes, [0]);
     });
@@ -191,8 +201,7 @@ void main() {
       }
     });
 
-    test('extracts to the interpolated temp path and writes update.ps1',
-        () async {
+    test('writes update.ps1 to the temp dir as plain statements', () async {
       final downloader = UpdateDownloader(
         downloadUrl: 'http://127.0.0.1:${server.port}/update.zip',
         assetType: 'zip',
@@ -215,12 +224,24 @@ void main() {
         containsAll(['alpha.txt', 'beta.txt']),
       );
 
-      final scriptFile = File('${fakeAppDir.path}\\update.ps1');
+      // The script lives in the downloader temp dir (writable) — never in
+      // the app dir, which may be admin-owned (C:\Program Files\ClipMind).
+      final scriptFile = File('${created.single}\\update.ps1');
       expect(scriptFile.existsSync(), isTrue);
+      expect(File('${fakeAppDir.path}\\update.ps1').existsSync(), isFalse);
       final script = await scriptFile.readAsString();
       expect(script, contains('${created.single}\\new\\*'));
       expect(script, contains(fakeAppDir.path));
+      expect(
+        script,
+        contains("Copy-Item '${created.single}\\new\\*' '${fakeAppDir.path}'"),
+      );
+      expect(script, contains('Start-Sleep -Seconds 3'));
       expect(script, contains('\$p = Get-Process'));
+      expect(script, contains('Stop-Process -Name clipmind -Force'));
+      expect(script, contains('Start-Process'));
+      expect(script, contains('${fakeAppDir.path}\\clipmind.exe'));
+      expect(script, isNot(contains('powershell -NoProfile -Command')));
       expect(script, isNot(contains(r'$tempPath')));
       expect(script, isNot(contains(r'$appDir')));
       expect(script, isNot(contains(r'\$p')));
@@ -230,9 +251,52 @@ void main() {
       expect(starter.calls.single.arguments, contains('-File'));
       expect(
         starter.calls.single.arguments,
-        contains('${fakeAppDir.path}\\update.ps1'),
+        contains('${created.single}\\update.ps1'),
       );
       expect(exitCodes, [0]);
+    });
+
+    test('digest mismatch blocks install and cleans the temp dir', () async {
+      final wrong = 'sha256:${sha256.convert([1, 2, 3])}';
+      final downloader = UpdateDownloader(
+        downloadUrl: 'http://127.0.0.1:${server.port}/update.zip',
+        assetType: 'zip',
+        digest: wrong,
+        processStarter: starter.call,
+        exitApp: exitCodes.add,
+        appDirOverride: fakeAppDir.path,
+      );
+
+      UpdateVerificationException? caught;
+      try {
+        await downloader.downloadAndInstall();
+      } on UpdateVerificationException catch (e) {
+        caught = e;
+      }
+
+      expect(caught, isNotNull);
+      expect(caught!.message, contains('security check'));
+      expect(caught.result.reason, 'mismatch');
+      expect(starter.calls, isEmpty);
+      expect(exitCodes, isEmpty);
+      expect(_updateTempDirs().difference(tempBefore), isEmpty);
+    });
+
+    group('psSingleQuoted', () {
+      test('wraps a plain path in single quotes', () {
+        expect(psSingleQuoted(r'C:\Temp\app'), "'C:\\Temp\\app'");
+      });
+
+      test("doubles apostrophes in usernames like O'Brien", () {
+        expect(psSingleQuoted("O'Brien"), "'O''Brien'");
+      });
+
+      test('keeps an apostrophe path as one PowerShell literal', () {
+        expect(
+          psSingleQuoted(r"C:\Users\O'Brien\App"),
+          "'C:\\Users\\O''Brien\\App'",
+        );
+      });
     });
   });
 }

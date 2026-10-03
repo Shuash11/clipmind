@@ -158,6 +158,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('top bar logo tile renders the bundled ClipMind asset', (
+    tester,
+  ) async {
+    final repo = _FakeProjectRepository(db: db);
+    final container = ProviderContainer.test(
+      overrides: [projectRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+    await _pumpHub(tester, container);
+    await tester.pump();
+
+    final image = tester.widget<Image>(find.byKey(const ValueKey('hub-logo')));
+    expect(image.image, isA<AssetImage>());
+    expect(
+      (image.image as AssetImage).assetName,
+      'assets/icons/clipmind_logo.png',
+    );
+    // The tile keeps its rounded-square + border design; the 14% accent
+    // fill is dropped because the logo PNG carries its own violet
+    // background. The border rides in foregroundDecoration (painted over
+    // the full-bleed image).
+    final tile = tester.widget<Container>(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('hub-logo')),
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is Container &&
+                  (w.decoration as BoxDecoration?)?.borderRadius != null,
+            ),
+          )
+          .first,
+    );
+    final decoration = tile.decoration! as BoxDecoration;
+    final foreground = tile.foregroundDecoration! as BoxDecoration;
+    expect(decoration.color, isNull);
+    expect(decoration.borderRadius, BorderRadius.circular(10));
+    expect(foreground.border, isNotNull);
+    // Let the real asset bundle decode; a missing/broken asset throws here.
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('blank card renders first in the recent row', (tester) async {
     final repo = _FakeProjectRepository(
       db: db,

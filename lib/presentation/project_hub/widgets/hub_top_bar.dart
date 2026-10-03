@@ -26,20 +26,27 @@ class HubTopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Logo tile: the bundled PNG carries its own violet background,
+          // so the old 14% accent fill is dropped. The border + rounded-
+          // square silhouette is kept via foregroundDecoration, which paints
+          // the border over the full-bleed image (decoration paints under).
           Container(
             width: 34,
             height: 34,
+            clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(
-              color: ClipMindColors.accentPrimary.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            foregroundDecoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: ClipMindColors.accentPrimary.withValues(alpha: 0.24),
               ),
             ),
-            child: const Icon(
-              Icons.movie_filter_rounded,
-              color: ClipMindColors.accentPrimary,
-              size: 19,
+            child: Image.asset(
+              'assets/icons/clipmind_logo.png',
+              key: const ValueKey('hub-logo'),
+              fit: BoxFit.cover,
             ),
           ),
           const SizedBox(width: 10),
