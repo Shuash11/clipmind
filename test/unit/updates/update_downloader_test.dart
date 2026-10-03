@@ -78,12 +78,20 @@ void main() {
       await downloader(digest: payloadDigest).downloadAndInstall();
 
       expect(starter.calls, hasLength(1));
-      expect(starter.calls.single.executable.endsWith('setup.exe'), isTrue);
-      expect(starter.calls.single.arguments, [
-        '/VERYSILENT',
-        '/NORESTART',
-        '/CLOSEAPPLICATIONS',
-      ]);
+      expect(starter.calls.single.executable, 'powershell');
+
+      final created = _updateTempDirs().difference(tempBefore);
+      expect(created, hasLength(1));
+      final scriptPath = '${created.single}\\update-installer.ps1';
+      expect(starter.calls.single.arguments, contains('-File'));
+      expect(starter.calls.single.arguments, contains(scriptPath));
+
+      final script = await File(scriptPath).readAsString();
+      expect(script, contains('Stop-Process'));
+      expect(script, contains('${created.single}\\setup.exe'));
+      expect(script, contains('/VERYSILENT'));
+      expect(script, contains('/CLOSEAPPLICATIONS'));
+
       expect(exitCodes, [0]);
     });
 

@@ -84,7 +84,7 @@ class UpdateDownloader {
       }
 
       if (isInstaller) {
-        await _runInstaller(filePath);
+        await _runInstaller(filePath, tempDir.path);
       } else {
         await _extractAndInstallZip(filePath, tempDir.path);
       }
@@ -197,12 +197,33 @@ class UpdateDownloader {
     exitApp(0);
   }
 
-  Future<void> _runInstaller(String exePath) async {
+  /// Runs the downloaded installer via a helper script that exits this app
+  /// first. A running process holds `libmpv-2.dll` open, so an installer
+  /// launched while ClipMind is alive fails its DeleteFile with code 5
+  /// (Access is denied). The script waits briefly, force-stops the
+  /// `clipmind` process, then launches setup.exe silently.
+  /// `/CLOSEAPPLICATIONS` remains as a backstop for other processes.
+  Future<void> _runInstaller(String exePath, String tempPath) async {
     onProgress?.call(0.9, 'Running installer...');
-    await processStarter(exePath, [
-      '/VERYSILENT',
-      '/NORESTART',
-      '/CLOSEAPPLICATIONS',
+
+    // Single-quoted PowerShell literals treat backslashes as literal, so
+    // the Dart-interpolated paths below are substituted exactly once and
+    // need no backslash doubling. The doubled '' inside the outer
+    // -Command '...' yields the inner single quotes PowerShell executes.
+    final script =
+        'powershell -NoProfile -Command \'Start-Sleep -Seconds 3; '
+        '\$p = Get-Process clipmind -ErrorAction SilentlyContinue; '
+        'if (\$p) { Stop-Process -Name clipmind -Force }; '
+        "Start-Process -FilePath ''$exePath'' -ArgumentList ''/VERYSILENT /NORESTART /CLOSEAPPLICATIONS'' '";
+
+    final scriptPath = '$tempPath\\update-installer.ps1';
+    await File(scriptPath).writeAsString(script);
+    await processStarter('powershell', [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      scriptPath,
     ]);
     exitApp(0);
   }

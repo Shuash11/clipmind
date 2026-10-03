@@ -109,4 +109,8 @@ const Map<String, List<String>> releaseNotes = {
     '* Fixed composed watermark edits (watermark + other ops now render)',
     '* Watermark live-verified through real FFmpeg',
   ],
+  '1.35.0': [
+    '* Fixed the update install failing while ClipMind was running',
+    '* New ClipMind branding: app icon, installer icon, wizard images',
+  ],
 };

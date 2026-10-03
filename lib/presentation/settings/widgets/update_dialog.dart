@@ -39,7 +39,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
   Widget _buildInitialDialog() {
     return AlertDialog(
       title: const Text('New Version Available'),
-      content: Text('Version ${widget.release.tagName} is ready to download.'),
+      content: Text('Version ${widget.release.tagName} is ready to download. ClipMind will close briefly to install it.'),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
