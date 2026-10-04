@@ -650,13 +650,37 @@ class EditToolExecutor implements ToolExecutor {
     if (_ctx.jobsUsed + 1 > _ctx.maxJobs) {
       return ToolResult.fail(_budgetMessage);
     }
+    // Per-input audio probes (the transition-path probe convention):
+    // ffprobe `hasAudio` per clip source; unknown (null metadata or
+    // exception) degrades to audio-present → the legacy all-audio path.
+    // File durations feed the mixed-path `anullsrc` padding (`atrim`
+    // clamp); merge concatenates whole source files, so file durations
+    // apply. Both ride as internal op params (the `audio_mode`
+    // convention — never model-provided).
+    final inputsHaveAudio = <bool>[];
+    final inputDurationsSec = <double?>[];
+    for (final id in ids) {
+      try {
+        final meta = await _ctx.ffprobeService.extractMetadata(map[id]!);
+        inputsHaveAudio.add(meta?.hasAudio ?? true);
+        final ms = meta?.durationMs ?? 0;
+        inputDurationsSec.add(ms > 0 ? ms / 1000.0 : null);
+      } catch (_) {
+        inputsHaveAudio.add(true);
+        inputDurationsSec.add(null);
+      }
+    }
     final set = EditOperationSet(
       operations: [
         EditOperationRequest(
           id: call.id,
           type: 'merge',
           targetClipId: ids.first,
-          params: {'clip_ids': ids},
+          params: {
+            'clip_ids': ids,
+            'inputs_have_audio': inputsHaveAudio,
+            'input_durations_s': inputDurationsSec,
+          },
         ),
       ],
       summary: 'Merged ${ids.length} clips.',
@@ -1277,12 +1301,26 @@ class EditToolExecutor implements ToolExecutor {
     if (defaultPath == null && map.isEmpty) {
       return ToolResult.fail('No video file in project.');
     }
+    // Caller-probed audio presence for the composed path (the same probe
+    // pattern as [_addTransition]): a probe failure degrades to null →
+    // the legacy `-map 0:a` fallback. The funnel for all edit tools, so
+    // one probe here covers the whole agentic path.
+    bool? sourceHasAudio;
+    if (defaultPath != null) {
+      try {
+        sourceHasAudio =
+            (await _ctx.ffprobeService.extractMetadata(defaultPath))?.hasAudio;
+      } catch (_) {
+        sourceHasAudio = null;
+      }
+    }
     final jobs = CommandMapper.mapOperations(
       set,
       map,
       _ctx.outputDir,
       defaultPath: defaultPath,
       projectDir: _ctx.projectDir,
+      sourceHasAudio: sourceHasAudio,
     );
     if (_ctx.jobsUsed + jobs.length > _ctx.maxJobs) {
       return ToolResult.fail(_budgetMessage);

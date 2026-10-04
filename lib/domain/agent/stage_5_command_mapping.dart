@@ -51,12 +51,20 @@ class CommandMapper {
   /// (setpts/atempo apply after the restriction) need no shift — correct
   /// by construction. Groups with no ranged op run the legacy whole-file
   /// path unchanged.
+  ///
+  /// [sourceHasAudio] is the caller-probed audio presence of the composed
+  /// source (ffprobe `hasAudio`, the transition-path probe convention):
+  /// `false` emits `-an` instead of `-map 0:a` so silent sources (screen
+  /// recordings) no longer hard-fail with "Stream map '0:a' matches no
+  /// streams". Null (probing unavailable) → the legacy `-map 0:a`
+  /// fallback, unchanged behavior. Mute ops emit `-an` regardless.
   static List<FfmpegJob> mapOperations(
     EditOperationSet operationSet,
     Map<String, String> clipPathMap,
     String outputDir, {
     String? defaultPath,
     String? projectDir,
+    bool? sourceHasAudio,
   }) {
     final jobs = <FfmpegJob>[];
     final effectiveDefault = defaultPath ??
@@ -109,7 +117,8 @@ class CommandMapper {
           _composeMultiOp(composable, inputPath, outputDir,
               projectDir: projectDir,
               rangedStart: rangedStart,
-              rangedLen: rangedLen),
+              rangedLen: rangedLen,
+              sourceHasAudio: sourceHasAudio),
         );
       } else {
         for (final op in ops) {
@@ -139,6 +148,9 @@ class CommandMapper {
     return op.targetClipId?.toString();
   }
 
+  /// [sourceHasAudio] threads straight through to [_composeFilterGraph]
+  /// (the composed filter-graph job); the watermark+text/mute split path
+  /// maps each op singly, so the flag does not apply there.
   static List<FfmpegJob> _composeMultiOp(
     List<EditOperationRequest> ops,
     String inputPath,
@@ -146,6 +158,7 @@ class CommandMapper {
     String? projectDir,
     double? rangedStart,
     double? rangedLen,
+    bool? sourceHasAudio,
   }) {
     final hasOverlayWatermark = ops.any((o) => o.type == 'overlay_watermark');
     final hasMute = ops.any((o) => o.type == 'mute');
@@ -164,7 +177,8 @@ class CommandMapper {
       _composeFilterGraph(ops, inputPath, outputDir,
           projectDir: projectDir,
           rangedStart: rangedStart,
-          rangedLen: rangedLen)
+          rangedLen: rangedLen,
+          sourceHasAudio: sourceHasAudio)
     ];
   }
 
@@ -183,6 +197,13 @@ class CommandMapper {
   /// with `[$prev][wmN]overlay=<pos>[$next]`; the audio map is unaffected.
   /// Single-frame PNGs are safe: framesync `eof_action` defaults to
   /// `repeat`, so the still holds for the whole output.
+  ///
+  /// [sourceHasAudio] is the caller-probed audio presence of [inputPath]
+  /// (ffprobe `hasAudio`, the transition-path probe convention): `false`
+  /// emits `-an` instead of `-map 0:a` so silent sources (screen
+  /// recordings) no longer hard-fail with "Stream map '0:a' matches no
+  /// streams". Null (probing unavailable) → the legacy `-map 0:a`
+  /// fallback, unchanged behavior. Mute ops emit `-an` regardless.
   static FfmpegJob _composeFilterGraph(
     List<EditOperationRequest> ops,
     String inputPath,
@@ -190,6 +211,7 @@ class CommandMapper {
     String? projectDir,
     double? rangedStart,
     double? rangedLen,
+    bool? sourceHasAudio,
   }) {
     final filters = <String>[];
     // Flat audio fragments in op order, chained once as
@@ -200,7 +222,9 @@ class CommandMapper {
     // image reuses one `-i` index) plus their pre-chained image legs.
     final extraInputs = <String>[];
     final wmChains = <String>[];
-    bool hasAudio = true;
+    // True only when a mute op drops the audio side (never a statement
+    // about the source file — probe that via [sourceHasAudio]).
+    bool mutedByOp = false;
     // Hoisted first-wins window (both-or-neither): the input restriction
     // applies to the whole composed graph; only cut ops shift times.
     final double? rangedClipStart =
@@ -328,7 +352,7 @@ class CommandMapper {
           // Audio-only op (same passthrough rule as change_volume); the
           // audio side is dropped via `-an`, so no fragment is recorded.
           filters.add('[$prev]null[$next]');
-          hasAudio = false;
+          mutedByOp = true;
           break;
 
         case 'cut':
@@ -391,8 +415,12 @@ class CommandMapper {
     final filterStr =
         wmChains.isEmpty ? videoStr : '${wmChains.join(';')};$videoStr';
     // One chained audio segment, mapped once and exactly once below.
-    // Muted groups drop the audio side entirely (no dangling [aout]).
-    final hasChainedAudio = hasAudio && audioFragments.isNotEmpty;
+    // Muted groups drop the audio side entirely (no dangling [aout]);
+    // known-silent sources drop it too — chaining `[0:a]` fragments
+    // (trim/cut/speed/volume all record them) would still reference a
+    // stream that does not exist.
+    final hasChainedAudio =
+        !mutedByOp && sourceHasAudio != false && audioFragments.isNotEmpty;
     final audioStr =
         hasChainedAudio ? ';[0:a]${audioFragments.join(',')}[aout]' : '';
 
@@ -418,11 +446,19 @@ class CommandMapper {
 
     if (hasChainedAudio) {
       args.addAll(['-map', '[aout]']);
-    } else if (!hasAudio) {
+    } else if (mutedByOp || sourceHasAudio == false) {
+      // Mute ops drop the audio side; audio-less sources (screen
+      // recordings) map nothing instead of `-map 0:a`, which would
+      // hard-fail with "Stream map '0:a' matches no streams". Null
+      // (probing unavailable) keeps the legacy `-map 0:a` fallback.
       args.add('-an');
     } else {
       args.addAll(['-map', '0:a']);
     }
+
+    // Intermediate output re-encoded again on final export: encode speed
+    // beats compression (measured 25.5s vs 33.8s on a 60s 1080p source).
+    args.addAll(['-preset', 'veryfast']);
 
     return FfmpegJob(
       id: ops.first.id,
@@ -434,6 +470,16 @@ class CommandMapper {
   }
 
   /// Merge resolves clip IDs to real file paths (never passes IDs to FFmpeg).
+  ///
+  /// Audio-aware tri-state (the transition-path `audio_mode` convention):
+  /// the executor stamps the ffprobe results as internal params
+  /// (`inputs_have_audio` + `input_durations_s` — never model-provided)
+  /// and they thread straight into [CommandBuilder.merge]. Absent flags
+  /// → the legacy all-audio path, unchanged behavior. A silent leg with
+  /// an unknown duration fails here naming the clip (fail-loud — the
+  /// builder cannot pad without a duration, and guessing would desync
+  /// A/V); [ArgumentError] from the builder converts to the same
+  /// actionable failure.
   static FfmpegJob _buildMergeJob(
     EditOperationRequest op,
     Map<String, String> clipPathMap,
@@ -461,7 +507,33 @@ class CommandMapper {
         'Operation "${op.id}": merge requires at least 2 clips.',
       );
     }
-    final args = CommandBuilder.merge(paths);
+    final flags = _mergeAudioFlags(op.params['inputs_have_audio'], paths.length, op.id);
+    final durations = _mergeDurations(op.params['input_durations_s'], paths.length, op.id);
+    if (flags != null) {
+      for (var i = 0; i < paths.length; i++) {
+        if (!flags[i]) {
+          final d = durations != null ? durations[i] : null;
+          if (d == null || d <= 0) {
+            throw CommandMappingException(
+              'Operation "${op.id}": cannot merge — clip "${raw[i]}" '
+              'has no audio track and its duration is unknown, so silence '
+              'cannot be padded. Remove the silent clip from the merge '
+              'list, or retry once its duration can be probed.',
+            );
+          }
+        }
+      }
+    }
+    List<String> args;
+    try {
+      args = CommandBuilder.merge(
+        paths,
+        inputsHaveAudio: flags,
+        inputDurationsSec: durations,
+      );
+    } on ArgumentError catch (e) {
+      throw CommandMappingException('Operation "${op.id}": ${e.message}');
+    }
     return FfmpegJob(
       id: op.id,
       args: args,
@@ -469,6 +541,37 @@ class CommandMapper {
       inputPath: paths.first,
       outputPath: _outputPathFor(outputDir, paths.first, '${op.id}_merged', '.mp4'),
     );
+  }
+
+  /// Internal per-input merge audio flags (stamped by the executor via
+  /// ffprobe — never model-provided, the `audio_mode` convention):
+  /// absent → null → the legacy all-audio path; present → must be [n]
+  /// booleans or the op is rejected fail-loud (caller contract).
+  static List<bool>? _mergeAudioFlags(Object? raw, int n, String opId) {
+    if (raw == null) return null;
+    if (raw is! List || raw.length != n || raw.any((e) => e is! bool)) {
+      throw CommandMappingException(
+        'Operation "$opId": internal inputs_have_audio is malformed '
+        '(expected $n booleans).',
+      );
+    }
+    return raw.cast<bool>();
+  }
+
+  /// Internal per-input merge durations in seconds (stamped alongside
+  /// [inputs_have_audio]): absent → null; present → must be [n]
+  /// numbers-or-null or the op is rejected fail-loud (caller contract).
+  static List<double?>? _mergeDurations(Object? raw, int n, String opId) {
+    if (raw == null) return null;
+    if (raw is! List ||
+        raw.length != n ||
+        raw.any((e) => e != null && e is! num)) {
+      throw CommandMappingException(
+        'Operation "$opId": internal input_durations_s is malformed '
+        '(expected $n numbers).',
+      );
+    }
+    return [for (final e in raw) (e as num?)?.toDouble()];
   }
 
   /// Two-input cross-fade: resolves both clip IDs via the live path map
@@ -525,7 +628,9 @@ class CommandMapper {
   /// [rangedStart]/[rangedLen] is the walk-order first-wins restriction
   /// pre-detected by [mapOperations]; when both are set they are passed
   /// through to the ranged-input builders ([CommandBuilder.cut],
-  /// [CommandBuilder.changeSpeed]). Both null → each op falls back to
+  /// [CommandBuilder.changeSpeed]) and restrict the single-op
+  /// `apply_effect`/`adjust_brightness` jobs to the clip extent
+  /// (`-ss`/`-t`, the cut-path shape). Both null → each op falls back to
   /// its own params (single-op groups: identical to the hoisted pair).
   static FfmpegJob _buildSingleJob(
     EditOperationRequest op,
@@ -575,15 +680,23 @@ class CommandMapper {
       case 'mute':
         args = CommandBuilder.mute(inputPath);
         break;
-      case 'apply_effect':
-        args = CommandBuilder.effect(
+      case 'apply_effect': {
+        final base = CommandBuilder.effect(
           inputPath,
           effect: _str(params, 'effect', ''),
           strength: _numOrNull(params, 'strength'),
           contrast: _numOrNull(params, 'contrast'),
           saturation: _numOrNull(params, 'saturation'),
         );
+        // Range-restrict effect jobs to the clip extent (the cut-path
+        // shape): without this the whole source file is re-encoded.
+        final rs = rangeStartOf(params);
+        final rl = rangeLenOf(params);
+        args = (rs != null && rl != null)
+            ? ['-ss', rs.toString(), '-i', inputPath, '-t', rl.toString(), ...base.sublist(2)]
+            : base;
         break;
+      }
       case 'overlay_text':
         // `font_file` is app-resolved (bundled-font extraction) — never
         // model-provided. Defense-in-depth: reject traversal even on this
@@ -682,12 +795,19 @@ class CommandMapper {
           params['codec_preset']?.toString(),
         );
         break;
-      case 'adjust_brightness':
-        args = CommandBuilder.adjustBrightness(
+      case 'adjust_brightness': {
+        final base = CommandBuilder.adjustBrightness(
           inputPath,
           _num(params, 'value', 0.0),
         );
+        // Same range restriction as `apply_effect` above.
+        final rs = rangeStartOf(params);
+        final rl = rangeLenOf(params);
+        args = (rs != null && rl != null)
+            ? ['-ss', rs.toString(), '-i', inputPath, '-t', rl.toString(), ...base.sublist(2)]
+            : base;
         break;
+      }
       case 'change_volume':
         args = CommandBuilder.changeVolume(
           inputPath,

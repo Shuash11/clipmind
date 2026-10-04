@@ -48,6 +48,29 @@ class _FakeFfprobe extends FfprobeService {
   Future<VideoMetadata?> extractMetadata(String filePath) async => null;
 }
 
+/// Recording fake for the composed-path audio probe (Cycle 13 Phase 1):
+/// answers with the configured [hasAudio] and records every probed path.
+class _RecordingFfprobe extends FfprobeService {
+  _RecordingFfprobe({required this.hasAudio});
+
+  final bool hasAudio;
+  final List<String> probedPaths = [];
+
+  @override
+  Future<VideoMetadata?> extractMetadata(String filePath) async {
+    probedPaths.add(filePath);
+    return VideoMetadata(
+      durationMs: 60000,
+      width: 1920,
+      height: 1080,
+      fps: 30,
+      codec: 'h264',
+      hasAudio: hasAudio,
+      bitrate: 1000,
+    );
+  }
+}
+
 Project _project(
   String inputA,
   String outDir, {
@@ -111,13 +134,17 @@ void main() {
     await db.close();
   });
 
-  ProviderContainer makeContainer({int startMs = 0, int endMs = 60000}) {
+  ProviderContainer makeContainer({
+    int startMs = 0,
+    int endMs = 60000,
+    FfprobeService? ffprobe,
+  }) {
     final container = ProviderContainer.test(
       overrides: [
         appDatabaseProvider.overrideWithValue(db),
         projectRepositoryProvider.overrideWithValue(repository),
         ffmpegServiceProvider.overrideWithValue(ffmpeg),
-        ffprobeServiceProvider.overrideWithValue(_FakeFfprobe()),
+        ffprobeServiceProvider.overrideWithValue(ffprobe ?? _FakeFfprobe()),
       ],
     );
     addTearDown(container.dispose);
@@ -524,6 +551,42 @@ void main() {
       expect(await db.getEditHistory('p1'), isEmpty);
       expect(container.read(undoRedoProvider).canUndo, isFalse);
       expect(_clipOf(container).sourcePath, equals(inputA));
+    });
+
+    test('composed submit on a silent source maps -an (never -map 0:a)',
+        () async {
+      // brightness+contrast compose one fragment-free job: without the
+      // source probe this used to emit `-map 0:a` and hard-fail on
+      // audio-less sources (screen recordings).
+      final ffprobe = _RecordingFfprobe(hasAudio: false);
+      final container = makeContainer(ffprobe: ffprobe);
+      final result = await container
+          .read(manualEditControllerProvider)
+          .submitAdjustments(
+            clipId: 'clip_1',
+            brightness: 0.2,
+            contrast: 1.3,
+          );
+
+      expect(result.success, isTrue);
+      expect(ffmpeg.jobs, hasLength(1));
+      final args = ffmpeg.jobs.single.args;
+      expect(args, contains('-an'));
+      expect(args, isNot(contains('0:a')));
+      expect(ffprobe.probedPaths, equals([inputA]));
+    });
+
+    test('single-op submit skips the audio probe (zero added latency)',
+        () async {
+      final ffprobe = _RecordingFfprobe(hasAudio: false);
+      final container = makeContainer(ffprobe: ffprobe);
+      final result = await container
+          .read(manualEditControllerProvider)
+          .submitAdjustments(clipId: 'clip_1', brightness: 0.2);
+
+      expect(result.success, isTrue);
+      expect(ffmpeg.jobs, hasLength(1));
+      expect(ffprobe.probedPaths, isEmpty);
     });
   });
 }

@@ -148,6 +148,150 @@ void main() {
     });
   });
 
+  // Audio-less-source integrity for the merge concat path
+  // (Cycle 13 Phase 2): any silent input used to hard-fail with
+  // "Stream map '0:a' matches no streams" because `merge` always emitted
+  // `[$i:v:0][$i:a:0]` + `-map [outa]`. The per-input `inputsHaveAudio`
+  // flags (the transition-path probe convention) now select the
+  // tri-state: all-audio (legacy, byte-identical), all-silent
+  // (video-only + `-an`), or mixed (`anullsrc` padding, live-verified
+  // 2026-10-03 on FFmpeg 8.1.1). Arg-level only — no FFmpeg binary
+  // required.
+  group('CommandBuilder.merge audio tri-state', () {
+    test('legacy no-flags path is byte-identical', () {
+      expect(
+        CommandBuilder.merge(['a.mp4', 'b.mp4']),
+        equals([
+          '-i',
+          'a.mp4',
+          '-i',
+          'b.mp4',
+          '-filter_complex',
+          '[0:v:0][0:a:0][1:v:0][1:a:0]concat=n=2:v=1:a=1[outv][outa]',
+          '-map',
+          '[outv]',
+          '-map',
+          '[outa]',
+        ]),
+      );
+    });
+
+    test('explicit all-audio flags match the legacy path', () {
+      expect(
+        CommandBuilder.merge(
+          ['a.mp4', 'b.mp4'],
+          inputsHaveAudio: [true, true],
+        ),
+        equals(CommandBuilder.merge(['a.mp4', 'b.mp4'])),
+      );
+    });
+
+    test('all-silent emits video-only concat plus -an', () {
+      final args = CommandBuilder.merge(
+        ['a.mp4', 'b.mp4'],
+        inputsHaveAudio: [false, false],
+      );
+      final joined = args.join(' ');
+      expect(joined, contains('[0:v:0][1:v:0]concat=n=2:v=1:a=0[outv]'));
+      expect(args, contains('-an'));
+      expect(joined, isNot(contains('[outa]')));
+      expect(joined, isNot(contains(':a:0]')));
+    });
+
+    test('mixed pads the silent leg with an atrimmed anullsrc slice', () {
+      final args = CommandBuilder.merge(
+        ['a.mp4', 'b.mp4'],
+        inputsHaveAudio: [true, false],
+        inputDurationsSec: [2.0, 2.0],
+      );
+      final joined = args.join(' ');
+      expect(
+        args,
+        containsAll(['-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo']),
+      );
+      expect(joined, contains('[2:a]atrim=0:2.0[sil1]'));
+      expect(
+        joined,
+        contains(
+          '[0:v:0][0:a:0][1:v:0][sil1]concat=n=2:v=1:a=1[outv][outa]',
+        ),
+      );
+      expect(args, containsAll(['-map', '[outv]', '-map', '[outa]']));
+    });
+
+    test('mixed silent-first orders legs per input', () {
+      final args = CommandBuilder.merge(
+        ['a.mp4', 'b.mp4'],
+        inputsHaveAudio: [false, true],
+        inputDurationsSec: [2.0, 3.0],
+      );
+      final joined = args.join(' ');
+      expect(joined, contains('[2:a]atrim=0:2.0[sil0]'));
+      expect(
+        joined,
+        contains(
+          '[0:v:0][sil0][1:v:0][1:a:0]concat=n=2:v=1:a=1[outv][outa]',
+        ),
+      );
+    });
+
+    test('mixed 3-way splits one anullsrc per silent leg', () {
+      final args = CommandBuilder.merge(
+        ['a.mp4', 'b.mp4', 'c.mp4'],
+        inputsHaveAudio: [false, true, false],
+        inputDurationsSec: [2.0, 2.0, 3.0],
+      );
+      final joined = args.join(' ');
+      expect(joined, contains('[3:a]asplit=2[ss0][ss2]'));
+      expect(joined, contains('[ss0]atrim=0:2.0[sil0]'));
+      expect(joined, contains('[ss2]atrim=0:3.0[sil2]'));
+      expect(
+        joined,
+        contains(
+          '[0:v:0][sil0][1:v:0][1:a:0][2:v:0][sil2]'
+          'concat=n=3:v=1:a=1[outv][outa]',
+        ),
+      );
+    });
+
+    test('mixed silent leg without duration throws ArgumentError', () {
+      expect(
+        () => CommandBuilder.merge(
+          ['a.mp4', 'b.mp4'],
+          inputsHaveAudio: [true, false],
+          inputDurationsSec: [2.0, null],
+        ),
+        throwsArgumentError,
+      );
+      // Omitted durations entirely: the silent leg still has no pad length.
+      expect(
+        () => CommandBuilder.merge(
+          ['a.mp4', 'b.mp4'],
+          inputsHaveAudio: [true, false],
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('misaligned flags throw ArgumentError', () {
+      expect(
+        () => CommandBuilder.merge(
+          ['a.mp4', 'b.mp4'],
+          inputsHaveAudio: [true],
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => CommandBuilder.merge(
+          ['a.mp4', 'b.mp4'],
+          inputsHaveAudio: [true, false],
+          inputDurationsSec: [2.0],
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('CommandBuilder.changeSpeed', () {
     test('handles factor <= 2.0 with single atempo', () {
       final args = CommandBuilder.changeSpeed('input.mp4', 1.5);

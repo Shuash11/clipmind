@@ -60,11 +60,25 @@ class FfmpegService {
   final String _tempDir;
   final _uuid = const Uuid();
 
+  /// Hung jobs resolve to a typed failure within this window; the child
+  /// is KILLED on timeout so the UI can never wedge on a wedged ffmpeg.
+  final Duration jobTimeout;
+
+  /// Test seam: replaces the real process execution. Tests inject a
+  /// never-completing future plus a short [jobTimeout] to verify the
+  /// timeout → failed-result contract without spawning processes.
+  final Future<ProcessResult> Function(String binary, List<String> args)?
+      runJob;
+
   Process? _process;
 
-  FfmpegService({FfmpegBinaryResolver? resolver, String? tempDir})
-    : _resolver = resolver ?? FfmpegBinaryResolver(),
-      _tempDir = tempDir ?? Directory.systemTemp.path;
+  FfmpegService({
+    FfmpegBinaryResolver? resolver,
+    String? tempDir,
+    this.jobTimeout = const Duration(minutes: 15),
+    this.runJob,
+  })  : _resolver = resolver ?? FfmpegBinaryResolver(),
+        _tempDir = tempDir ?? Directory.systemTemp.path;
 
   String get tempDir => _tempDir;
 
@@ -85,7 +99,13 @@ class FfmpegService {
     if (!File(job.inputPath).existsSync()) {
       throw Exception('Input file not found: ${job.inputPath}');
     }
-    File(job.outputPath).parent.createSync(recursive: true);
+    try {
+      File(job.outputPath).parent.createSync(recursive: true);
+    } catch (e) {
+      throw Exception(
+        'Failed to create output directory for "${job.outputPath}": $e',
+      );
+    }
 
     final process = await Process.start(binary, [
       ...job.args,
@@ -166,21 +186,56 @@ class FfmpegService {
         error: 'Input not found: ${job.inputPath}',
       );
     }
-    File(job.outputPath).parent.createSync(recursive: true);
 
     try {
-      final result = await Process.run(binary, [
-        ...job.args,
-        '-y',
-        job.outputPath,
-      ]);
+      File(job.outputPath).parent.createSync(recursive: true);
+      final fullArgs = [...job.args, '-y', job.outputPath];
+      final ProcessResult raw;
+      final runner = runJob;
+      if (runner != null) {
+        raw = await runner(binary, fullArgs).timeout(jobTimeout);
+      } else {
+        final process = await Process.start(binary, fullArgs);
+        // Drain both pipes immediately so a chatty child never blocks
+        // on a full OS buffer (same rule as the streaming `run` path).
+        final stdoutFuture =
+            process.stdout.transform(utf8.decoder).join();
+        final stderrFuture =
+            process.stderr.transform(utf8.decoder).join();
+        int exitCode;
+        try {
+          exitCode = await process.exitCode.timeout(jobTimeout);
+        } on TimeoutException {
+          process.kill();
+          return FfmpegResult(
+            success: false,
+            outputPath: job.outputPath,
+            exitCode: -1,
+            stderr: null,
+            error: 'FFmpeg timed out after ${jobTimeout.inSeconds}s — '
+                'the job took too long or the source is too large',
+          );
+        }
+        final stdout = await stdoutFuture;
+        final stderr = await stderrFuture;
+        raw = ProcessResult(process.pid, exitCode, stdout, stderr);
+      }
       return FfmpegResult(
-        success: result.exitCode == 0,
+        success: raw.exitCode == 0,
         outputPath: job.outputPath,
-        exitCode: result.exitCode,
-        stderr: (result.stderr as String?)?.isNotEmpty == true
-            ? result.stderr as String?
+        exitCode: raw.exitCode,
+        stderr: (raw.stderr as String?)?.isNotEmpty == true
+            ? raw.stderr as String?
             : null,
+      );
+    } on TimeoutException {
+      return FfmpegResult(
+        success: false,
+        outputPath: job.outputPath,
+        exitCode: -1,
+        stderr: null,
+        error: 'FFmpeg timed out after ${jobTimeout.inSeconds}s — '
+            'the job took too long or the source is too large',
       );
     } catch (e, s) {
       debugPrint('FfmpegService error: $e\n$s');

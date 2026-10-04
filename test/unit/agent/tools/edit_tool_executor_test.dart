@@ -17,6 +17,67 @@ import 'package:clipmind/domain/agent/tools/tool_executors.dart';
 
 class _MockFfprobe extends Mock implements FfprobeService {}
 
+/// Recording fake for the `_executeSet` audio probe (Cycle 13 Phase 1):
+/// answers with the configured [hasAudio] and records every probed path.
+/// [throwOnProbe] simulates an unavailable ffprobe binary.
+class _RecordingFfprobe extends FfprobeService {
+  _RecordingFfprobe({required this.hasAudio, this.throwOnProbe = false});
+
+  final bool hasAudio;
+  final bool throwOnProbe;
+  final List<String> probedPaths = [];
+
+  @override
+  Future<VideoMetadata?> extractMetadata(String filePath) async {
+    probedPaths.add(filePath);
+    if (throwOnProbe) throw Exception('ffprobe unavailable');
+    return VideoMetadata(
+      durationMs: 60000,
+      width: 1920,
+      height: 1080,
+      fps: 30,
+      codec: 'h264',
+      hasAudio: hasAudio,
+      bitrate: 1000,
+    );
+  }
+}
+
+/// Per-path ffprobe fake for the merge tri-state tests (Cycle 13 Phase 2):
+/// [audioByPath] maps source path → hasAudio (a missing entry = unknown
+/// probe → null metadata); [durationMsByPath] maps source path →
+/// durationMs (missing = 60000, explicit 0 = unknown duration).
+/// [throwOnProbe] simulates an unavailable ffprobe binary. Records every
+/// probed path.
+class _MergeFfprobe extends FfprobeService {
+  _MergeFfprobe({
+    this.audioByPath = const {},
+    this.durationMsByPath = const {},
+    this.throwOnProbe = false,
+  });
+
+  final Map<String, bool> audioByPath;
+  final Map<String, int> durationMsByPath;
+  final bool throwOnProbe;
+  final List<String> probedPaths = [];
+
+  @override
+  Future<VideoMetadata?> extractMetadata(String filePath) async {
+    probedPaths.add(filePath);
+    if (throwOnProbe) throw Exception('ffprobe unavailable');
+    if (!audioByPath.containsKey(filePath)) return null;
+    return VideoMetadata(
+      durationMs: durationMsByPath[filePath] ?? 60000,
+      width: 128,
+      height: 128,
+      fps: 30,
+      codec: 'h264',
+      hasAudio: audioByPath[filePath]!,
+      bitrate: 1000,
+    );
+  }
+}
+
 class _FakeFfmpeg extends FfmpegService {
   FfmpegJob? lastJob;
 
@@ -481,6 +542,86 @@ void main() {
       expect(ffmpeg.lastJob!.args, contains('-an'));
     });
 
+    ToolExecutionContext probingCtx(_RecordingFfprobe ffprobe) {
+      final project = _project(inputA, inputB, outDir);
+      return ToolExecutionContext(
+        project: () => project,
+        outputDir: outDir,
+        projectDir: tmp.path,
+        applier: AgentEditApplier(
+          onApply: (op, path, {removeClipIds = const []}) async {
+            applied.add(_Applied(op, path));
+          },
+        ),
+        ffmpegService: ffmpeg,
+        ffprobeService: ffprobe,
+        maxJobs: 20,
+      );
+    }
+
+    test('_executeSet probes the default path when mapping', () async {
+      final ffprobe = _RecordingFfprobe(hasAudio: false);
+      final executor = EditToolExecutor(probingCtx(ffprobe));
+      final result = await executor.execute(
+        const ToolCall(
+          id: 'call_probe',
+          name: 'trim_clip',
+          args: {
+            'clip_id': 'clip_1',
+            'start': '00:00:05.000',
+            'end': '00:00:15.000',
+          },
+        ),
+      );
+
+      expect(result.success, isTrue);
+      // One probe of the default input per edit (the same pattern as
+      // `_addTransition`); the mapper turns a silent answer into `-an`
+      // on the composed path (see stage_5_composed_audio_test.dart).
+      expect(ffprobe.probedPaths, equals([inputA]));
+    });
+
+    test('mute on a silent source maps -an', () async {
+      final ffprobe = _RecordingFfprobe(hasAudio: false);
+      final executor = EditToolExecutor(probingCtx(ffprobe));
+      final result = await executor.execute(
+        const ToolCall(
+          id: 'call_mute_silent',
+          name: 'mute_clip',
+          args: {'clip_id': 'clip_1'},
+        ),
+      );
+
+      expect(result.success, isTrue);
+      expect(ffprobe.probedPaths, equals([inputA]));
+      expect(ffmpeg.lastJob!.args, contains('-an'));
+      expect(ffmpeg.lastJob!.args, isNot(contains('0:a')));
+    });
+
+    test('_executeSet degrades to the legacy map when probing fails',
+        () async {
+      final ffprobe =
+          _RecordingFfprobe(hasAudio: false, throwOnProbe: true);
+      final executor = EditToolExecutor(probingCtx(ffprobe));
+      final result = await executor.execute(
+        const ToolCall(
+          id: 'call_probe_fail',
+          name: 'trim_clip',
+          args: {
+            'clip_id': 'clip_1',
+            'start': '00:00:05.000',
+            'end': '00:00:15.000',
+          },
+        ),
+      );
+
+      // Probe failure degrades to a null flag (the legacy `-map 0:a`
+      // fallback), never to a tool failure.
+      expect(result.success, isTrue);
+      expect(ffprobe.probedPaths, equals([inputA]));
+      expect(applied, hasLength(1));
+    });
+
     test('cancelled-before-job fails fast without running FFmpeg', () async {
       final controller = CancellationController()..cancel();
       final executor = EditToolExecutor(
@@ -521,6 +662,129 @@ void main() {
       expect(joined, contains(inputA));
       expect(joined, contains(inputB));
       expect(joined.contains('clip_1') && joined.contains('-i clip_1'), isFalse);
+    });
+
+    group('merge audio tri-state (Cycle 13 Phase 2)', () {
+      ToolExecutionContext mergeCtx(_MergeFfprobe probe) {
+        return ToolExecutionContext(
+          project: () => _project(inputA, inputB, outDir),
+          outputDir: outDir,
+          projectDir: tmp.path,
+          applier: AgentEditApplier(
+            onApply: (op, path, {removeClipIds = const []}) async {
+              applied.add(_Applied(op, path));
+            },
+          ),
+          ffmpegService: ffmpeg,
+          ffprobeService: probe,
+          maxJobs: 20,
+        );
+      }
+
+      Future<ToolResult> runMerge(ToolExecutionContext c) {
+        return EditToolExecutor(c).execute(
+          const ToolCall(
+            id: 'call_merge',
+            name: 'merge_clips',
+            args: {
+              'clip_ids': ['clip_1', 'clip_2']
+            },
+          ),
+        );
+      }
+
+      test('all-audio merge keeps the legacy concat graph', () async {
+        final probe = _MergeFfprobe(
+          audioByPath: {inputA: true, inputB: true},
+        );
+        final result = await runMerge(mergeCtx(probe));
+
+        expect(result.success, isTrue);
+        final joined = ffmpeg.lastJob!.args.join(' ');
+        expect(
+          joined,
+          contains(
+            '[0:v:0][0:a:0][1:v:0][1:a:0]concat=n=2:v=1:a=1[outv][outa]',
+          ),
+        );
+        expect(joined, isNot(contains('anullsrc')));
+        expect(probe.probedPaths, containsAll([inputA, inputB]));
+      });
+
+      test('all-silent merge emits video-only concat plus -an', () async {
+        final probe = _MergeFfprobe(
+          audioByPath: {inputA: false, inputB: false},
+        );
+        final result = await runMerge(mergeCtx(probe));
+
+        expect(result.success, isTrue);
+        final args = ffmpeg.lastJob!.args;
+        final joined = args.join(' ');
+        expect(joined, contains('[0:v:0][1:v:0]concat=n=2:v=1:a=0[outv]'));
+        expect(args, contains('-an'));
+        expect(joined, isNot(contains('[outa]')));
+      });
+
+      test('mixed merge pads the silent leg with its probed duration',
+          () async {
+        final probe = _MergeFfprobe(
+          audioByPath: {inputA: true, inputB: false},
+          durationMsByPath: {inputA: 2000, inputB: 2000},
+        );
+        final result = await runMerge(mergeCtx(probe));
+
+        expect(result.success, isTrue);
+        final joined = ffmpeg.lastJob!.args.join(' ');
+        expect(joined, contains('anullsrc=r=44100:cl=stereo'));
+        expect(joined, contains('[2:a]atrim=0:2.0[sil1]'));
+        expect(
+          joined,
+          contains(
+            '[0:v:0][0:a:0][1:v:0][sil1]concat=n=2:v=1:a=1[outv][outa]',
+          ),
+        );
+      });
+
+      test('unknown probes degrade to the legacy path', () async {
+        final probe = _MergeFfprobe();
+        final result = await runMerge(mergeCtx(probe));
+
+        expect(result.success, isTrue);
+        final joined = ffmpeg.lastJob!.args.join(' ');
+        expect(
+          joined,
+          contains(
+            '[0:v:0][0:a:0][1:v:0][1:a:0]concat=n=2:v=1:a=1[outv][outa]',
+          ),
+        );
+        expect(probe.probedPaths, containsAll([inputA, inputB]));
+      });
+
+      test('throwing probes degrade to the legacy path', () async {
+        final probe = _MergeFfprobe(throwOnProbe: true);
+        final result = await runMerge(mergeCtx(probe));
+
+        expect(result.success, isTrue);
+        expect(
+          ffmpeg.lastJob!.args.join(' '),
+          contains(
+            '[0:v:0][0:a:0][1:v:0][1:a:0]concat=n=2:v=1:a=1[outv][outa]',
+          ),
+        );
+      });
+
+      test('mixed merge with unknown silent duration fails naming the clip',
+          () async {
+        final probe = _MergeFfprobe(
+          audioByPath: {inputA: true, inputB: false},
+          durationMsByPath: {inputA: 2000, inputB: 0},
+        );
+        final result = await runMerge(mergeCtx(probe));
+
+        expect(result.success, isFalse);
+        expect(result.error, contains('clip_2'));
+        expect(ffmpeg.lastJob, isNull);
+      });
     });
   });
 

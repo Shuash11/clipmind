@@ -82,22 +82,138 @@ class CommandBuilder {
     return null;
   }
 
-  static List<String> merge(List<String> inputs) {
+  /// Concat-merge [inputs] into one output (order preserved).
+  ///
+  /// Audio-aware tri-state (the transition-path pattern):
+  ///
+  /// - [inputsHaveAudio] null (probing unavailable) or every-true → the
+  ///   legacy all-audio path, byte-identical
+  ///   (`[$i:v:0][$i:a:0]` + `-map [outa]`).
+  /// - Every-false → video-only concat (`[$i:v:0]`, `a=0`) + `-an`, so
+  ///   silent sources (screen recordings) no longer hard-fail with
+  ///   "Stream map '0:a' matches no streams".
+  /// - Mixed → `anullsrc` padding: one shared lavfi
+  ///   `anullsrc=r=44100:cl=stereo` input, `asplit` per silent leg, each
+  ///   `atrim`med to that clip's [inputDurationsSec] entry so the silent
+  ///   leg exactly fills its video segment (real audio preserved, silence
+  ///   padded — volume-probed live).
+  ///
+  /// [inputsHaveAudio] is index-aligned with [inputs] (ffprobe `hasAudio`
+  /// per clip source; unknown probes count as audio-present — the legacy
+  /// path for unknown probes). A misaligned list throws [ArgumentError]
+  /// (caller contract violation — fail-loud, never silent mis-mapping).
+  /// Mixed merges need a positive [inputDurationsSec] entry per silent
+  /// leg (merge concatenates whole source files, so file durations apply);
+  /// a missing one throws [ArgumentError] — fail-loud, never A/V desync.
+  ///
+  /// Live-verified 2026-10-03 on FFmpeg 8.1.1-essentials (128x128@30fps
+  /// fixtures): legacy mixed pair exits −22 ("matches no streams");
+  /// all-silent video-only exits 0 (4.0s); padded audio+silent exits 0
+  /// (4.03s, tone −24dB then silence −90dB); silent+audio exits 0; 3-way
+  /// silent+audio+silent via `asplit=2` exits 0 (6.03s); 48kHz-real vs
+  /// 44100-silence exits 0 (auto-resample); mono-real vs stereo-silence
+  /// exits 0 (auto channel convert) — no pre-resample needed.
+  static List<String> merge(
+    List<String> inputs, {
+    List<bool>? inputsHaveAudio,
+    List<double?>? inputDurationsSec,
+  }) {
     final args = <String>[];
     for (final input in inputs) {
       args.addAll(['-i', input]);
     }
     final n = inputs.length;
-    final streamSpecs = List.generate(n, (i) => '[$i:v:0][$i:a:0]').join();
+    final flags = inputsHaveAudio;
+    if (flags != null && flags.length != n) {
+      throw ArgumentError.value(
+        flags,
+        'inputsHaveAudio',
+        'Length ${flags.length} does not match $n inputs.',
+      );
+    }
+    if (flags == null || flags.every((f) => f)) {
+      final streamSpecs = List.generate(n, (i) => '[$i:v:0][$i:a:0]').join();
+      args.addAll([
+        '-filter_complex',
+        '${streamSpecs}concat=n=$n:v=1:a=1[outv][outa]',
+        '-map',
+        '[outv]',
+        '-map',
+        '[outa]',
+      ]);
+      return args;
+    }
+    final silentIndices = <int>[
+      for (var i = 0; i < n; i++)
+        if (!flags[i]) i,
+    ];
+    if (silentIndices.length == n) {
+      final streamSpecs = List.generate(n, (i) => '[$i:v:0]').join();
+      args.addAll([
+        '-filter_complex',
+        '${streamSpecs}concat=n=$n:v=1:a=0[outv]',
+        '-map',
+        '[outv]',
+        '-an',
+      ]);
+      return args;
+    }
+    // Mixed: pad each silent leg with an `atrim`med slice of one shared
+    // `anullsrc` input (index n).
+    final durations = inputDurationsSec;
+    if (durations != null && durations.length != n) {
+      throw ArgumentError.value(
+        durations,
+        'inputDurationsSec',
+        'Length ${durations.length} does not match $n inputs.',
+      );
+    }
+    final chains = <String>[];
+    if (silentIndices.length == 1) {
+      final i = silentIndices.single;
+      chains.add('[$n:a]atrim=0:${_mergeSilenceDuration(durations, i)}[sil$i]');
+    } else {
+      final splitOuts = silentIndices.map((i) => '[ss$i]').join();
+      chains.add('[$n:a]asplit=${silentIndices.length}$splitOuts');
+      for (final i in silentIndices) {
+        chains.add('[ss$i]atrim=0:${_mergeSilenceDuration(durations, i)}[sil$i]');
+      }
+    }
+    final legs = StringBuffer();
+    for (var i = 0; i < n; i++) {
+      legs.write('[$i:v:0]');
+      legs.write(flags[i] ? '[$i:a:0]' : '[sil$i]');
+    }
+    legs.write('concat=n=$n:v=1:a=1[outv][outa]');
+    args.addAll(['-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo']);
     args.addAll([
       '-filter_complex',
-      '${streamSpecs}concat=n=$n:v=1:a=1[outv][outa]',
+      '${chains.join(';')};${legs.toString()}',
       '-map',
       '[outv]',
       '-map',
       '[outa]',
     ]);
     return args;
+  }
+
+  /// Positive silence-pad duration for merge input [index] (seconds).
+  ///
+  /// Throws [ArgumentError] when unknown/non-positive — the caller
+  /// (mapper) converts this to an actionable per-clip failure, so a
+  /// mixed merge never emits a guessed-length silent leg (A/V desync).
+  static String _mergeSilenceDuration(List<double?>? durations, int index) {
+    final d = durations != null && index < durations.length
+        ? durations[index]
+        : null;
+    if (d == null || !d.isFinite || d <= 0) {
+      throw ArgumentError.value(
+        durations,
+        'inputDurationsSec',
+        'Silent input #$index needs a positive duration to pad (got $d).',
+      );
+    }
+    return d.toString();
   }
 
   /// Re-time a clip by [factor] via `setpts` + an `atempo` chain.
@@ -401,6 +517,10 @@ class CommandBuilder {
   }
 
   /// Single-op job for [effectFilter].
+  ///
+  /// Carries `-preset veryfast`: this is an intermediate output that is
+  /// re-encoded again on final export, so encode speed beats compression
+  /// (measured 25.5s vs 33.8s on a 60s 1080p source).
   static List<String> effect(
     String input, {
     required String effect,
@@ -418,6 +538,8 @@ class CommandBuilder {
           contrast: contrast,
           saturation: saturation,
         ),
+        '-preset',
+        'veryfast',
       ];
 
   static List<String> extractAudio(String input, String outputFormat) {
@@ -456,9 +578,11 @@ class CommandBuilder {
     return args;
   }
 
+  /// Single-op brightness job. Carries `-preset veryfast` (same
+  /// intermediate-output rationale as [effect]).
   static List<String> adjustBrightness(String input, double value) {
     final clamped = value.clamp(-1.0, 1.0);
-    return ['-i', input, '-vf', 'eq=brightness=$clamped'];
+    return ['-i', input, '-vf', 'eq=brightness=$clamped', '-preset', 'veryfast'];
   }
 
   static List<String> changeVolume(String input, double factor) {

@@ -181,23 +181,25 @@ class ManualEditController {
       return ManualCutResult.fail('No video file in project.');
     }
 
+    final requests = [
+      EditOperationRequest(
+        id: opId,
+        type: 'cut',
+        targetClipId: clipId,
+        params: params,
+      ),
+    ];
     late final List<FfmpegJob> jobs;
     try {
       jobs = CommandMapper.mapOperations(
         EditOperationSet(
-          operations: [
-            EditOperationRequest(
-              id: opId,
-              type: 'cut',
-              targetClipId: clipId,
-              params: params,
-            ),
-          ],
+          operations: requests,
           summary: 'Manual cut',
         ),
         clipPathMap,
         project.outputDir,
         defaultPath: defaultPath,
+        sourceHasAudio: await _sourceHasAudioFor(requests, defaultPath),
       );
     } catch (e) {
       return ManualCutResult.fail('Could not map the cut: $e');
@@ -240,6 +242,15 @@ class ManualEditController {
   /// so `CommandMapper` composes them into ONE job. Each step is journaled
   /// as its own `EditOperation` (the legacy pipeline pattern), all
   /// pointing at the composed output, so history replay stays faithful.
+  ///
+  /// Range restriction (the cut-path additive pattern): the first op
+  /// carries `clip_start_s`/`clip_len_s` from the clip's live range
+  /// (omitted when degenerate), so the composed job restricts FFmpeg to
+  /// the clip extent (`-ss`/`-t`) instead of re-encoding the whole source
+  /// file. The last op carries `new_start_ms: 0`/`new_end_ms: clipLen` so
+  /// `applyEdit._newRange` normalizes the clip's range to the composed
+  /// output on the final apply. Whole-source clips are unaffected (the
+  /// restriction is a harmless `-ss 0 -t dur`).
   Future<ManualCutResult> submitRecipe(
     String presetId, {
     required String clipId,
@@ -275,6 +286,7 @@ class ManualEditController {
       return ManualCutResult.fail(target.failure!);
     }
     final project = target.project!;
+    final clip = target.clip!;
 
     final clipPathMap = _clipPathMap(project);
     final defaultPath = _defaultPath(project, clipPathMap);
@@ -291,6 +303,28 @@ class ManualEditController {
           params: Map<String, dynamic>.from(step.params),
         ),
     ];
+    // Clip-extent restriction + range normalization (mirrors the cut and
+    // speed paths): degenerate ranges omit the params and keep the legacy
+    // whole-file path unchanged. `EditOperationRequest` is freezed, so
+    // the params map is unmodifiable — restamp via `copyWith`.
+    final clipLen = clip.endMs - clip.startMs;
+    if (clipLen > 0) {
+      final firstParams = Map<String, dynamic>.from(requests.first.params)
+        ..['clip_start_s'] = clip.startMs / 1000.0
+        ..['clip_len_s'] = clipLen / 1000.0;
+      if (requests.length == 1) {
+        firstParams['new_start_ms'] = 0;
+        firstParams['new_end_ms'] = clipLen;
+        requests[0] = requests.first.copyWith(params: firstParams);
+      } else {
+        requests[0] = requests.first.copyWith(params: firstParams);
+        final lastParams = Map<String, dynamic>.from(requests.last.params)
+          ..['new_start_ms'] = 0
+          ..['new_end_ms'] = clipLen;
+        requests[requests.length - 1] =
+            requests.last.copyWith(params: lastParams);
+      }
+    }
     late final List<FfmpegJob> jobs;
     try {
       jobs = CommandMapper.mapOperations(
@@ -301,6 +335,7 @@ class ManualEditController {
         clipPathMap,
         project.outputDir,
         defaultPath: defaultPath,
+        sourceHasAudio: await _sourceHasAudioFor(requests, defaultPath),
       );
     } catch (e) {
       return ManualCutResult.fail(
@@ -522,6 +557,7 @@ class ManualEditController {
         clipPathMap,
         project.outputDir,
         defaultPath: defaultPath,
+        sourceHasAudio: await _sourceHasAudioFor(requests, defaultPath),
       );
     } catch (e) {
       return ManualCutResult.fail('Could not map the adjustments: $e');
@@ -743,23 +779,25 @@ class ManualEditController {
       'clip_ids': [clipId, next.id],
     };
     final opId = _uuid.v4();
+    final requests = [
+      EditOperationRequest(
+        id: opId,
+        type: 'add_transition',
+        targetClipId: clipId,
+        params: params,
+      ),
+    ];
     late final List<FfmpegJob> jobs;
     try {
       jobs = CommandMapper.mapOperations(
         EditOperationSet(
-          operations: [
-            EditOperationRequest(
-              id: opId,
-              type: 'add_transition',
-              targetClipId: clipId,
-              params: params,
-            ),
-          ],
+          operations: requests,
           summary: 'Transition "$clipId" into "${next.id}".',
         ),
         clipPathMap,
         project.outputDir,
         defaultPath: firstPath,
+        sourceHasAudio: await _sourceHasAudioFor(requests, firstPath),
       );
     } catch (e) {
       return ManualCutResult.fail(
@@ -869,23 +907,25 @@ class ManualEditController {
     }
 
     final opId = _uuid.v4();
+    final requests = [
+      EditOperationRequest(
+        id: opId,
+        type: 'overlay_text',
+        targetClipId: clipId,
+        params: params,
+      ),
+    ];
     late final List<FfmpegJob> jobs;
     try {
       jobs = CommandMapper.mapOperations(
         EditOperationSet(
-          operations: [
-            EditOperationRequest(
-              id: opId,
-              type: 'overlay_text',
-              targetClipId: clipId,
-              params: params,
-            ),
-          ],
+          operations: requests,
           summary: 'Manual text overlay',
         ),
         clipPathMap,
         project.outputDir,
         defaultPath: defaultPath,
+        sourceHasAudio: await _sourceHasAudioFor(requests, defaultPath),
       );
     } catch (e) {
       return ManualCutResult.fail('Could not map the text overlay: $e');
@@ -997,23 +1037,25 @@ class ManualEditController {
       'has_clip_audio': hasClipAudio,
     };
     final opId = _uuid.v4();
+    final requests = [
+      EditOperationRequest(
+        id: opId,
+        type: 'add_sound',
+        targetClipId: clipId,
+        params: params,
+      ),
+    ];
     late final List<FfmpegJob> jobs;
     try {
       jobs = CommandMapper.mapOperations(
         EditOperationSet(
-          operations: [
-            EditOperationRequest(
-              id: opId,
-              type: 'add_sound',
-              targetClipId: clipId,
-              params: params,
-            ),
-          ],
+          operations: requests,
           summary: 'Manual sound layer',
         ),
         clipPathMap,
         project.outputDir,
         defaultPath: clipPath,
+        sourceHasAudio: await _sourceHasAudioFor(requests, clipPath),
       );
     } catch (e) {
       return ManualCutResult.fail('Could not map the sound layer: $e');
@@ -1199,6 +1241,29 @@ class ManualEditController {
       );
     }
     return (project: project, clip: clip, failure: null);
+  }
+
+  /// Caller-probed audio presence for the composed filter-graph path (the
+  /// transition-path probe convention): `false` lets the mapper emit `-an`
+  /// instead of `-map 0:a` so silent sources (screen recordings) no longer
+  /// hard-fail with "Stream map '0:a' matches no streams".
+  ///
+  /// Only op lists with 2+ entries can compose, so single-op submits skip
+  /// the probe entirely (zero added latency). A probe failure degrades to
+  /// null → the legacy `-map 0:a` fallback, unchanged behavior.
+  Future<bool?> _sourceHasAudioFor(
+    List<EditOperationRequest> ops,
+    String inputPath,
+  ) async {
+    if (ops.length < 2) return null;
+    try {
+      return (await _ref
+              .read(ffprobeServiceProvider)
+              .extractMetadata(inputPath))
+          ?.hasAudio;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Clip-id → source-file map for `CommandMapper`.

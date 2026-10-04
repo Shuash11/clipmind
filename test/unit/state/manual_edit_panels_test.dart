@@ -50,9 +50,13 @@ class _FakeFfprobe extends FfprobeService {
   _FakeFfprobe(this.meta);
 
   final VideoMetadata? meta;
+  final List<String> probedPaths = [];
 
   @override
-  Future<VideoMetadata?> extractMetadata(String filePath) async => meta;
+  Future<VideoMetadata?> extractMetadata(String filePath) async {
+    probedPaths.add(filePath);
+    return meta;
+  }
 }
 
 class _FakeSound extends ProceduralSoundService {
@@ -153,14 +157,14 @@ void main() {
         supportDir: () async => Directory('${tmp.path}/support'),
       );
 
-  ProviderContainer makeContainer({VideoMetadata? meta}) {
+  ProviderContainer makeContainer({VideoMetadata? meta, _FakeFfprobe? ffprobe}) {
     final container = ProviderContainer.test(
       overrides: [
         appDatabaseProvider.overrideWithValue(db),
         projectRepositoryProvider.overrideWithValue(repository),
         ffmpegServiceProvider.overrideWithValue(ffmpeg),
         ffprobeServiceProvider.overrideWithValue(
-          _FakeFfprobe(meta ?? _meta(hasAudio: true)),
+          ffprobe ?? _FakeFfprobe(meta ?? _meta(hasAudio: true)),
         ),
         fontResolverProvider.overrideWithValue(seamedFonts()),
         proceduralSoundServiceProvider.overrideWithValue(sound),
@@ -225,6 +229,24 @@ void main() {
       await container.read(undoRedoProvider.notifier).undo();
       await container.read(undoRedoProvider.notifier).undo();
       expect(_sourceOf(container), equals(inputA));
+    });
+
+    test('silent source recipe maps -an (never -map 0:a)', () async {
+      // The noir recipe composes two fragment-free effect ops: without
+      // the source probe this used to emit `-map 0:a` and hard-fail on
+      // audio-less sources (screen recordings).
+      final ffprobe = _FakeFfprobe(_meta(hasAudio: false));
+      final container = makeContainer(ffprobe: ffprobe);
+      final result = await container
+          .read(manualEditControllerProvider)
+          .submitRecipe('noir', clipId: 'clip_1');
+
+      expect(result.success, isTrue);
+      expect(ffmpeg.jobs, hasLength(1));
+      final args = ffmpeg.jobs.single.args;
+      expect(args, contains('-an'));
+      expect(args, isNot(contains('0:a')));
+      expect(ffprobe.probedPaths, equals([inputA]));
     });
   });
 
@@ -291,6 +313,19 @@ void main() {
 
       expect(result.success, isFalse);
       expect(ffmpeg.jobs, isEmpty);
+    });
+
+    test('single-op submit skips the audio probe (zero added latency)',
+        () async {
+      final ffprobe = _FakeFfprobe(_meta(hasAudio: false));
+      final container = makeContainer(ffprobe: ffprobe);
+      final result = await container
+          .read(manualEditControllerProvider)
+          .submitOverlayText(clipId: 'clip_1', text: 'Hello');
+
+      expect(result.success, isTrue);
+      expect(ffmpeg.jobs, hasLength(1));
+      expect(ffprobe.probedPaths, isEmpty);
     });
   });
 

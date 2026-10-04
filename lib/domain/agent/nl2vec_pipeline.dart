@@ -237,12 +237,26 @@ class Nl2VecPipeline {
       final projectDirForValidation =
           outputDir.trim().isNotEmpty ? outputDir : _dirOf(defaultPath);
 
+      // Caller-probed audio presence for the composed path (the
+      // transition-path probe convention): caller metadata wins; a probe
+      // failure degrades to null → the legacy `-map 0:a` fallback.
+      bool? sourceHasAudio = metadata?.hasAudio;
+      if (sourceHasAudio == null) {
+        try {
+          sourceHasAudio =
+              (await ffprobeService.extractMetadata(defaultPath))?.hasAudio;
+        } catch (_) {
+          sourceHasAudio = null;
+        }
+      }
+
       final jobs = CommandMapper.mapOperations(
         validatedSet!,
         clipPathMap,
         outputDir,
         defaultPath: defaultPath,
         projectDir: projectDirForValidation,
+        sourceHasAudio: sourceHasAudio,
       );
 
       _events.add(const PipelineEvent(PipelineStage.applying, 'Executing FFmpeg...'));

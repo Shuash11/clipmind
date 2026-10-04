@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -29,8 +30,46 @@ class VideoMetadata {
 class FfprobeService {
   final FfmpegBinaryResolver _resolver;
 
-  FfprobeService({FfmpegBinaryResolver? resolver})
-    : _resolver = resolver ?? FfmpegBinaryResolver();
+  /// Test seam: replaces the real probe execution. When null the internal
+  /// `Process.start` implementation runs (with timeout + kill). Tests
+  /// inject a never-completing future plus a short [probeTimeout] to
+  /// verify the timeout → null contract without spawning processes.
+  final Future<ProcessResult?> Function(String binary, List<String> args)?
+      runProbe;
+
+  /// Hung probes resolve to null within this window; the child is KILLED
+  /// on timeout so the UI can never wedge on a wedged ffprobe/ffmpeg.
+  final Duration probeTimeout;
+
+  FfprobeService({
+    FfmpegBinaryResolver? resolver,
+    this.runProbe,
+    this.probeTimeout = const Duration(seconds: 10),
+  }) : _resolver = resolver ?? FfmpegBinaryResolver();
+
+  /// Real probe execution: `Process.start` with immediate stdout/stderr
+  /// drains (an unread pipe blocks the child once the OS buffer fills),
+  /// then `exitCode.timeout` — on timeout the child is KILLED and the
+  /// [TimeoutException] propagates to the caller, which maps it to null.
+  Future<ProcessResult> _realRunProbe(
+    String binary,
+    List<String> args,
+  ) async {
+    final process = await Process.start(binary, args);
+    // Drain both pipes immediately so a chatty child never blocks.
+    final stdoutFuture = process.stdout.transform(utf8.decoder).join();
+    final stderrFuture = process.stderr.transform(utf8.decoder).join();
+    int exitCode;
+    try {
+      exitCode = await process.exitCode.timeout(probeTimeout);
+    } on TimeoutException {
+      process.kill();
+      rethrow;
+    }
+    final stdout = await stdoutFuture;
+    final stderr = await stderrFuture;
+    return ProcessResult(process.pid, exitCode, stdout, stderr);
+  }
 
   Future<VideoMetadata?> extractMetadata(String filePath) async {
     final binary = _resolver.resolveFfprobe();
@@ -40,20 +79,38 @@ class FfprobeService {
     if (!file.existsSync()) return null;
 
     try {
-      final result = await Process.run(binary, [
-        '-v',
-        'quiet',
-        '-print_format',
-        'json',
-        '-show_format',
-        '-show_streams',
-        filePath,
-      ]);
+      final ProcessResult? result;
+      final probe = runProbe;
+      if (probe != null) {
+        result = await probe(binary, [
+          '-v',
+          'quiet',
+          '-print_format',
+          'json',
+          '-show_format',
+          '-show_streams',
+          filePath,
+        ]).timeout(probeTimeout);
+      } else {
+        result = await _realRunProbe(binary, [
+          '-v',
+          'quiet',
+          '-print_format',
+          'json',
+          '-show_format',
+          '-show_streams',
+          filePath,
+        ]);
+      }
+      if (result == null) return null;
 
       if (result.exitCode != 0) return null;
 
       final data = jsonDecode(result.stdout as String) as Map<String, dynamic>;
       return _parseMetadata(data);
+    } on TimeoutException catch (e, s) {
+      debugPrint('FFprobe timed out: $e\n$s');
+      return null;
     } catch (e, s) {
       debugPrint('FFprobe error: $e\n$s');
       return null;
@@ -121,7 +178,7 @@ class FfprobeService {
     final out = outputPath ?? '${filePath}_thumb.jpg';
 
     try {
-      final result = await Process.run(binary, [
+      final args = [
         '-ss',
         (atMs / 1000).toStringAsFixed(3),
         '-i',
@@ -132,10 +189,21 @@ class FfprobeService {
         '2',
         '-y',
         out,
-      ]);
+      ];
+      final ProcessResult? result;
+      final probe = runProbe;
+      if (probe != null) {
+        result = await probe(binary, args).timeout(probeTimeout);
+      } else {
+        result = await _realRunProbe(binary, args);
+      }
+      if (result == null) return null;
       if (result.exitCode != 0) return null;
       if (!File(out).existsSync()) return null;
       return out;
+    } on TimeoutException catch (e, s) {
+      debugPrint('FFprobe timed out: $e\n$s');
+      return null;
     } catch (e, s) {
       debugPrint('FFprobe error: $e\n$s');
       return null;
