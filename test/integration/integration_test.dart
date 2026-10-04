@@ -35,7 +35,7 @@ void main() {
 
       expect(find.text('IMPORT FROM'), findsOneWidget);
       expect(find.text('YouTube'), findsOneWidget);
-      expect(find.text('Google Drive'), findsOneWidget);
+      expect(find.text('Google Drive'), findsNothing);
       expect(find.text('Paste a URI'), findsOneWidget);
     });
 

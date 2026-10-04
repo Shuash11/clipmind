@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +10,7 @@ import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/repositories/project_repository.dart';
+import 'package:clipmind/data/services/import/url_import_service.dart';
 import 'package:clipmind/presentation/project_hub/project_hub_screen.dart';
 import 'package:clipmind/presentation/project_hub/widgets/blank_project_card.dart';
 import 'package:clipmind/presentation/project_hub/widgets/recent_project_card.dart';
@@ -101,13 +105,19 @@ Future<void> _pumpHub(
 
 void main() {
   late AppDatabase db;
+  late Directory importTempDir;
 
-  setUp(() {
+  setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
+    // Real async zone: dart:io must not run inside testWidgets' FakeAsync.
+    importTempDir = await Directory.systemTemp.createTemp('hub_drive_test_');
   });
 
   tearDown(() async {
     await db.close();
+    try {
+      await importTempDir.delete(recursive: true);
+    } catch (_) {}
   });
 
   testWidgets('hub renders top bar pills, hero copy, and dashed dropzone', (
@@ -362,6 +372,80 @@ void main() {
     expect(find.byKey(const ValueKey('new-project-pill')), findsOneWidget);
     expect(find.byKey(const ValueKey('project-hub-settings')), findsOneWidget);
     expect(find.text('AI model'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('import cards show YouTube and URI only, no Drive card', (
+    tester,
+  ) async {
+    final repo = _FakeProjectRepository(db: db);
+    final container = ProviderContainer.test(
+      overrides: [projectRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+    await _pumpHub(tester, container);
+    await tester.pump();
+
+    expect(find.text('YouTube'), findsOneWidget);
+    expect(find.text('Paste a URI'), findsOneWidget);
+    expect(find.text('Google Drive'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('drive share link shows the guidance snackbar', (tester) async {
+    final repo = _FakeProjectRepository(db: db);
+    final container = ProviderContainer.test(
+      overrides: [projectRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+
+    // The import flow needs an import directory; stub path_provider so the
+    // test never touches the real platform channel.
+    const channel = MethodChannel('plugins.flutter.io/path_provider');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'getApplicationSupportDirectory') {
+            return importTempDir.path;
+          }
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+
+    await _pumpHub(tester, container);
+    await tester.pump();
+
+    await tester.enterText(
+      find.byType(TextField),
+      'https://drive.google.com/file/d/ABCDefghij1234567890abc/view',
+    );
+    await tester.pump();
+    // The whole submit runs in the real async zone: the import path awaits
+    // real dart:io work (_getImportDir), which never resolves under
+    // testWidgets' FakeAsync.
+    await tester.runAsync(() async {
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await Future<void>.delayed(const Duration(seconds: 2));
+    });
+    // Pumps render the resulting snackbar frame.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+      if (find
+          .text(UrlImportService.driveLinkMessage)
+          .evaluate()
+          .isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(find.text(UrlImportService.driveLinkMessage), findsOneWidget);
+    // The generic fallback must not fire alongside the guidance.
+    expect(
+      find.text('Import failed. Check the URL and try again.'),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   });
 }

@@ -1,4 +1,4 @@
-# Code Graph — lib/data (41 files, 7,050 lines; DO NOT EDIT)
+# Code Graph — lib/data (41 files, 6,897 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -95,11 +95,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L12  class BundledFont (id, label, fileName) — BundledFont(…) L22
 - L36  class FontResolver (_cache) — catalog L37, Function(String key) _loadAsset L69, Function() _supportDir L73, FontResolver(…) L75, isKnownFamily(String familyId) L82, cachedPath(String familyId) L88, resolve(String familyId) L94, invalidateCache() L123
 
-## lib/data/services/import/gdrive_import_service.dart (274 lines)
-- L10  class GoogleAuthClient (_inner, _headers) — GoogleAuthClient(this._headers) L14, send(http.BaseRequest request) L17, close() L23
-- L26  class GDriveUnsupportedPlatformException (message) — GDriveUnsupportedPlatformException([…) L29, toString() L34
-- L37  class GDriveInvalidInputException (message) — GDriveInvalidInputException(this.message) L40, toString() L43
-- L46  class GDriveImportService (_dio, _cancelToken, _activeClient, _cancelRequested, _progress, _errorStream) — driveApiUnsupportedMessage L47, isDriveApiSupported L53, Function() _driveApiSupported L60, Function()? _signIn L64, Function(http.Client client)? _driveApiFactory L68, progress L76, errors L77, GDriveImportService(…) L79, _defaultSignIn() L89, _reportError(String message) L102, _extractFileId(String url) L115, import(String fileUrl, String outputPath) L132, _downloadDirect(String fileUrl, String outputPath) L179, _downloadViaApi(String fileId, String outputPath) L201, cancel() L264
+## lib/data/services/import/url_import_service.dart (121 lines)
+- L6  class GDriveInvalidInputException (message) — GDriveInvalidInputException(this.message) L9, toString() L12
+- L20  class UrlImportService (_dio, _cancelToken, _progress, _errorStream) — driveLinkMessage L21, progress L31, errors L32, UrlImportService(…) L35, _reportError(String message) L43, import(String fileUrl, String outputPath) L56, _downloadDirect(String fileUrl, String outputPath) L93, cancel() L115
 
 ## lib/data/services/import/youtube_import_service.dart (79 lines)
 - L5  class YouTubeImportService (_progress, _errorStream, _process) — progress L10, errors L11, import(String url, String outputDir) L13, cancel() L75

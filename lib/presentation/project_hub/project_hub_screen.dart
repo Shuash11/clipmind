@@ -19,7 +19,7 @@ import 'package:clipmind/presentation/settings/widgets/update_dialog.dart';
 import 'package:clipmind/presentation/shared_widgets/whats_new_dialog.dart';
 
 import 'package:clipmind/data/services/import/youtube_import_service.dart';
-import 'package:clipmind/data/services/import/gdrive_import_service.dart';
+import 'package:clipmind/data/services/import/url_import_service.dart';
 import 'package:clipmind/data/models/app_settings.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'widgets/upload_dropzone.dart';
@@ -220,28 +220,39 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
     try {
       final dir = await _getImportDir();
       String? downloadedPath;
+      String? reportedError;
 
+      void trackError(String message) {
+        reportedError ??= message;
+        if (mounted) _showImportError(message);
+      }
+
+      // NOTE: the import future is created before subscribing: both
+      // services create their errors controllers synchronously inside
+      // import(), so subscribing earlier would attach to Stream.empty().
+      // The services defer sync emissions to a microtask, therefore a
+      // subscription in the same synchronous block still observes them.
       if (url.contains('youtube.com') || url.contains('youtu.be')) {
         final service = YouTubeImportService();
-        downloadedPath = await service.import(url, dir.path);
-      } else if (url.contains('drive.google.com')) {
-        if (!GDriveImportService.isDriveApiSupported) {
-          if (mounted) {
-            await _showDriveUnavailableDialog();
-          }
-          return;
+        final pending = service.import(url, dir.path);
+        final subscription = service.errors.listen(trackError);
+        try {
+          downloadedPath = await pending;
+        } finally {
+          await subscription.cancel();
         }
-        final service = GDriveImportService();
-        downloadedPath = await service.import(
-          url,
-          '${dir.path}/gdrive_download.mp4',
-        );
       } else {
-        final service = GDriveImportService();
-        downloadedPath = await service.import(
+        final service = UrlImportService();
+        final pending = service.import(
           url,
           '${dir.path}/direct_download.mp4',
         );
+        final subscription = service.errors.listen(trackError);
+        try {
+          downloadedPath = await pending;
+        } finally {
+          await subscription.cancel();
+        }
       }
 
       if (downloadedPath != null && mounted) {
@@ -250,7 +261,7 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
           path: downloadedPath,
           manageBusy: false,
         );
-      } else if (mounted) {
+      } else if (mounted && reportedError == null) {
         _showImportError('Import failed. Check the URL and try again.');
       }
     } catch (_) {
@@ -281,27 +292,6 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _showDriveUnavailableDialog() {
-    return showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Google Drive import unavailable'),
-        content: const SizedBox(
-          width: 420,
-          child: Text(
-            GDriveImportService.driveApiUnsupportedMessage,
-          ),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Got it'),
-          ),
-        ],
-      ),
-    );
   }
 
   /// Blank-project entry point: create with empty media, open the editor.
@@ -587,7 +577,7 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
   Widget _buildImportSources(BoxConstraints constraints) {
     final maxWidth = constraints.maxWidth;
     final isNarrow = maxWidth < 760;
-    final cardWidth = isNarrow ? maxWidth : (maxWidth - 24) / 3;
+    final cardWidth = isNarrow ? maxWidth : (maxWidth - 12) / 2;
 
     return Wrap(
       spacing: 12,
@@ -601,24 +591,6 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
             source: 'youtube',
             subtitle: 'Paste a YouTube link to import the video',
             onTap: () => _showImportUrlDialog('YouTube'),
-          ),
-        ),
-        SizedBox(
-          width: cardWidth,
-          child: ImportSourceCard(
-            icon: Icons.add_to_drive_rounded,
-            label: 'Google Drive',
-            source: 'gdrive',
-            subtitle: GDriveImportService.isDriveApiSupported
-                ? 'Browse and import from your Drive files'
-                : 'Not available on Windows — use a direct link instead',
-            onTap: () {
-              if (!GDriveImportService.isDriveApiSupported) {
-                _showDriveUnavailableDialog();
-              } else {
-                _showImportUrlDialog('Google Drive');
-              }
-            },
           ),
         ),
         SizedBox(

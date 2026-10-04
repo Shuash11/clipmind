@@ -1,4 +1,4 @@
-# Code Graph — test (155 files, 38,019 lines; DO NOT EDIT)
+# Code Graph — test (155 files, 37,883 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -569,14 +569,12 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/fonts/font_resolver_test.dart (134 lines)
 - L7  function main
 
-## test/unit/import/gdrive_import_service_test.dart (507 lines)
-- L12  class _MockDio extends Mock implements Dio
-- L14  class _MockAccount extends Mock implements GoogleSignInAccount
-- L16  class _FakeDriveApi
-- L18  class _FakeFilesResource
-- L20  function _noopProgress
-- L41  function _stubDownloadSuccess
-- L57  function main
+## test/unit/import/url_import_service_test.dart (287 lines)
+- L9  class _MockDio extends Mock implements Dio
+- L11  function _noopProgress
+- L32  function _stubDownloadSuccess
+- L50  function _verifyNoDownload
+- L61  function main
 
 ## test/unit/llm/anthropic_provider_tools_test.dart (278 lines)
 - L8  class _MockDio extends Mock implements Dio
@@ -803,13 +801,13 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L137  function _twoClipProject
 - L160  function main
 
-## test/widget/project_hub_test.dart (368 lines)
-- L19  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L20, createNew(…) L28, save(Project project) L45, listRecent() L48
-- L51  function _project
-- L63  function _testRouter
-- L79  function _useDesktopViewport
-- L88  function _pumpHub
-- L102  function main
+## test/widget/project_hub_test.dart (452 lines)
+- L23  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L24, createNew(…) L32, save(Project project) L49, listRecent() L52
+- L55  function _project
+- L67  function _testRouter
+- L83  function _useDesktopViewport
+- L92  function _pumpHub
+- L106  function main
 
 ## test/widget/settings_screen_test.dart (187 lines)
 - L13  class _RecordingSettingsRepository extends SettingsRepository (saves, lastSaved) — load() L18, save(AppSettings settings) L21
