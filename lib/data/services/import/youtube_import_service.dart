@@ -31,6 +31,11 @@ class YouTubeImportService {
   StreamController<String>? _errorStream;
   Process? _process;
 
+  /// Single-flight claim: true while an import is between its start and its
+  /// completion, so the shared controllers and cancel target above are
+  /// never clobbered by a concurrent call.
+  bool _inFlight = false;
+
   YouTubeImportService({
     this.stallTimeout = const Duration(seconds: 120),
     this.startProcess,
@@ -47,7 +52,31 @@ class YouTubeImportService {
       'yt-dlp stalled — no output for ${timeout.inSeconds}s — '
       'the download took too long or the connection stalled';
 
+  /// Grace window after the stall watchdog fires: the exit code gets a
+  /// brief moment to land so a child that finished naturally in the same
+  /// instant the watchdog tripped still yields its file. A child that
+  /// never settles resolves to the typed stall failure after this window.
+  static const _exitGrace = Duration(milliseconds: 250);
+
+  /// Downloads [url] into [outputDir] and returns the moved file path.
+  ///
+  /// Lifecycle: single-flight (a second concurrent [import] throws
+  /// [YoutubeImportBusyException]); a stall tree-kills the child and
+  /// surfaces the typed stall failure on [errors]; a [cancel] kills the
+  /// child and the in-flight import resolves when the killed child's exit
+  /// code lands. A child that finishes naturally in the same instant the
+  /// watchdog fires still yields its file (grace window below).
   Future<String?> import(String url, String outputDir) async {
+    // Single-flight: a second concurrent import would clobber the shared
+    // [_progress]/[_errorStream] controllers and the [_process] cancel
+    // target — reject instead of clobbering. Synchronous with the claim
+    // below, so calls racing to start resolve deterministically.
+    if (_inFlight) {
+      throw const YoutubeImportBusyException(
+        'YouTube import is busy — another download is already running',
+      );
+    }
+    _inFlight = true;
     _progress = StreamController<double>.broadcast();
     _errorStream = StreamController<String>.broadcast();
 
@@ -137,13 +166,32 @@ class YouTubeImportService {
         stallSignal.future.then((_) => -1),
       ]);
 
-      if (stalled || exitCode == -1) {
-        _errorStream?.add(stallMessage(stallTimeout));
-        return null;
+      final watchdogFired = exitCode == -1;
+
+      // Grace window: when the watchdog fires, the exit code gets a brief
+      // moment to land so a child that finished naturally in the same
+      // instant the watchdog tripped still yields its file.
+      var settled = exitCode;
+      if (watchdogFired) {
+        try {
+          settled = await proc.exitCode.timeout(_exitGrace);
+        } on TimeoutException {
+          // The child never settled its exit code even after the kill.
+          settled = -1;
+        }
       }
-      if (exitCode == 0 && downloadedFile != null) {
+
+      // Natural exit wins over a same-instant watchdog trip: the
+      // `after_move:filepath` line only arrives after the move completed,
+      // so a real exit 0 with a downloaded file is never suppressed by the
+      // stall message.
+      if (settled == 0 && downloadedFile != null) {
         _progress?.add(1.0);
         return downloadedFile;
+      }
+      if (watchdogFired) {
+        _errorStream?.add(stallMessage(stallTimeout));
+        return null;
       }
       return null;
     } catch (e) {
@@ -158,9 +206,17 @@ class YouTubeImportService {
       await _errorStream?.close();
       _errorStream = null;
       _process = null;
+      _inFlight = false;
     }
   }
 
+  /// Kills the in-flight child, if any, and clears the handle synchronously
+  /// (no stale handle survives the kill path — [_killTreeOf] clears it too).
+  ///
+  /// No typed cancel failure is emitted and no separate cancel signal
+  /// unblocks the in-flight [import]: it resolves when the killed child's
+  /// exit code lands. Intentional (Phase 3 review): a child that outlives
+  /// the kill stays pending until the stall watchdog resolves it.
   void cancel() {
     final proc = _process;
     _process = null;
@@ -172,6 +228,10 @@ class YouTubeImportService {
   }
 
   Future<void> _killTreeOf(Process proc) async {
+    // Safety net for the kill path: callers clear the shared handle
+    // synchronously before awaiting this kill, but the handle is cleared
+    // here too so a stale handle can never survive the kill path.
+    if (identical(_process, proc)) _process = null;
     final runner = runTreeKill ?? ((exe, args) => Process.run(exe, args));
     try {
       if (Platform.isWindows || runTreeKill != null) {
@@ -185,4 +245,17 @@ class YouTubeImportService {
       proc.kill();
     } catch (_) {}
   }
+}
+
+/// Typed single-flight failure for [YouTubeImportService.import]. Thrown
+/// synchronously when a second concurrent import starts while one is in
+/// flight (the shared controllers and cancel handle cannot serve two
+/// children). Matches the FFmpeg `FfmpegBusyException` pattern; surfaced
+/// via the consumer's catch.
+class YoutubeImportBusyException implements Exception {
+  final String message;
+  const YoutubeImportBusyException(this.message);
+
+  @override
+  String toString() => 'YoutubeImportBusyException: $message';
 }
