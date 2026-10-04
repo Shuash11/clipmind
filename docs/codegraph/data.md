@@ -1,4 +1,4 @@
-# Code Graph — lib/data (42 files, 7,371 lines; DO NOT EDIT)
+# Code Graph — lib/data (42 files, 7,481 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -102,8 +102,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L6  class GDriveInvalidInputException (message) — GDriveInvalidInputException(this.message) L9, toString() L12
 - L20  class UrlImportService (_dio, _cancelToken, _progress, _errorStream) — driveLinkMessage L21, progress L31, errors L32, UrlImportService(…) L35, _reportError(String message) L43, import(String fileUrl, String outputPath) L56, _downloadDirect(String fileUrl, String outputPath) L93, cancel() L115
 
-## lib/data/services/import/youtube_import_service.dart (79 lines)
-- L5  class YouTubeImportService (_progress, _errorStream, _process) — progress L10, errors L11, import(String url, String outputDir) L13, cancel() L75
+## lib/data/services/import/youtube_import_service.dart (189 lines)
+- L5  class YouTubeImportService (stallTimeout, _progress, _errorStream, _process) — missingBinaryMessage L9, Function(String executable, List<String> args)? L21, Function(String executable, List<String> args)? L27, YouTubeImportService(…) L34, progress L40, errors L41, hasActiveProcess L44, stallMessage(Duration timeout) L46, import(String url, String outputDir) L50, cancel() L164, _killTreeOf(Process proc) L174
 
 ## lib/data/services/llm/anthropic_provider.dart (444 lines)
 - L10  class AnthropicConfig (model, apiKey) — AnthropicConfig(…) L14
