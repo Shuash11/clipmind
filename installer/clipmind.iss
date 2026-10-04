@@ -28,7 +28,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupIconFile=..\windows\runner\resources\app_icon.ico
 WizardImageFile=..\windows\runner\resources\wizard_image.png
 WizardSmallImageFile=..\windows\runner\resources\wizard_small.png
-PrivilegesRequired=admin
+PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 

@@ -107,6 +107,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
   }
 
   String _userFriendlyError(String error) {
+    if (error.contains('could not start')) {
+      // UpdateStartException: the detached helper script never started
+      // (UAC declined, blocked, or missing interpreter). The app stayed
+      // alive — no silent death — so a retry is safe.
+      return 'The update could not start. Please try again, or download '
+          'the installer from the website.';
+    }
     if (error.contains('HTTP 404') || error.contains('HTTP 403')) {
       return 'Could not find the update file. Please try again later or download from the website.';
     }
@@ -147,11 +154,14 @@ class _UpdateDialogState extends State<UpdateDialog> {
     });
 
     try {
+      final tag = widget.release.tagName;
+      final targetVersion = tag.startsWith('v') ? tag.substring(1) : tag;
       final downloader = widget.overrideDownloader ??
           UpdateDownloader(
             downloadUrl: widget.release.downloadUrl,
             assetType: widget.release.assetType,
             digest: widget.release.digest,
+            targetVersion: targetVersion,
             onProgress: (progress, status) {
               if (mounted) {
                 setState(() {

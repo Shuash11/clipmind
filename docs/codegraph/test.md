@@ -1,4 +1,4 @@
-# Code Graph — test (155 files, 37,883 lines; DO NOT EDIT)
+# Code Graph — test (156 files, 38,233 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -758,12 +758,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/updates/release_digest_live_gate_test.dart (112 lines)
 - L26  function main
 
-## test/unit/updates/update_downloader_test.dart (303 lines)
+## test/unit/updates/update_downloader_test.dart (443 lines)
 - L8  class _StarterCall (executable, arguments) — _StarterCall(this.executable, this.arguments) L9
-- L15  class _RecordingStarter (calls) — call(String executable, List<String> arguments) L18
-- L24  function _serveBytes
-- L34  function _updateTempDirs
-- L41  function main
+- L20  class _MarkerWritingStarter (calls) — Function()? onMarker L22, _MarkerWritingStarter(…) L24, call(String executable, List<String> arguments) L26
+- L40  class _RecordingStarter (calls) — call(String executable, List<String> arguments) L43
+- L49  function _serveBytes
+- L59  function _updateTempDirs
+- L66  function main
+
+## test/unit/updates/update_result_reader_test.dart (93 lines)
+- L8  function main
 
 ## test/widget/agent_chat_panel_test.dart (1056 lines)
 - L39  class _StubProvider extends LlmProvider — id L41, availableModels() L44, parseCommand(AgentRequest request) L47, watchConnection() L51
@@ -801,13 +805,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L137  function _twoClipProject
 - L160  function main
 
-## test/widget/project_hub_test.dart (452 lines)
-- L23  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L24, createNew(…) L32, save(Project project) L49, listRecent() L52
-- L55  function _project
-- L67  function _testRouter
-- L83  function _useDesktopViewport
-- L92  function _pumpHub
-- L106  function main
+## test/widget/project_hub_test.dart (542 lines)
+- L26  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L27, createNew(…) L35, save(Project project) L52, listRecent() L55
+- L58  function _project
+- L70  function _testRouter
+- L86  function _useDesktopViewport
+- L95  function _pumpHub
+- L111  function _mockPackageInfo
+- L134  function _mockPathProvider
+- L155  class _FailingChecker extends GithubReleaseChecker — checkForUpdate() L157
+- L160  function main
 
 ## test/widget/settings_screen_test.dart (187 lines)
 - L13  class _RecordingSettingsRepository extends SettingsRepository (saves, lastSaved) — load() L18, save(AppSettings settings) L21
@@ -831,7 +838,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L110  function twoClipProject
 - L148  function main
 
-## test/widget/update_dialog_test.dart (205 lines)
+## test/widget/update_dialog_test.dart (232 lines)
 - L13  class _ThrowingDownloader extends UpdateDownloader (error) — _ThrowingDownloader(this.error) : super(downloadUrl: '') L14, downloadAndInstall() L19
 - L22  function _dialog
 - L41  function _pumpDialog

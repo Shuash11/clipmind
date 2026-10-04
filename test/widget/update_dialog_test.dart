@@ -181,6 +181,33 @@ void main() {
       expect(find.text('Close'), findsOneWidget);
     });
 
+    testWidgets('update-start failure maps to the friendly retry message', (
+      tester,
+    ) async {
+      // UpdateStartException: the detached helper script never started.
+      // The app stayed alive, so the error is surfaced honestly.
+      await _driveError(
+        tester,
+        _dialog(
+          overrideDownloader: _ThrowingDownloader(const UpdateStartException()),
+        ),
+      );
+
+      expect(find.text('Update Failed'), findsOneWidget);
+      expect(
+        find.text(
+          'The update could not start. Please try again, or download the '
+          'installer from the website.',
+        ),
+        findsOneWidget,
+      );
+      // Not the generic fallback.
+      expect(
+        find.textContaining('An unexpected error occurred'),
+        findsNothing,
+      );
+    });
+
     testWidgets(
         'empty download URL via the real downloader maps to the '
         'corrupted-data message', (tester) async {

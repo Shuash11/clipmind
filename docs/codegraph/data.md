@@ -1,4 +1,4 @@
-# Code Graph — lib/data (41 files, 6,897 lines; DO NOT EDIT)
+# Code Graph — lib/data (42 files, 7,204 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -158,9 +158,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/services/updates/release_info.dart (24 lines)
 - L1  class ReleaseInfo (tagName, major, minor, patch, releaseNotes, downloadUrl, assetType, publishedAt) — ReleaseInfo(…) L12
 
-## lib/data/services/updates/update_downloader.dart (248 lines)
-- L10  typedef UpdateProcessStarter
-- L13  function _defaultProcessStarter
-- L27  function psSingleQuoted
-- L31  class UpdateVerificationException (message, result) — UpdateVerificationException(this.message,…) L35, toString() L38
-- L41  class UpdateDownloader (downloadUrl, assetType, digest, verifier, processStarter, appDirOverride) — Function(double? progress, String status)? onProgress L45, Function(int code) exitApp L48, UpdateDownloader(…) L51, _appDir L64, downloadAndInstall() L67, _downloadFile(…) L105, _formatSize(int bytes) L154, _extractAndInstallZip(String zipPath, String tempPath) L160, _runInstaller(String exePath, String tempPath) L219
+## lib/data/services/updates/update_downloader.dart (443 lines)
+- L11  typedef UpdateProcessStarter
+- L14  function _defaultProcessStarter
+- L28  function psSingleQuoted
+- L32  class UpdateVerificationException (message, result) — UpdateVerificationException(this.message,…) L36, toString() L39
+- L45  class UpdateStartException (message) — UpdateStartException([…) L48, toString() L55
+- L58  class UpdateDownloader (_appId, downloadUrl, assetType, digest, targetVersion, verifier, processStarter, appDirOverride) — Function(double? progress, String status)? onProgress L71, Function(int code) exitApp L74, UpdateDownloader(…) L85, _appDir L101, _resolveUpdatesDir() L107, downloadAndInstall() L115, _downloadFile(…) L155, _formatSize(int bytes) L204, _waitForStartedMarker(String path, Duration timeout) L215, _extractAndInstallZip(…) L232, _runInstaller(…) L340
+
+## lib/data/services/updates/update_result_reader.dart (112 lines)
+- L8  enum UpdateResultKind
+- L13  class UpdateResult (kind, reason, expectedVersion, currentVersion) — UpdateResult L19, UpdateResult L25, UpdateResult L30, message L36
+- L55  class UpdateResultReader (appSupportOverride) — UpdateResultReader(…) L60, resultPathFor(String appSupport) L63, consume(…) L73

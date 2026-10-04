@@ -10,12 +10,15 @@ import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/repositories/project_repository.dart';
+import 'package:clipmind/data/services/updates/github_release_checker.dart';
+import 'package:clipmind/data/services/updates/release_info.dart';
 import 'package:clipmind/data/services/import/url_import_service.dart';
 import 'package:clipmind/presentation/project_hub/project_hub_screen.dart';
 import 'package:clipmind/presentation/project_hub/widgets/blank_project_card.dart';
 import 'package:clipmind/presentation/project_hub/widgets/recent_project_card.dart';
 import 'package:clipmind/presentation/shared_widgets/dashed_border.dart';
 import 'package:clipmind/state/project_providers.dart';
+import 'package:clipmind/state/update_providers.dart';
 
 /// Fake repository: no file IO (path_provider hangs in this sandbox);
 /// returns a fixed recent list and records createNew calls. The memory DB
@@ -101,6 +104,57 @@ Future<void> _pumpHub(
       child: MaterialApp.router(routerConfig: _testRouter()),
     ),
   );
+}
+
+/// Package-info stub (the whats_new_dialog_test pattern): [version] is
+/// what _initUpdateCheck reports as the running version.
+void _mockPackageInfo(String version) {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+    const MethodChannel('dev.fluttercommunity.plus/package_info'),
+    (call) async => {
+      'appName': 'ClipMind',
+      'packageName': 'dev.clipmind',
+      'version': version,
+      'buildNumber': '2',
+    },
+  );
+  addTearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('dev.fluttercommunity.plus/package_info'),
+      null,
+    );
+  });
+}
+
+/// path_provider stub: getApplicationSupportDirectory returns
+/// [appSupportPath] so platform-channel-backed flows never hang or touch
+/// the real file system.
+void _mockPathProvider(String appSupportPath) {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+    const MethodChannel('plugins.flutter.io/path_provider'),
+    (call) async {
+      if (call.method == 'getApplicationSupportDirectory') {
+        return appSupportPath;
+      }
+      return null;
+    },
+  );
+  addTearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      null,
+    );
+  });
+}
+
+/// Deterministic update check: checkForUpdate resolves to no release.
+class _FailingChecker extends GithubReleaseChecker {
+  @override
+  Future<ReleaseInfo?> checkForUpdate() async => null;
 }
 
 void main() {
@@ -399,20 +453,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    // The import flow needs an import directory; stub path_provider so the
-    // test never touches the real platform channel.
-    const channel = MethodChannel('plugins.flutter.io/path_provider');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          if (call.method == 'getApplicationSupportDirectory') {
-            return importTempDir.path;
-          }
-          return null;
-        });
-    addTearDown(
-      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null),
-    );
+    _mockPathProvider(importTempDir.path);
 
     await _pumpHub(tester, container);
     await tester.pump();
@@ -445,6 +486,55 @@ void main() {
     expect(
       find.text('Import failed. Check the URL and try again.'),
       findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('hub shows the failed-update snackbar on startup', (
+    tester,
+  ) async {
+    _mockPackageInfo('1.36.2');
+    _mockPathProvider(importTempDir.path);
+    final repo = _FakeProjectRepository(db: db, recent: [_project()]);
+    final container = ProviderContainer.test(
+      overrides: [
+        projectRepositoryProvider.overrideWithValue(repo),
+        // Deterministic update check: a failing checker can never inject
+        // an update dialog or snackbar into this startup test.
+        githubReleaseCheckerProvider.overrideWithValue(_FailingChecker()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    // The helper scripts wrote a failed result before relaunching; the
+    // hub's startup consume must surface the reason. Real async zone:
+    // dart:io must not run inside testWidgets' FakeAsync.
+    await tester.runAsync(() async {
+      final updatesDir = Directory('${importTempDir.path}/updates');
+      await updatesDir.create(recursive: true);
+      await File('${updatesDir.path}/update-result.json').writeAsString(
+        '{"status":"failed","reason":"Installer exited with code 5",'
+        '"expectedVersion":"1.36.3","finishedAt":"2026-10-04T16:00:00.000Z"}',
+      );
+    });
+
+    await _pumpHub(tester, container);
+    // Flushes the stubbed channel calls + startup consume, then renders
+    // the snackbar frame.
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (find.text('Installer exited with code 5').evaluate().isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(find.text('Installer exited with code 5'), findsOneWidget);
+    // The result file was consumed after read.
+    expect(
+      File(
+        '${importTempDir.path.replaceAll('\\', '/')}/updates/update-result.json',
+      ).existsSync(),
+      isFalse,
     );
     expect(tester.takeException(), isNull);
   });

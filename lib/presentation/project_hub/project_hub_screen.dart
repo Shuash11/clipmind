@@ -21,6 +21,7 @@ import 'package:clipmind/presentation/shared_widgets/whats_new_dialog.dart';
 import 'package:clipmind/data/services/import/youtube_import_service.dart';
 import 'package:clipmind/data/services/import/url_import_service.dart';
 import 'package:clipmind/data/models/app_settings.dart';
+import 'package:clipmind/data/services/updates/update_result_reader.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'widgets/upload_dropzone.dart';
 import 'widgets/import_source_card.dart';
@@ -64,6 +65,23 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
   Future<void> _initUpdateCheck() async {
     try {
       final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      // Consume the last update result (written by the install helper
+      // before relaunching): a failed/mismatched update surfaces here on
+      // the next launch instead of looping silently.
+      final result =
+          await const UpdateResultReader().consume(
+        currentVersion: info.version,
+      );
+      if (result != null && result.message != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message!),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
       if (!mounted) return;
       ref
           .read(updateNotifierProvider.notifier)
