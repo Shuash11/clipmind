@@ -1,3 +1,9 @@
+# Node modules (skill/agent tooling dependencies auto-installed locally)
+node_modules/
+
+# OpenCode transient artifacts (auto-regenerate)
+.opencode/acm-options-debug.json
+
 # Miscellaneous
 *.class
 *.log

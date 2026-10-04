@@ -1,0 +1,27 @@
+{
+  "orchestrator": {
+    "model": "",
+    "provider": "",
+    "variant": ""
+  },
+  "frontend": {
+    "model": "",
+    "provider": "",
+    "variant": ""
+  },
+  "middle_end": {
+    "model": "",
+    "provider": "",
+    "variant": ""
+  },
+  "backend": {
+    "model": "",
+    "provider": "",
+    "variant": ""
+  },
+  "reviewer": {
+    "model": "",
+    "provider": "",
+    "variant": ""
+  }
+}
