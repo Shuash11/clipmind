@@ -1,4 +1,4 @@
-# Code Graph — test (156 files, 38,407 lines; DO NOT EDIT)
+# Code Graph — test (156 files, 38,581 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -549,13 +549,13 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L16  class _FakeResolver extends FfmpegBinaryResolver — resolveFfmpeg(…) L18
 - L29  function main
 
-## test/unit/ffmpeg/service_timeout_test.dart (322 lines)
+## test/unit/ffmpeg/service_timeout_test.dart (496 lines)
 - L10  class _FakeResolver extends FfmpegBinaryResolver — resolveFfmpeg(…) L12, resolveFfprobe(…) L15
 - L18  function _neverCompletes
 - L24  function _neverCompletesJob
 - L35  function main
-- L283  function _neverListStream
-- L288  class _FakeStreamingProcess (stdoutStream, stderrStream, exitCodeFuture, killed) — _FakeStreamingProcess(…) L289, stdout L302, stderr L305, exitCode L308, pid L311, stdin L314, kill([ProcessSignal signal = ProcessSignal.sigterm]) L317
+- L457  function _neverListStream
+- L462  class _FakeStreamingProcess (stdoutStream, stderrStream, exitCodeFuture, killed) — _FakeStreamingProcess(…) L463, stdout L476, stderr L479, exitCode L482, pid L485, stdin L488, kill([ProcessSignal signal = ProcessSignal.sigterm]) L491
 
 ## test/unit/ffmpeg/transition_live_gates_test.dart (113 lines)
 - L31  function _synthAv

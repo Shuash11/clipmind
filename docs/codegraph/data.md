@@ -1,4 +1,4 @@
-# Code Graph — lib/data (42 files, 7,273 lines; DO NOT EDIT)
+# Code Graph — lib/data (42 files, 7,371 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -61,13 +61,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/services/ffmpeg/ffmpeg_binary_resolver.dart (62 lines)
 - L3  class FfmpegBinaryResolver (_cachedFfmpeg, _cachedFfprobe) — resolveFfmpeg(…) L7, resolveFfprobe(…) L13, _resolve(String binary,…) L19, _bundledPath(String binary) L29, _executablePlatform() L35, _which(String binary) L42, invalidateCache() L57
 
-## lib/data/services/ffmpeg/ffmpeg_service.dart (344 lines)
+## lib/data/services/ffmpeg/ffmpeg_service.dart (442 lines)
 - L10  class FfmpegProgress (percent, outTimeMs, speed, status) — FfmpegProgress(…) L16
 - L24  class FfmpegJob (id, args, expectedDurationMs, inputPath, outputPath, label) — FfmpegJob(…) L32
 - L42  class FfmpegResult (success, outputPath, exitCode, stderr, error) — FfmpegResult(…) L49
-- L58  class FfmpegService (_resolver, _tempDir, _uuid, jobTimeout, stallTimeout, _process) — Function(String binary, List<String> args)? L70, Function(String binary, List<String> args)? L82, FfmpegService(…) L87, hasActiveProcess L101, tempDir L103, createTempPath(…) L105, run(FfmpegJob job) async* L111, runSync(FfmpegJob job) L226, cancel() L309, dispose() L314
-- L325  class FfmpegBinaryNotFoundException (message) — FfmpegBinaryNotFoundException(this.message) L327, toString() L330
-- L337  class FfmpegStallException (message) — FfmpegStallException(this.message) L339, toString() L342
+- L58  class FfmpegService (_resolver, _tempDir, _uuid, jobTimeout, runJob, stallTimeout, startProcess, _process) — Function(String binary, List<String> args)? L70, Function(String binary, List<String> args)? L82, FfmpegService(…) L98, hasActiveProcess L112, tempDir L114, createTempPath(…) L116, run(FfmpegJob job) async* L134, runSync(FfmpegJob job) L292, cancel() L382, dispose() L388
+- L399  class FfmpegBinaryNotFoundException (message) — FfmpegBinaryNotFoundException(this.message) L401, toString() L404
+- L411  class FfmpegStallException (message) — FfmpegStallException(this.message) L413, toString() L416
+- L423  class FfmpegBusyException (message) — FfmpegBusyException(this.message) L425, toString() L428
+- L435  class FfmpegExitCodeException (message) — FfmpegExitCodeException(this.message) L437, toString() L440
 
 ## lib/data/services/ffmpeg/ffprobe_service.dart (213 lines)
 - L8  class VideoMetadata (durationMs, width, height, fps, codec, hasAudio, bitrate, audioSampleRate) — VideoMetadata(…) L18
