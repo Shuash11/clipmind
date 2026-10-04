@@ -1,4 +1,4 @@
-# Code Graph — lib/state (13 files, 2,762 lines; DO NOT EDIT)
+# Code Graph — lib/state (13 files, 2,827 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/state/agent_analysis_providers.dart (70 lines)
@@ -22,9 +22,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/state/ffmpeg_providers.dart (34 lines)
 - L19  class ActiveJobsNotifier extends StateNotifier<List<FfmpegJob>> — ActiveJobsNotifier() : super([]) L20, add(FfmpegJob job) L22, remove(String jobId) L26, clear() L30
 
-## lib/state/manual_edit_providers.dart (1248 lines)
+## lib/state/manual_edit_providers.dart (1313 lines)
 - L25  class ManualCutResult (success, message, outputPath) — ManualCutResult(…) L30, ManualCutResult L36, ManualCutResult L41, ManualCutResult L48, ManualCutResult L56
-- L106  class ManualEditController (_ref, _uuid) — ManualEditController(this._ref) L110, submitCut(…) L132, submitRecipe(…) L243, submitAdjustments(…) L381, submitTransition(…) L590, submitOverlayText(…) L817, submitSound(…) L936, submitTrim(…) L1064, submitSplit(…) L1109, _recipeJournalType(String opType) L1152, _adjustmentsJournalType(String opType) L1166, _resolveTarget(…) L1182, _clipPathMap(Project project) L1205, _defaultPath(…) L1219, _findClip(Project project, String clipId) L1232, _toSeconds(int ms) L1242
+- L106  class ManualEditController (_ref, _uuid) — ManualEditController(this._ref) L110, submitCut(…) L132, submitRecipe(…) L254, submitAdjustments(…) L416, submitTransition(…) L626, submitOverlayText(…) L855, submitSound(…) L976, submitTrim(…) L1106, submitSplit(…) L1151, _recipeJournalType(String opType) L1194, _adjustmentsJournalType(String opType) L1208, _resolveTarget(…) L1224, _sourceHasAudioFor(…) L1254, _clipPathMap(Project project) L1270, _defaultPath(…) L1284, _findClip(Project project, String clipId) L1297, _toSeconds(int ms) L1307
 
 ## lib/state/player_providers.dart (32 lines)
 

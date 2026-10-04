@@ -1,4 +1,4 @@
-# Code Graph — lib/domain (22 files, 6,081 lines; DO NOT EDIT)
+# Code Graph — lib/domain (22 files, 6,253 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/domain/agent/agent_activity.dart (42 lines)
@@ -23,13 +23,13 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L68  class AgentToolCallRecord — AgentToolCallRecord(…) L69, AgentToolCallRecord L78
 - L84  class AgentTurnResult — AgentTurnResult(…) L85, AgentTurnResult L92
 
-## lib/domain/agent/nl2vec_pipeline.dart (708 lines)
+## lib/domain/agent/nl2vec_pipeline.dart (722 lines)
 - L27  enum PipelineStage — error L28
 - L31  enum SubmitStatus
 - L33  class SubmitResult (status, message, appliedOperations, outputPath, records) — SubmitResult(…) L42
 - L51  class PipelineEvent (stage, message, progress, outputPath) — PipelineEvent(this.stage, this.message, [this.progress, this.outputPath]) L56
-- L59  class Nl2VecPipeline (ffmpegService, ffprobeService, _events) — events L64, _agentActivity L68, agentActivity L71, Nl2VecPipeline(…) L73, submitCommand(…) L78, executePlanned(…) L302, _toolContext(…) L405, _runToolPath(…) L442, _executeWithEvents(…) L512, _clipSnapshotsOf(Project project) L545, _buildClipPathMap(Project project) L562, _resolveDefaultPath(Project project, Map<String, String> clipPathMap) L574, _dirOf(String path) L584, _toEditOperations(…) L595, _parseType(String type) L616, _buildSchemaJson() L657, _serializeToJson(EditOperationSet set) L689, dispose() L693
-- L699  class PipelineException (message) — PipelineException(this.message) L701, toString() L704
+- L59  class Nl2VecPipeline (ffmpegService, ffprobeService, _events) — events L64, _agentActivity L68, agentActivity L71, Nl2VecPipeline(…) L73, submitCommand(…) L78, executePlanned(…) L316, _toolContext(…) L419, _runToolPath(…) L456, _executeWithEvents(…) L526, _clipSnapshotsOf(Project project) L559, _buildClipPathMap(Project project) L576, _resolveDefaultPath(Project project, Map<String, String> clipPathMap) L588, _dirOf(String path) L598, _toEditOperations(…) L609, _parseType(String type) L630, _buildSchemaJson() L671, _serializeToJson(EditOperationSet set) L703, dispose() L707
+- L713  class PipelineException (message) — PipelineException(this.message) L715, toString() L718
 
 ## lib/domain/agent/operation_schema.dart (83 lines)
 - L7  class EditOperationSet — EditOperationSet(…) L8, EditOperationSet L14
@@ -52,9 +52,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/domain/agent/stage_4_output_validation.dart (191 lines)
 - L5  class OutputValidator — validTypes L6, requiredParams L13, validateJson(String rawJson) L30, validate(…) L122, buildRetryPrompt(String originalCommand, List<String> errors) L160
 
-## lib/domain/agent/stage_5_command_mapping.dart (817 lines)
+## lib/domain/agent/stage_5_command_mapping.dart (937 lines)
 - L9  class CommandMappingException (message) — CommandMappingException(this.message) L11, toString() L14
-- L17  class CommandMapper — _composableTypes L18, _singlePassTypes L24, _structuralTypes L32, mapOperations(…) L54, _clipIdOf(EditOperationRequest op) L138, _composeMultiOp(…) L142, _composeFilterGraph(…) L186, _buildMergeJob(…) L437, _buildTransitionJob(…) L477, _buildSingleJob(…) L530, _str(Map<String, dynamic> params, String key, String fallback) L730, _num(Map<String, dynamic> params, String key, double fallback) L737, _int(Map<String, dynamic> params, String key, int fallback) L744, _numOrNull(Map<String, dynamic> params, String key) L752, _firstRangedRestriction(…) L765, _cutRangeParam(Map<String, dynamic> params, String key) L780, _validatedColor(String color) L787, _outputPathFor(…) L795, _dirOf(String path) L806
+- L17  class CommandMapper — _composableTypes L18, _singlePassTypes L24, _structuralTypes L32, mapOperations(…) L61, _clipIdOf(EditOperationRequest op) L147, _composeMultiOp(…) L154, _composeFilterGraph(…) L207, _buildMergeJob(…) L483, _mergeAudioFlags(Object? raw, int n, String opId) L550, _mergeDurations(Object? raw, int n, String opId) L564, _buildTransitionJob(…) L580, _buildSingleJob(…) L635, _str(Map<String, dynamic> params, String key, String fallback) L850, _num(Map<String, dynamic> params, String key, double fallback) L857, _int(Map<String, dynamic> params, String key, int fallback) L864, _numOrNull(Map<String, dynamic> params, String key) L872, _firstRangedRestriction(…) L885, _cutRangeParam(Map<String, dynamic> params, String key) L900, _validatedColor(String color) L907, _outputPathFor(…) L915, _dirOf(String path) L926
 
 ## lib/domain/agent/stage_6_execution.dart (219 lines)
 - L6  class ExecutionProgress (jobId, operationType, percent, status, message) — ExecutionProgress(…) L13
@@ -73,19 +73,19 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L61  class ToolResult (success, data, error, summary) — ToolResult(…) L67, ToolResult L74, ToolResult L81
 - L96  class ToolExecutor — execute(ToolCall call) L97
 
-## lib/domain/agent/tools/tool_executors.dart (1582 lines)
+## lib/domain/agent/tools/tool_executors.dart (1620 lines)
 - L26  class ToolExecutionContext (outputDir, projectDir, applier, ffmpegService, ffprobeService, sceneDetectionService, whisperService, maxJobs) — Function() project L27, Function(String kind)? readAnalysis L49, Function(String kind, Map<String, dynamic> payload)? writeAnalysis L50, Function()? whisperConfig L56, Function(String familyId)? resolveFont L64, ToolExecutionContext(…) L73, resetRun() L93
 - L101  class ReadToolExecutor (_ctx, maxTranscriptResultSegments) — ReadToolExecutor(this._ctx) L104, execute(ToolCall call) L107, _listClips() L134, _probeVideo(Map<String, dynamic> args) L154, _editHistory() L187, _detectScenes(Map<String, dynamic> args) L204, _storyboard(Map<String, dynamic> args) L287, _transcript(Map<String, dynamic> args) L351, _segmentsFromCache(Object? raw) L466, _transcriptResult(…) L469, _intList(dynamic raw) L496
-- L504  class EditToolExecutor (_ctx, _strictTimecode) — EditToolExecutor(this._ctx) L507, execute(ToolCall call) L510, _trim(ToolCall call) L557, _cut(ToolCall call) L582, _merge(ToolCall call) L630, _changeSpeed(ToolCall call) L677, _mute(ToolCall call) L697, _overlayText(ToolCall call) L710, _normalizeFontFamily(String raw) L780, _resize(ToolCall call) L784, _rotate(ToolCall call) L809, _brightness(ToolCall call) L828, _volume(ToolCall call) L848, _extractAudio(ToolCall call) L868, supportedEffects L890, _applyEffect(ToolCall call) L900, supportedTransitions L971, _addTransition(ToolCall call) L992, _burnCaptions(ToolCall call) L1136, _runSingleOp(…) L1234, _executeSet(…) L1259, _requireTimecode(String? value, String field) L1344, _requireOrder(…) L1354, _hasFilterBreakout(String text) L1368, _trimNewRange(String startTc, String endTc) L1378, _cutNewRange(…) L1397, _requireClip(String? clipId) L1415, _budgetMessage L1426, _operationType(String type) L1430
-- L1468  function createToolRegistry
-- L1501  function transcriptSegmentsFromCache
-- L1518  function _stringArg
-- L1525  function _lowerFirst
-- L1530  function _numArg
-- L1537  function _unknownClip
-- L1544  function _clipPathMap
-- L1556  function _clipPath
-- L1574  function _defaultPath
+- L504  class EditToolExecutor (_ctx, _strictTimecode) — EditToolExecutor(this._ctx) L507, execute(ToolCall call) L510, _trim(ToolCall call) L557, _cut(ToolCall call) L582, _merge(ToolCall call) L630, _changeSpeed(ToolCall call) L701, _mute(ToolCall call) L721, _overlayText(ToolCall call) L734, _normalizeFontFamily(String raw) L804, _resize(ToolCall call) L808, _rotate(ToolCall call) L833, _brightness(ToolCall call) L852, _volume(ToolCall call) L872, _extractAudio(ToolCall call) L892, supportedEffects L914, _applyEffect(ToolCall call) L924, supportedTransitions L995, _addTransition(ToolCall call) L1016, _burnCaptions(ToolCall call) L1160, _runSingleOp(…) L1258, _executeSet(…) L1283, _requireTimecode(String? value, String field) L1382, _requireOrder(…) L1392, _hasFilterBreakout(String text) L1406, _trimNewRange(String startTc, String endTc) L1416, _cutNewRange(…) L1435, _requireClip(String? clipId) L1453, _budgetMessage L1464, _operationType(String type) L1468
+- L1506  function createToolRegistry
+- L1539  function transcriptSegmentsFromCache
+- L1556  function _stringArg
+- L1563  function _lowerFirst
+- L1568  function _numArg
+- L1575  function _unknownClip
+- L1582  function _clipPathMap
+- L1594  function _clipPath
+- L1612  function _defaultPath
 
 ## lib/domain/agent/tools/tool_prompts.dart (78 lines)
 - L7  class ProjectContextWriter — write(ProjectSnapshot project) L8

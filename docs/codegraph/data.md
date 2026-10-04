@@ -1,4 +1,4 @@
-# Code Graph — lib/data (41 files, 6,656 lines; DO NOT EDIT)
+# Code Graph — lib/data (41 files, 7,050 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -55,22 +55,22 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/repositories/settings_repository.dart (54 lines)
 - L8  class SettingsRepository (_cached, _controller, _disposed) — stream L13, load() L15, save(AppSettings settings) L32, getActiveProviderId() L44, dispose() L49
 
-## lib/data/services/ffmpeg/command_builder.dart (601 lines)
-- L7  class CommandBuilder — trim(String input, String start, String end) L8, cut(…) L25, shiftedCutTime(String removeTime, double clipStartSec) L68, _cutTimeToSeconds(String time) L76, merge(List<String> inputs) L85, changeSpeed(…) L113, mute(String input) L154, overlayText(…) L158, resize(String input, int width, int height, String fit) L221, rotate(String input, double degrees) L242, burnCaptions(…) L264, burnCaptionsFilter(…) L286, transition(…) L319, effectFilter(…) L379, effect(…) L404, extractAudio(String input, String outputFormat) L423, generateThumbnail(String input, String timestamp) L435, changeFormat(…) L439, adjustBrightness(String input, double value) L459, changeVolume(String input, double factor) L464, overlayPosition(String position) L472, overlayWatermark(…) L487, addAudio(…) L522, proceduralSoundSource(String presetId) L582, lavfiToWav(String source) L597
+## lib/data/services/ffmpeg/command_builder.dart (725 lines)
+- L7  class CommandBuilder — trim(String input, String start, String end) L8, cut(…) L25, shiftedCutTime(String removeTime, double clipStartSec) L68, _cutTimeToSeconds(String time) L76, merge(…) L116, _mergeSilenceDuration(List<double?>? durations, int index) L205, changeSpeed(…) L229, mute(String input) L270, overlayText(…) L274, resize(String input, int width, int height, String fit) L337, rotate(String input, double degrees) L358, burnCaptions(…) L380, burnCaptionsFilter(…) L402, transition(…) L435, effectFilter(…) L495, effect(…) L524, extractAudio(String input, String outputFormat) L545, generateThumbnail(String input, String timestamp) L557, changeFormat(…) L561, adjustBrightness(String input, double value) L583, changeVolume(String input, double factor) L588, overlayPosition(String position) L596, overlayWatermark(…) L611, addAudio(…) L646, proceduralSoundSource(String presetId) L706, lavfiToWav(String source) L721
 
 ## lib/data/services/ffmpeg/ffmpeg_binary_resolver.dart (62 lines)
 - L3  class FfmpegBinaryResolver (_cachedFfmpeg, _cachedFfprobe) — resolveFfmpeg(…) L7, resolveFfprobe(…) L13, _resolve(String binary,…) L19, _bundledPath(String binary) L29, _executablePlatform() L35, _which(String binary) L42, invalidateCache() L57
 
-## lib/data/services/ffmpeg/ffmpeg_service.dart (220 lines)
+## lib/data/services/ffmpeg/ffmpeg_service.dart (275 lines)
 - L10  class FfmpegProgress (percent, outTimeMs, speed, status) — FfmpegProgress(…) L16
 - L24  class FfmpegJob (id, args, expectedDurationMs, inputPath, outputPath, label) — FfmpegJob(…) L32
 - L42  class FfmpegResult (success, outputPath, exitCode, stderr, error) — FfmpegResult(…) L49
-- L58  class FfmpegService (_resolver, _tempDir, _uuid, _process) — FfmpegService(…) L65, tempDir L69, createTempPath(…) L71, run(FfmpegJob job) async* L77, runSync(FfmpegJob job) L149, cancel() L197, dispose() L202
-- L213  class FfmpegBinaryNotFoundException (message) — FfmpegBinaryNotFoundException(this.message) L215, toString() L218
+- L58  class FfmpegService (_resolver, _tempDir, _uuid, jobTimeout, _process) — Function(String binary, List<String> args)? L70, FfmpegService(…) L75, tempDir L83, createTempPath(…) L85, run(FfmpegJob job) async* L91, runSync(FfmpegJob job) L169, cancel() L252, dispose() L257
+- L268  class FfmpegBinaryNotFoundException (message) — FfmpegBinaryNotFoundException(this.message) L270, toString() L273
 
-## lib/data/services/ffmpeg/ffprobe_service.dart (145 lines)
-- L7  class VideoMetadata (durationMs, width, height, fps, codec, hasAudio, bitrate, audioSampleRate) — VideoMetadata(…) L17
-- L29  class FfprobeService (_resolver) — FfprobeService(…) L32, extractMetadata(String filePath) L35, _parseMetadata(Map<String, dynamic> data) L63, generateThumbnail(…) L110
+## lib/data/services/ffmpeg/ffprobe_service.dart (213 lines)
+- L8  class VideoMetadata (durationMs, width, height, fps, codec, hasAudio, bitrate, audioSampleRate) — VideoMetadata(…) L18
+- L30  class FfprobeService (_resolver, probeTimeout) — Function(String binary, List<String> args)? L37, FfprobeService(…) L44, _realRunProbe(…) L54, extractMetadata(String filePath) L74, _parseMetadata(Map<String, dynamic> data) L120, generateThumbnail(…) L167
 
 ## lib/data/services/ffmpeg/filter_escaping.dart (111 lines)
 - L5  class FilterEscaping (_hexColor) — escapeDrawtext(String text) L13, validateColor(String color) L23, assColorFromHex(String color) L37, escapeSubtitlePath(String path) L53, escapeFontFilePath(String path) L66, validateImagePath(String imagePath,…) L78
@@ -95,9 +95,11 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L12  class BundledFont (id, label, fileName) — BundledFont(…) L22
 - L36  class FontResolver (_cache) — catalog L37, Function(String key) _loadAsset L69, Function() _supportDir L73, FontResolver(…) L75, isKnownFamily(String familyId) L82, cachedPath(String familyId) L88, resolve(String familyId) L94, invalidateCache() L123
 
-## lib/data/services/import/gdrive_import_service.dart (127 lines)
-- L9  class GoogleAuthClient (_inner, _headers) — GoogleAuthClient(this._headers) L13, send(http.BaseRequest request) L16, close() L22
-- L25  class GDriveImportService (_dio, _progress, _errorStream) — progress L30, errors L31, GDriveImportService() : _dio = Dio() L33, _extractFileId(String url) L35, import(String fileUrl, String outputPath) L48, _downloadDirect(String fileUrl, String outputPath) L69, _downloadViaApi(String fileId, String outputPath) L80, cancel() L123
+## lib/data/services/import/gdrive_import_service.dart (274 lines)
+- L10  class GoogleAuthClient (_inner, _headers) — GoogleAuthClient(this._headers) L14, send(http.BaseRequest request) L17, close() L23
+- L26  class GDriveUnsupportedPlatformException (message) — GDriveUnsupportedPlatformException([…) L29, toString() L34
+- L37  class GDriveInvalidInputException (message) — GDriveInvalidInputException(this.message) L40, toString() L43
+- L46  class GDriveImportService (_dio, _cancelToken, _activeClient, _cancelRequested, _progress, _errorStream) — driveApiUnsupportedMessage L47, isDriveApiSupported L53, Function() _driveApiSupported L60, Function()? _signIn L64, Function(http.Client client)? _driveApiFactory L68, progress L76, errors L77, GDriveImportService(…) L79, _defaultSignIn() L89, _reportError(String message) L102, _extractFileId(String url) L115, import(String fileUrl, String outputPath) L132, _downloadDirect(String fileUrl, String outputPath) L179, _downloadViaApi(String fileId, String outputPath) L201, cancel() L264
 
 ## lib/data/services/import/youtube_import_service.dart (79 lines)
 - L5  class YouTubeImportService (_progress, _errorStream, _process) — progress L10, errors L11, import(String url, String outputDir) L13, cancel() L75

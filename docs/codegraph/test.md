@@ -1,4 +1,4 @@
-# Code Graph — test (150 files, 36,292 lines; DO NOT EDIT)
+# Code Graph — test (155 files, 38,019 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -395,6 +395,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L26  class _OkExecutor — execute(ToolCall call) L28
 - L34  function main
 
+## test/unit/agent/stage_5_composed_audio_test.dart (162 lines)
+- L14  function main
+
 ## test/unit/agent/timecode_utils_test.dart (106 lines)
 - L4  function main
 - L103  function _tc
@@ -431,13 +434,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L52  function _project
 - L80  function main
 
-## test/unit/agent/tools/edit_tool_executor_test.dart (582 lines)
+## test/unit/agent/tools/edit_tool_executor_test.dart (846 lines)
 - L18  class _MockFfprobe extends Mock implements FfprobeService
-- L20  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L23, runSync(FfmpegJob job) L26
-- L35  class _Applied (op, path) — _Applied(this.op, this.path) L38
-- L41  function _project
-- L78  function _rangedProject
-- L90  function main
+- L23  class _RecordingFfprobe extends FfprobeService (hasAudio, throwOnProbe, probedPaths) — _RecordingFfprobe(…) L24, extractMetadata(String filePath) L31
+- L52  class _MergeFfprobe extends FfprobeService (audioByPath, durationMsByPath, throwOnProbe, probedPaths) — _MergeFfprobe(…) L53, extractMetadata(String filePath) L65
+- L81  class _FakeFfmpeg extends FfmpegService (lastJob) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L84, runSync(FfmpegJob job) L87
+- L96  class _Applied (op, path) — _Applied(this.op, this.path) L99
+- L102  function _project
+- L139  function _rangedProject
+- L151  function main
 
 ## test/unit/agent/tools/overlay_text_font_test.dart (267 lines)
 - L17  class _MockFfprobe extends Mock implements FfprobeService
@@ -515,7 +520,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L61  function _runJob
 - L69  function main
 
-## test/unit/ffmpeg/command_builder_test.dart (746 lines)
+## test/unit/ffmpeg/command_builder_test.dart (890 lines)
 - L4  function main
 
 ## test/unit/ffmpeg/command_mapper_restriction_test.dart (453 lines)
@@ -523,6 +528,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 
 ## test/unit/ffmpeg/composed_watermark_mapping_test.dart (347 lines)
 - L14  function main
+
+## test/unit/ffmpeg/effect_range_preset_test.dart (196 lines)
+- L11  function main
 
 ## test/unit/ffmpeg/export_live_gates_test.dart (423 lines)
 - L36  function _synthAv
@@ -541,6 +549,12 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L16  class _FakeResolver extends FfmpegBinaryResolver — resolveFfmpeg(…) L18
 - L29  function main
 
+## test/unit/ffmpeg/service_timeout_test.dart (148 lines)
+- L9  class _FakeResolver extends FfmpegBinaryResolver — resolveFfmpeg(…) L11, resolveFfprobe(…) L14
+- L17  function _neverCompletes
+- L23  function _neverCompletesJob
+- L34  function main
+
 ## test/unit/ffmpeg/transition_live_gates_test.dart (113 lines)
 - L31  function _synthAv
 - L45  function main
@@ -554,6 +568,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 
 ## test/unit/fonts/font_resolver_test.dart (134 lines)
 - L7  function main
+
+## test/unit/import/gdrive_import_service_test.dart (507 lines)
+- L12  class _MockDio extends Mock implements Dio
+- L14  class _MockAccount extends Mock implements GoogleSignInAccount
+- L16  class _FakeDriveApi
+- L18  class _FakeFilesResource
+- L20  function _noopProgress
+- L41  function _stubDownloadSuccess
+- L57  function main
 
 ## test/unit/llm/anthropic_provider_tools_test.dart (278 lines)
 - L8  class _MockDio extends Mock implements Dio
@@ -643,23 +666,32 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L124  function _joined
 - L126  function main
 
-## test/unit/state/manual_edit_adjustments_test.dart (530 lines)
+## test/unit/state/manual_edit_adjustments_test.dart (593 lines)
 - L20  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L23, save(Project project) L26
 - L31  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L34, runSync(FfmpegJob job) L37
 - L46  class _FakeFfprobe extends FfprobeService — extractMetadata(String filePath) L48
-- L51  function _project
-- L85  function _clipOf
-- L92  function main
+- L53  class _RecordingFfprobe extends FfprobeService (hasAudio, probedPaths) — _RecordingFfprobe(…) L54, extractMetadata(String filePath) L60
+- L74  function _project
+- L108  function _clipOf
+- L115  function main
 
-## test/unit/state/manual_edit_panels_test.dart (389 lines)
+## test/unit/state/manual_edit_panels_test.dart (424 lines)
 - L23  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L26, save(Project project) L29
 - L34  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L37, runSync(FfmpegJob job) L40
-- L49  class _FakeFfprobe extends FfprobeService (meta) — _FakeFfprobe(this.meta) L50, extractMetadata(String filePath) L55
-- L58  class _FakeSound extends ProceduralSoundService (tmpDir, generatedFor) — _FakeSound(this.tmpDir) L59, generate(…) L65
-- L79  function _meta
-- L89  function _project
-- L118  function _sourceOf
-- L126  function main
+- L49  class _FakeFfprobe extends FfprobeService (meta, probedPaths) — _FakeFfprobe(this.meta) L50, extractMetadata(String filePath) L56
+- L62  class _FakeSound extends ProceduralSoundService (tmpDir, generatedFor) — _FakeSound(this.tmpDir) L63, generate(…) L69
+- L83  function _meta
+- L93  function _project
+- L122  function _sourceOf
+- L130  function main
+
+## test/unit/state/manual_edit_recipe_range_test.dart (208 lines)
+- L20  class _RecordingRepository extends ProjectRepository — _RecordingRepository(super.db) L21, save(Project project) L24
+- L27  class _FakeFfmpeg extends FfmpegService (jobs) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L30, runSync(FfmpegJob job) L33
+- L42  class _FakeFfprobe extends FfprobeService — extractMetadata(String filePath) L44
+- L55  function _project
+- L84  function _clipOf
+- L97  function main
 
 ## test/unit/state/manual_edit_transition_test.dart (353 lines)
 - L20  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L23, save(Project project) L26
