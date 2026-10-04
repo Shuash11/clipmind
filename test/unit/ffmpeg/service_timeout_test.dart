@@ -276,6 +276,180 @@ void main() {
       }
     });
   });
+
+  group('FfmpegService.run lifecycle hardening', () {
+    test('cancel during startup kills the late child and ends without events',
+        () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('clipmind_run_startcancel_');
+      try {
+        final input = (File('${tmp.path}/a.mp4')..writeAsStringSync('src')).path;
+        final hungFake = _FakeStreamingProcess(
+          stdoutStream: _neverListStream(),
+          stderrStream: Stream<List<int>>.value(const <int>[]),
+          exitCodeFuture: Completer<int>().future,
+        );
+        final healthyLines = utf8.encode(
+          'out_time_ms=15000\nprogress=end\n',
+        );
+        final healthyFake = _FakeStreamingProcess(
+          stdoutStream: Stream<List<int>>.value(healthyLines),
+          stderrStream: Stream<List<int>>.value(const <int>[]),
+          exitCodeFuture: Future.value(0),
+        );
+        // First starter call suspends in the startup window; later calls
+        // serve a healthy child so the follow-up run proves busy cleared.
+        final starterGate = Completer<Process>();
+        var calls = 0;
+        final service = FfmpegService(
+          resolver: _FakeResolver(),
+          tempDir: tmp.path,
+          stallTimeout: const Duration(seconds: 5),
+          startProcess: (binary, args) {
+            calls++;
+            if (calls == 1) return starterGate.future;
+            return Future<Process>.value(healthyFake);
+          },
+        );
+        FfmpegJob jobFor(String id, String out) => FfmpegJob(
+              id: id,
+              args: const ['-i', 'in.mp4'],
+              expectedDurationMs: 30000,
+              inputPath: input,
+              outputPath: out,
+            );
+        final eventsFuture =
+            service.run(jobFor('op_startcancel', '${tmp.path}/out.mp4')).toList();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Still starting up: no child handle yet.
+        expect(service.hasActiveProcess, isFalse);
+        service.cancel();
+        starterGate.complete(hungFake);
+        final events = await eventsFuture;
+        expect(events, isEmpty);
+        expect(hungFake.killed, isTrue);
+        expect(service.hasActiveProcess, isFalse);
+        // Busy cleared: a follow-up run on the same service proceeds.
+        final followUp = await service
+            .run(jobFor('op_next', '${tmp.path}/out2.mp4'))
+            .toList();
+        expect(followUp.last.status, equals('complete'));
+        expect(calls, equals(2));
+      } finally {
+        await tmp.delete(recursive: true);
+      }
+    });
+
+    test('a second concurrent run is rejected with a typed busy failure',
+        () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('clipmind_run_busy_');
+      try {
+        final input = (File('${tmp.path}/a.mp4')..writeAsStringSync('src')).path;
+        final healthyLines = utf8.encode(
+          'out_time_ms=15000\nprogress=end\n',
+        );
+        final healthyFake = _FakeStreamingProcess(
+          stdoutStream: Stream<List<int>>.value(healthyLines),
+          stderrStream: Stream<List<int>>.value(const <int>[]),
+          exitCodeFuture: Future.value(0),
+        );
+        // Hold the first run in the startup window so the test is
+        // deterministic (no watchdog waits, no subscription cancels).
+        final starterGate = Completer<Process>();
+        var calls = 0;
+        final service = FfmpegService(
+          resolver: _FakeResolver(),
+          tempDir: tmp.path,
+          stallTimeout: const Duration(seconds: 5),
+          startProcess: (binary, args) {
+            calls++;
+            return starterGate.future;
+          },
+        );
+        FfmpegJob jobFor(String id, String out) => FfmpegJob(
+              id: id,
+              args: const ['-i', 'in.mp4'],
+              expectedDurationMs: 30000,
+              inputPath: input,
+              outputPath: out,
+            );
+        final firstFuture = service
+            .run(jobFor('op_first', '${tmp.path}/out.mp4'))
+            .toList();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await expectLater(
+          service.run(jobFor('op_second', '${tmp.path}/out2.mp4')).toList(),
+          throwsA(
+            isA<FfmpegBusyException>().having(
+              (e) => e.message,
+              'message',
+              contains('busy'),
+            ),
+          ),
+        );
+        // The rejected run never reached the starter.
+        expect(calls, equals(1));
+        starterGate.complete(healthyFake);
+        final events = await firstFuture;
+        expect(events.last.status, equals('complete'));
+        expect(service.hasActiveProcess, isFalse);
+      } finally {
+        await tmp.delete(recursive: true);
+      }
+    });
+
+    test('non-zero exit surfaces a typed failure with partial-output context',
+        () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('clipmind_run_exitcode_');
+      try {
+        final input = (File('${tmp.path}/a.mp4')..writeAsStringSync('src')).path;
+        final outputPath = '${tmp.path}/out.mp4';
+        // Progress looked complete, but the child failed: must not read as
+        // success via a file-exists check.
+        final lines = utf8.encode(
+          'out_time_ms=15000\nprogress=end\n',
+        );
+        final fake = _FakeStreamingProcess(
+          stdoutStream: Stream<List<int>>.value(lines),
+          stderrStream: Stream<List<int>>.value(const <int>[]),
+          exitCodeFuture: Future.value(1),
+        );
+        final service = FfmpegService(
+          resolver: _FakeResolver(),
+          tempDir: tmp.path,
+          stallTimeout: const Duration(seconds: 5),
+          startProcess: (binary, args) async => fake,
+        );
+        final job = FfmpegJob(
+          id: 'op_exitcode',
+          args: const ['-i', 'in.mp4'],
+          expectedDurationMs: 30000,
+          inputPath: input,
+          outputPath: outputPath,
+        );
+        await expectLater(
+          service.run(job).toList(),
+          throwsA(
+            isA<FfmpegExitCodeException>().having(
+              (e) => e.message,
+              'message',
+              allOf(
+                contains('exit code 1'),
+                contains('incomplete'),
+              ),
+            ),
+          ),
+        );
+        // Already-exited child: nothing to kill; no stale handle.
+        expect(fake.killed, isFalse);
+        expect(service.hasActiveProcess, isFalse);
+      } finally {
+        await tmp.delete(recursive: true);
+      }
+    });
+  });
 }
 
 /// Never-emitting, never-closing byte stream: simulates a hung ffmpeg

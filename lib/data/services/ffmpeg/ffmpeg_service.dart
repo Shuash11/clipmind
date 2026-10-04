@@ -68,7 +68,7 @@ class FfmpegService {
   /// never-completing future plus a short [jobTimeout] to verify the
   /// timeout → failed-result contract without spawning processes.
   final Future<ProcessResult> Function(String binary, List<String> args)?
-      runJob;
+  runJob;
 
   /// Stall watchdog window for the streaming [run] path. A healthy ffmpeg
   /// emits `-progress` lines about every 0.5 s, so 120 s only fires when
@@ -80,9 +80,20 @@ class FfmpegService {
   /// never-emitting stdout streams plus a short [stallTimeout] to verify
   /// the stall → kill → typed-failure contract without spawning processes.
   final Future<Process> Function(String binary, List<String> args)?
-      startProcess;
+  startProcess;
 
   Process? _process;
+
+  /// True while a streaming [run] is in flight, including the startup
+  /// window where the child has not been assigned to [_process] yet.
+  /// Backs the single-flight guard and the cancel-during-startup race fix.
+  bool _streamingBusy = false;
+
+  /// Set by [cancel] when a streaming run is in flight but [_process] is
+  /// still null (startup window) or to mark an active run as cancelled so
+  /// the exit-code gate does not turn a deliberate cancel into a failure.
+  /// Cleared when each run is claimed; idle cancels never set it.
+  bool _cancelPending = false;
 
   FfmpegService({
     FfmpegBinaryResolver? resolver,
@@ -91,8 +102,8 @@ class FfmpegService {
     this.runJob,
     this.stallTimeout = const Duration(seconds: 120),
     this.startProcess,
-  })  : _resolver = resolver ?? FfmpegBinaryResolver(),
-        _tempDir = tempDir ?? Directory.systemTemp.path;
+  }) : _resolver = resolver ?? FfmpegBinaryResolver(),
+       _tempDir = tempDir ?? Directory.systemTemp.path;
 
   /// Visible for testing: true while a streaming [run] holds a child
   /// handle. Lets tests verify the try/finally always clears [_process]
@@ -108,6 +119,18 @@ class FfmpegService {
     return '${dir.path}/${_uuid.v4()}${suffix ?? '.mp4'}';
   }
 
+  /// Streams FFmpeg `-progress` events for [job].
+  ///
+  /// Overwrite policy (`-y`, doc only — no behavior change): temporary
+  /// outputs from [createTempPath] carry a uuid filename, so `-y` can never
+  /// clobber an unrelated file; caller-chosen [FfmpegJob.outputPath] values
+  /// overwrite deliberately because the caller selected that exact path.
+  ///
+  /// Lifecycle: single-flight (a second concurrent [run] throws
+  /// [FfmpegBusyException]); a [cancel] during startup kills the
+  /// late-arriving child and ends the stream with no events (the export
+  /// use-case maps this via its cancelled flag); non-zero exit codes throw
+  /// [FfmpegExitCodeException] so a partial output is never silent success.
   Stream<FfmpegProgress> run(FfmpegJob job) async* {
     final binary = _resolver.resolveFfmpeg();
     if (binary == null) {
@@ -127,99 +150,142 @@ class FfmpegService {
       );
     }
 
-    final starter = startProcess;
-    final process = starter != null
-        ? await starter(binary, [
-            ...job.args,
-            '-progress',
-            'pipe:1',
-            '-nostats',
-            '-y',
-            job.outputPath,
-          ])
-        : await Process.start(binary, [
-            ...job.args,
-            '-progress',
-            'pipe:1',
-            '-nostats',
-            '-y',
-            job.outputPath,
-          ]);
-
-    _process = process;
+    // Single-flight: the shared [_process] cancel target cannot serve two
+    // concurrent runs — reject instead of clobbering. Synchronous with the
+    // claim below, so two listeners racing to start resolve deterministically.
+    if (_streamingBusy) {
+      throw const FfmpegBusyException(
+        'FFmpeg is busy — another export is already running',
+      );
+    }
+    _streamingBusy = true;
+    _cancelPending = false;
 
     try {
-      // Drain stderr while parsing stdout progress: FFmpeg logs to stderr
-      // and an unread pipe blocks the child once the OS buffer fills,
-      // hanging the export. Live-gate finding 2026-10-01 (gate 1 hung here).
-      final stderrDrained = process.stderr.transform(utf8.decoder).join();
+      final starter = startProcess;
+      final process = starter != null
+          ? await starter(binary, [
+              ...job.args,
+              '-progress',
+              'pipe:1',
+              '-nostats',
+              '-y',
+              job.outputPath,
+            ])
+          : await Process.start(binary, [
+              ...job.args,
+              '-progress',
+              'pipe:1',
+              '-nostats',
+              '-y',
+              job.outputPath,
+            ]);
 
-      // Stall watchdog: the timer resets on every emitted progress line,
-      // so a healthy export (lines every ~0.5 s) never fires; a hung
-      // ffmpeg emits nothing and trips [stallTimeout].
-      final lineStream = process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .timeout(stallTimeout, onTimeout: (sink) {
-        sink.addError(
-          TimeoutException(
-            'FFmpeg stalled — no progress for ${stallTimeout.inSeconds}s',
-          ),
-        );
-      });
+      // Cancel-during-startup race: [cancel] arriving while awaiting the
+      // child above saw [_process] == null and could only set [_cancelPending].
+      // Kill the late arrival immediately and end the stream with no events
+      // (silent cancel, same as an active-run cancel) instead of leaking it.
+      if (_cancelPending) {
+        try {
+          process.kill(ProcessSignal.sigint);
+        } catch (_) {}
+        return;
+      }
 
-      String currentSpeed = '';
-      await for (final line in lineStream) {
-        if (line.contains('=')) {
-          final eq = line.indexOf('=');
-          if (eq == -1) continue;
-          final key = line.substring(0, eq).trim();
-          final value = line.substring(eq + 1).trim();
+      _process = process;
 
-          if (key == 'out_time_ms') {
-            final outTimeMs = int.tryParse(value) ?? 0;
-            final percent = job.expectedDurationMs > 0
-                ? (outTimeMs / job.expectedDurationMs).clamp(0.0, 1.0)
-                : 0.0;
-            yield FfmpegProgress(
-              percent: percent,
-              outTimeMs: outTimeMs,
-              speed: currentSpeed,
-              status: 'running',
+      try {
+        // Drain stderr while parsing stdout progress: FFmpeg logs to stderr
+        // and an unread pipe blocks the child once the OS buffer fills,
+        // hanging the export. Live-gate finding 2026-10-01 (gate 1 hung here).
+        final stderrDrained = process.stderr.transform(utf8.decoder).join();
+
+        // Stall watchdog: the timer resets on every emitted progress line,
+        // so a healthy export (lines every ~0.5 s) never fires; a hung
+        // ffmpeg emits nothing and trips [stallTimeout].
+        final lineStream = process.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .timeout(
+              stallTimeout,
+              onTimeout: (sink) {
+                sink.addError(
+                  TimeoutException(
+                    'FFmpeg stalled — no progress for ${stallTimeout.inSeconds}s',
+                  ),
+                );
+              },
             );
-          } else if (key == 'speed') {
-            currentSpeed = value;
-          } else if (key == 'progress') {
-            if (value == 'end') {
+
+        String currentSpeed = '';
+        await for (final line in lineStream) {
+          if (line.contains('=')) {
+            final eq = line.indexOf('=');
+            if (eq == -1) continue;
+            final key = line.substring(0, eq).trim();
+            final value = line.substring(eq + 1).trim();
+
+            if (key == 'out_time_ms') {
+              final outTimeMs = int.tryParse(value) ?? 0;
+              final percent = job.expectedDurationMs > 0
+                  ? (outTimeMs / job.expectedDurationMs).clamp(0.0, 1.0)
+                  : 0.0;
               yield FfmpegProgress(
-                percent: 1.0,
-                outTimeMs: job.expectedDurationMs,
+                percent: percent,
+                outTimeMs: outTimeMs,
                 speed: currentSpeed,
-                status: 'complete',
+                status: 'running',
               );
+            } else if (key == 'speed') {
+              currentSpeed = value;
+            } else if (key == 'progress') {
+              if (value == 'end') {
+                yield FfmpegProgress(
+                  percent: 1.0,
+                  outTimeMs: job.expectedDurationMs,
+                  speed: currentSpeed,
+                  status: 'complete',
+                );
+              }
             }
           }
         }
-      }
 
-      await stderrDrained;
-      await process.exitCode;
-    } on TimeoutException {
-      // Hung child: kill it so the UI can never wedge, then surface a
-      // typed, actionable failure (same wording family as the runSync
-      // timeout) for the export consumer's `catch (e)`.
-      try {
-        process.kill();
-      } catch (_) {}
-      throw FfmpegStallException(
-        'FFmpeg stalled — no progress for ${stallTimeout.inSeconds}s — '
-        'the job took too long, the source is too large, '
-        'or the disk is too slow',
-      );
+        await stderrDrained;
+        final exitCode = await process.exitCode;
+        if (exitCode != 0) {
+          // A deliberate [cancel] (SIGINT) also exits non-zero: end silently
+          // and let the caller map it via its cancelled flag instead of
+          // turning an intentional cancel into a failure.
+          if (_cancelPending) return;
+          throw FfmpegExitCodeException(
+            'FFmpeg failed with exit code $exitCode — '
+            'the output file "${job.outputPath}" may be incomplete',
+          );
+        }
+      } on TimeoutException {
+        // A deliberate [cancel] closes the pipes so the loop above ends
+        // instead of stalling; if the pipes never close, still honor it.
+        if (_cancelPending) return;
+        // Hung child: kill it so the UI can never wedge, then surface a
+        // typed, actionable failure (same wording family as the runSync
+        // timeout) for the export consumer's `catch (e)`.
+        try {
+          process.kill();
+        } catch (_) {}
+        throw FfmpegStallException(
+          'FFmpeg stalled — no progress for ${stallTimeout.inSeconds}s — '
+          'the job took too long, the source is too large, '
+          'or the disk is too slow',
+        );
+      } finally {
+        // Generator cancellation (use-case break) lands here too: never
+        // leak a stale handle.
+        _process = null;
+      }
     } finally {
-      // Generator cancellation (use-case break) lands here too: never
-      // leak a stale handle.
       _process = null;
+      _streamingBusy = false;
     }
   }
 
@@ -255,10 +321,8 @@ class FfmpegService {
         final process = await Process.start(binary, fullArgs);
         // Drain both pipes immediately so a chatty child never blocks
         // on a full OS buffer (same rule as the streaming `run` path).
-        final stdoutFuture =
-            process.stdout.transform(utf8.decoder).join();
-        final stderrFuture =
-            process.stderr.transform(utf8.decoder).join();
+        final stdoutFuture = process.stdout.transform(utf8.decoder).join();
+        final stderrFuture = process.stderr.transform(utf8.decoder).join();
         int exitCode;
         try {
           exitCode = await process.exitCode.timeout(jobTimeout);
@@ -269,7 +333,8 @@ class FfmpegService {
             outputPath: job.outputPath,
             exitCode: -1,
             stderr: null,
-            error: 'FFmpeg timed out after ${jobTimeout.inSeconds}s — '
+            error:
+                'FFmpeg timed out after ${jobTimeout.inSeconds}s — '
                 'the job took too long or the source is too large',
           );
         }
@@ -291,7 +356,8 @@ class FfmpegService {
         outputPath: job.outputPath,
         exitCode: -1,
         stderr: null,
-        error: 'FFmpeg timed out after ${jobTimeout.inSeconds}s — '
+        error:
+            'FFmpeg timed out after ${jobTimeout.inSeconds}s — '
             'the job took too long or the source is too large',
       );
     } catch (e, s) {
@@ -306,7 +372,15 @@ class FfmpegService {
     }
   }
 
+  /// Requests cancellation of an in-flight streaming [run].
+  ///
+  /// An already-running child is signalled (SIGINT). A cancel arriving in
+  /// the startup window (run claimed busy, child not yet assigned) sets
+  /// [_cancelPending] so the late-arriving child is killed immediately
+  /// instead of leaking. Idle cancels are no-ops and never poison the
+  /// next run.
   void cancel() {
+    if (_streamingBusy) _cancelPending = true;
     _process?.kill(ProcessSignal.sigint);
     _process = null;
   }
@@ -340,4 +414,28 @@ class FfmpegStallException implements Exception {
 
   @override
   String toString() => 'FfmpegStallException: $message';
+}
+
+/// Typed single-flight failure for the streaming [FfmpegService.run] path.
+/// Thrown synchronously when a second concurrent run starts while one is in
+/// flight (the shared cancel handle cannot serve two children). Matches the
+/// export UI's single-export reality. Surfaced via the consumer's `catch (e)`.
+class FfmpegBusyException implements Exception {
+  final String message;
+  const FfmpegBusyException(this.message);
+
+  @override
+  String toString() => 'FfmpegBusyException: $message';
+}
+
+/// Typed exit-code failure for the streaming [FfmpegService.run] path.
+/// Thrown when FFmpeg exits non-zero after a normally-completed progress
+/// stream, so a partial output file is never mistaken for success via the
+/// consumer's file-exists check. Surfaced via the consumer's `catch (e)`.
+class FfmpegExitCodeException implements Exception {
+  final String message;
+  const FfmpegExitCodeException(this.message);
+
+  @override
+  String toString() => 'FfmpegExitCodeException: $message';
 }
