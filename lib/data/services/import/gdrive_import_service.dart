@@ -22,8 +22,30 @@ class GoogleAuthClient extends http.BaseClient {
   void close() => _inner.close();
 }
 
+class GDriveUnsupportedPlatformException implements Exception {
+  final String message;
+
+  const GDriveUnsupportedPlatformException([
+    this.message = GDriveImportService.driveApiUnsupportedMessage,
+  ]);
+
+  @override
+  String toString() => message;
+}
+
 class GDriveImportService {
+  static const driveApiUnsupportedMessage =
+      'Google Drive import is not available on Windows. '
+      'Google Sign-In has no Windows implementation, so Drive API '
+      'downloads cannot start on this platform. '
+      'Use a direct video link, YouTube, or a local file instead.';
+
+  static bool get isDriveApiSupported => !Platform.isWindows;
+
   final Dio _dio;
+  CancelToken? _cancelToken;
+  GoogleAuthClient? _activeClient;
+  bool _cancelRequested = false;
   StreamController<double>? _progress;
   StreamController<String>? _errorStream;
 
@@ -48,13 +70,30 @@ class GDriveImportService {
   Future<String?> import(String fileUrl, String outputPath) async {
     _progress = StreamController<double>.broadcast();
     _errorStream = StreamController<String>.broadcast();
+    _cancelRequested = false;
+    _cancelToken = CancelToken();
+    _activeClient = null;
 
     try {
       final fileId = _extractFileId(fileUrl);
       if (fileId == null) {
         return await _downloadDirect(fileUrl, outputPath);
       }
+      if (!isDriveApiSupported) {
+        _errorStream?.add(driveApiUnsupportedMessage);
+        return null;
+      }
       return await _downloadViaApi(fileId, outputPath);
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        _errorStream?.add('Download cancelled');
+      } else {
+        _errorStream?.add(e.toString());
+      }
+      return null;
+    } on GDriveUnsupportedPlatformException catch (e) {
+      _errorStream?.add(e.message);
+      return null;
     } catch (e) {
       _errorStream?.add(e.toString());
       return null;
@@ -63,6 +102,8 @@ class GDriveImportService {
       _progress = null;
       await _errorStream?.close();
       _errorStream = null;
+      _cancelToken = null;
+      _activeClient = null;
     }
   }
 
@@ -70,6 +111,7 @@ class GDriveImportService {
     await _dio.download(
       fileUrl,
       outputPath,
+      cancelToken: _cancelToken,
       onReceiveProgress: (received, total) {
         if (total > 0) _progress?.add(received / total);
       },
@@ -78,6 +120,9 @@ class GDriveImportService {
   }
 
   Future<String?> _downloadViaApi(String fileId, String outputPath) async {
+    if (!isDriveApiSupported) {
+      throw const GDriveUnsupportedPlatformException();
+    }
     final googleSignIn = GoogleSignIn(
       scopes: [drive.DriveApi.driveReadonlyScope],
     );
@@ -90,6 +135,7 @@ class GDriveImportService {
 
     final authHeaders = await account.authHeaders;
     final client = GoogleAuthClient(authHeaders);
+    _activeClient = client;
     final driveApi = drive.DriveApi(client);
 
     final response = await driveApi.files.get(
@@ -98,29 +144,55 @@ class GDriveImportService {
     );
 
     try {
+      if (_cancelRequested || (_cancelToken?.isCancelled ?? false)) {
+        throw DioException(
+          requestOptions: RequestOptions(path: outputPath),
+          type: DioExceptionType.cancel,
+        );
+      }
       if (response is drive.Media) {
         final file = File(outputPath);
         final sink = file.openWrite();
-        int totalDownloaded = 0;
-        final totalBytes = response.length ?? -1;
+        try {
+          int totalDownloaded = 0;
+          final totalBytes = response.length ?? -1;
 
-        await for (final chunk in response.stream) {
-          sink.add(chunk);
-          totalDownloaded += chunk.length;
-          if (totalBytes > 0) {
-            _progress?.add(totalDownloaded / totalBytes);
+          await for (final chunk in response.stream) {
+            if (_cancelRequested || (_cancelToken?.isCancelled ?? false)) {
+              throw DioException(
+                requestOptions: RequestOptions(path: outputPath),
+                type: DioExceptionType.cancel,
+              );
+            }
+            sink.add(chunk);
+            totalDownloaded += chunk.length;
+            if (totalBytes > 0) {
+              _progress?.add(totalDownloaded / totalBytes);
+            }
           }
+          await sink.flush();
+          await sink.close();
+        } catch (_) {
+          try {
+            await sink.close();
+          } catch (_) {}
+          rethrow;
         }
-        await sink.flush();
-        await sink.close();
       }
       return outputPath;
     } finally {
       client.close();
+      if (identical(_activeClient, client)) _activeClient = null;
     }
   }
 
   void cancel() {
-    // Dio doesn't support per-request cancellation without CancelToken
+    _cancelRequested = true;
+    try {
+      _cancelToken?.cancel('Cancelled by user');
+    } catch (_) {}
+    try {
+      _activeClient?.close();
+    } catch (_) {}
   }
 }

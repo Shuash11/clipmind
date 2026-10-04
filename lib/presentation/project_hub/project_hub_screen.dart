@@ -225,6 +225,12 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
         final service = YouTubeImportService();
         downloadedPath = await service.import(url, dir.path);
       } else if (url.contains('drive.google.com')) {
+        if (!GDriveImportService.isDriveApiSupported) {
+          if (mounted) {
+            await _showDriveUnavailableDialog();
+          }
+          return;
+        }
         final service = GDriveImportService();
         downloadedPath = await service.import(
           url,
@@ -275,6 +281,27 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _showDriveUnavailableDialog() {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Google Drive import unavailable'),
+        content: const SizedBox(
+          width: 420,
+          child: Text(
+            GDriveImportService.driveApiUnsupportedMessage,
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Blank-project entry point: create with empty media, open the editor.
@@ -582,8 +609,16 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
             icon: Icons.add_to_drive_rounded,
             label: 'Google Drive',
             source: 'gdrive',
-            subtitle: 'Browse and import from your Drive files',
-            onTap: () => _showImportUrlDialog('Google Drive'),
+            subtitle: GDriveImportService.isDriveApiSupported
+                ? 'Browse and import from your Drive files'
+                : 'Not available on Windows — use a direct link instead',
+            onTap: () {
+              if (!GDriveImportService.isDriveApiSupported) {
+                _showDriveUnavailableDialog();
+              } else {
+                _showImportUrlDialog('Google Drive');
+              }
+            },
           ),
         ),
         SizedBox(
