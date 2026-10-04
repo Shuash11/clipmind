@@ -1,8 +1,8 @@
 ---
 description: Project Middle-end Agent.
 mode: subagent
-model: opencode/muse-spark-1.3-contributor-free
-variant: xhigh
+model: nvidia/z-ai/glm-5.3-flash
+variant: max
 permission:
   todowrite: allow
 ---

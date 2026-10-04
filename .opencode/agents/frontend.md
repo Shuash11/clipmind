@@ -1,7 +1,7 @@
 ---
 description: Project Frontend Agent.
 mode: subagent
-model: opencode/mimo-2.6-flash-free
+model: nvidia/z-ai/glm-5.3-flash
 variant: max
 permission:
   todowrite: allow
