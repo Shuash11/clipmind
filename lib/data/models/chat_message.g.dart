@@ -6,28 +6,27 @@ part of 'chat_message.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$ChatMessageImpl _$$ChatMessageImplFromJson(Map<String, dynamic> json) =>
-    _$ChatMessageImpl(
-      id: json['id'] as String,
-      role: $enumDecode(_$ChatRoleEnumMap, json['role']),
-      content: json['content'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      resultingOperationIds:
-          (json['resultingOperationIds'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          const [],
-      status:
-          $enumDecodeNullable(_$MessageStatusEnumMap, json['status']) ??
-          MessageStatus.applied,
-      steps:
-          (json['steps'] as List<dynamic>?)
-              ?.map((e) => ChatStep.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-    );
+_ChatMessage _$ChatMessageFromJson(Map<String, dynamic> json) => _ChatMessage(
+  id: json['id'] as String,
+  role: $enumDecode(_$ChatRoleEnumMap, json['role']),
+  content: json['content'] as String,
+  timestamp: DateTime.parse(json['timestamp'] as String),
+  resultingOperationIds:
+      (json['resultingOperationIds'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
+  status:
+      $enumDecodeNullable(_$MessageStatusEnumMap, json['status']) ??
+      MessageStatus.applied,
+  steps:
+      (json['steps'] as List<dynamic>?)
+          ?.map((e) => ChatStep.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const [],
+);
 
-Map<String, dynamic> _$$ChatMessageImplToJson(_$ChatMessageImpl instance) =>
+Map<String, dynamic> _$ChatMessageToJson(_ChatMessage instance) =>
     <String, dynamic>{
       'id': instance.id,
       'role': _$ChatRoleEnumMap[instance.role]!,

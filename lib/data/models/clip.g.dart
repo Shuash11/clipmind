@@ -6,7 +6,7 @@ part of 'clip.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$ClipImpl _$$ClipImplFromJson(Map<String, dynamic> json) => _$ClipImpl(
+_Clip _$ClipFromJson(Map<String, dynamic> json) => _Clip(
   id: json['id'] as String,
   trackId: json['trackId'] as String,
   sourcePath: json['sourcePath'] as String,
@@ -18,15 +18,14 @@ _$ClipImpl _$$ClipImplFromJson(Map<String, dynamic> json) => _$ClipImpl(
   muted: json['muted'] as bool? ?? false,
 );
 
-Map<String, dynamic> _$$ClipImplToJson(_$ClipImpl instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'trackId': instance.trackId,
-      'sourcePath': instance.sourcePath,
-      'startMs': instance.startMs,
-      'endMs': instance.endMs,
-      'positionMs': instance.positionMs,
-      'transformations': instance.transformations,
-      'label': instance.label,
-      'muted': instance.muted,
-    };
+Map<String, dynamic> _$ClipToJson(_Clip instance) => <String, dynamic>{
+  'id': instance.id,
+  'trackId': instance.trackId,
+  'sourcePath': instance.sourcePath,
+  'startMs': instance.startMs,
+  'endMs': instance.endMs,
+  'positionMs': instance.positionMs,
+  'transformations': instance.transformations,
+  'label': instance.label,
+  'muted': instance.muted,
+};

@@ -44,7 +44,7 @@ enum EditOperationType {
 enum OperationStatus { pending, applied, failed }
 
 @freezed
-class EditOperation with _$EditOperation {
+abstract class EditOperation with _$EditOperation {
   const factory EditOperation({
     required String id,
     required EditOperationType type,

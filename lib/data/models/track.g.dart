@@ -6,7 +6,7 @@ part of 'track.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$TrackImpl _$$TrackImplFromJson(Map<String, dynamic> json) => _$TrackImpl(
+_Track _$TrackFromJson(Map<String, dynamic> json) => _Track(
   id: json['id'] as String,
   type: $enumDecode(_$TrackTypeEnumMap, json['type']),
   clips:
@@ -17,13 +17,12 @@ _$TrackImpl _$$TrackImplFromJson(Map<String, dynamic> json) => _$TrackImpl(
   label: json['label'] as String? ?? '',
 );
 
-Map<String, dynamic> _$$TrackImplToJson(_$TrackImpl instance) =>
-    <String, dynamic>{
-      'id': instance.id,
-      'type': _$TrackTypeEnumMap[instance.type]!,
-      'clips': instance.clips,
-      'label': instance.label,
-    };
+Map<String, dynamic> _$TrackToJson(_Track instance) => <String, dynamic>{
+  'id': instance.id,
+  'type': _$TrackTypeEnumMap[instance.type]!,
+  'clips': instance.clips,
+  'label': instance.label,
+};
 
 const _$TrackTypeEnumMap = {
   TrackType.video: 'video',

@@ -6,8 +6,8 @@ part of 'edit_operation.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$EditOperationImpl _$$EditOperationImplFromJson(Map<String, dynamic> json) =>
-    _$EditOperationImpl(
+_EditOperation _$EditOperationFromJson(Map<String, dynamic> json) =>
+    _EditOperation(
       id: json['id'] as String,
       type: $enumDecode(_$EditOperationTypeEnumMap, json['type']),
       targetClipIds:
@@ -24,7 +24,7 @@ _$EditOperationImpl _$$EditOperationImplFromJson(Map<String, dynamic> json) =>
       ffmpegCommand: json['ffmpegCommand'] as String?,
     );
 
-Map<String, dynamic> _$$EditOperationImplToJson(_$EditOperationImpl instance) =>
+Map<String, dynamic> _$EditOperationToJson(_EditOperation instance) =>
     <String, dynamic>{
       'id': instance.id,
       'type': _$EditOperationTypeEnumMap[instance.type]!,

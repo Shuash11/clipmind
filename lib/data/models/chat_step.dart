@@ -11,7 +11,7 @@ enum ChatStepKind { read, edit }
 /// Mirrors [AgentToolCallRecord] (domain) in a persistence-friendly shape.
 /// Bounded: a run keeps at most 20 steps (see DB layer truncation).
 @freezed
-class ChatStep with _$ChatStep {
+abstract class ChatStep with _$ChatStep {
   const factory ChatStep({
     required String toolCallId,
     required String toolName,

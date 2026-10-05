@@ -7,7 +7,7 @@ part 'track.g.dart';
 enum TrackType { video, audio, text, fx }
 
 @freezed
-class Track with _$Track {
+abstract class Track with _$Track {
   const factory Track({
     required String id,
     required TrackType type,

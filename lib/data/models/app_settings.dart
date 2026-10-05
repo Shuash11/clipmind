@@ -6,7 +6,7 @@ part 'app_settings.g.dart';
 enum ThemeModePreference { dark, light, system }
 
 @freezed
-class AppSettings with _$AppSettings {
+abstract class AppSettings with _$AppSettings {
   const factory AppSettings({
     @Default('ollama') String activeProviderId,
     @Deprecated('Unused since the provider-profile system; model selection '

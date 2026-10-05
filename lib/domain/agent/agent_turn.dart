@@ -12,7 +12,7 @@ enum AgentTurnStopReason { stop, toolCalls, maxRounds, error }
 
 /// One function call requested by the assistant.
 @freezed
-class AgentToolCall with _$AgentToolCall {
+abstract class AgentToolCall with _$AgentToolCall {
   const factory AgentToolCall({
     required String id,
     required String name,
@@ -32,7 +32,7 @@ class AgentToolCall with _$AgentToolCall {
 /// (Gemini `functionResponse` is keyed by name; `functionCall` carries no
 /// id). OpenAI/Anthropic mappers ignore it; never repurpose [toolCallId].
 @freezed
-class AgentTurnMessage with _$AgentTurnMessage {
+abstract class AgentTurnMessage with _$AgentTurnMessage {
   const factory AgentTurnMessage({
     required AgentTurnRole role,
     String? content,
@@ -49,7 +49,7 @@ class AgentTurnMessage with _$AgentTurnMessage {
 /// One round trip to the provider: system prompt, user content, the tools
 /// on offer, and the conversation so far.
 @freezed
-class AgentTurnRequest with _$AgentTurnRequest {
+abstract class AgentTurnRequest with _$AgentTurnRequest {
   const factory AgentTurnRequest({
     required String systemPrompt,
     required String userContent,
@@ -65,7 +65,7 @@ class AgentTurnRequest with _$AgentTurnRequest {
 
 /// Full trace of one executed tool call inside a turn result.
 @freezed
-class AgentToolCallRecord with _$AgentToolCallRecord {
+abstract class AgentToolCallRecord with _$AgentToolCallRecord {
   const factory AgentToolCallRecord({
     required String id,
     required String name,
@@ -81,7 +81,7 @@ class AgentToolCallRecord with _$AgentToolCallRecord {
 
 /// What one [chatWithTools] round trip returned.
 @freezed
-class AgentTurnResult with _$AgentTurnResult {
+abstract class AgentTurnResult with _$AgentTurnResult {
   const factory AgentTurnResult({
     @Default('') String text,
     @Default([]) List<AgentToolCall> toolCalls,

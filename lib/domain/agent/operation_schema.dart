@@ -4,7 +4,7 @@ part 'operation_schema.freezed.dart';
 part 'operation_schema.g.dart';
 
 @freezed
-class EditOperationSet with _$EditOperationSet {
+abstract class EditOperationSet with _$EditOperationSet {
   const factory EditOperationSet({
     required List<EditOperationRequest> operations,
     required String summary,
@@ -16,7 +16,7 @@ class EditOperationSet with _$EditOperationSet {
 }
 
 @freezed
-class EditOperationRequest with _$EditOperationRequest {
+abstract class EditOperationRequest with _$EditOperationRequest {
   const factory EditOperationRequest({
     required String id,
     required String type,
@@ -29,7 +29,7 @@ class EditOperationRequest with _$EditOperationRequest {
 }
 
 @freezed
-class ValidatedCommand with _$ValidatedCommand {
+abstract class ValidatedCommand with _$ValidatedCommand {
   const factory ValidatedCommand({
     required String text,
     required Map<String, int> normalizedTimecodes,
@@ -38,7 +38,7 @@ class ValidatedCommand with _$ValidatedCommand {
 }
 
 @freezed
-class ProjectSnapshot with _$ProjectSnapshot {
+abstract class ProjectSnapshot with _$ProjectSnapshot {
   const factory ProjectSnapshot({
     required int durationMs,
     required int width,
@@ -52,7 +52,7 @@ class ProjectSnapshot with _$ProjectSnapshot {
 }
 
 @freezed
-class ClipSnapshot with _$ClipSnapshot {
+abstract class ClipSnapshot with _$ClipSnapshot {
   const factory ClipSnapshot({
     required String id,
     required String trackId,
@@ -64,7 +64,7 @@ class ClipSnapshot with _$ClipSnapshot {
 }
 
 @freezed
-class AgentRequest with _$AgentRequest {
+abstract class AgentRequest with _$AgentRequest {
   const factory AgentRequest({
     required String systemPrompt,
     required String userCommand,
@@ -74,7 +74,7 @@ class AgentRequest with _$AgentRequest {
 }
 
 @freezed
-class ClarificationNeeded with _$ClarificationNeeded {
+abstract class ClarificationNeeded with _$ClarificationNeeded {
   const factory ClarificationNeeded({
     required String question,
     required List<String> options,

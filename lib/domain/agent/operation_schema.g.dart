@@ -6,35 +6,33 @@ part of 'operation_schema.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$EditOperationSetImpl _$$EditOperationSetImplFromJson(
-  Map<String, dynamic> json,
-) => _$EditOperationSetImpl(
-  operations: (json['operations'] as List<dynamic>)
-      .map((e) => EditOperationRequest.fromJson(e as Map<String, dynamic>))
-      .toList(),
-  summary: json['summary'] as String,
-  clarificationNeeded: json['clarification_needed'] as String?,
-);
+_EditOperationSet _$EditOperationSetFromJson(Map<String, dynamic> json) =>
+    _EditOperationSet(
+      operations: (json['operations'] as List<dynamic>)
+          .map((e) => EditOperationRequest.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      summary: json['summary'] as String,
+      clarificationNeeded: json['clarification_needed'] as String?,
+    );
 
-Map<String, dynamic> _$$EditOperationSetImplToJson(
-  _$EditOperationSetImpl instance,
-) => <String, dynamic>{
-  'operations': instance.operations,
-  'summary': instance.summary,
-  'clarification_needed': instance.clarificationNeeded,
-};
+Map<String, dynamic> _$EditOperationSetToJson(_EditOperationSet instance) =>
+    <String, dynamic>{
+      'operations': instance.operations,
+      'summary': instance.summary,
+      'clarification_needed': instance.clarificationNeeded,
+    };
 
-_$EditOperationRequestImpl _$$EditOperationRequestImplFromJson(
+_EditOperationRequest _$EditOperationRequestFromJson(
   Map<String, dynamic> json,
-) => _$EditOperationRequestImpl(
+) => _EditOperationRequest(
   id: json['id'] as String,
   type: json['type'] as String,
   targetClipId: json['target_clip_id'],
   params: json['params'] as Map<String, dynamic>,
 );
 
-Map<String, dynamic> _$$EditOperationRequestImplToJson(
-  _$EditOperationRequestImpl instance,
+Map<String, dynamic> _$EditOperationRequestToJson(
+  _EditOperationRequest instance,
 ) => <String, dynamic>{
   'id': instance.id,
   'type': instance.type,

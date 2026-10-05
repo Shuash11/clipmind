@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.36.9+2
+version: 1.37.0+2
 
 environment:
   sdk: ^3.12.1
@@ -36,9 +36,12 @@ dependencies:
   flutter_riverpod: ^3.4.3
   # Routing
   go_router: ^14.8.1
-  # Local DB — Drift/SQLite
-  drift: ^2.25.1
-  sqlite3_flutter_libs: ^0.5.30
+  # Local DB — Drift/SQLite. sqlite3 3.x bundles native SQLite via Dart
+  # build hooks (prebuilt library fetched and cached at build time); no
+  # separate platform-libs package is needed anymore. Kept direct
+  # (drift only requires ^3.4.0) so the app owns the native provider.
+  drift: ^2.35.1
+  sqlite3: ^3.7.0
   # Secure key storage
   flutter_secure_storage: ^9.2.4
   # Video preview — media_kit (libmpv)
@@ -54,8 +57,8 @@ dependencies:
   # Utilities
   uuid: ^4.5.1
   path_provider: ^2.1.5
-  freezed_annotation: ^2.4.4
-  json_annotation: ^4.9.0
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
   collection: ^1.19.1
   crypto: ^3.0.6
   # Update check
@@ -69,10 +72,12 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   # Code generation
-  build_runner: ^2.4.14
-  drift_dev: ^2.25.1
-  freezed: ^2.5.8
-  json_serializable: ^6.9.4
+  build_runner: ^2.16.1
+  # Unpinned since freezed 4: drift_dev 2.35.1 allows analyzer >=13 <15 and
+  # freezed 4.0.2 requires analyzer >=14 <15, so both share analyzer 14.
+  drift_dev: ^2.35.1
+  freezed: ^4.0.2
+  json_serializable: ^6.14.1
   # Testing
   mocktail: ^1.0.4
 
