@@ -2,6 +2,19 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.38.0
+
+### Dependency upgrade
+- `flutter_secure_storage` 9.2.4 → 11.2.0 (Windows plugin 3.1.2 → 4.2.2, macOS/web platforms now via `flutter_secure_storage_darwin` and `flutter_secure_storage_web` 2.1.1). Retires the discontinued `flutter_secure_storage_macos` and `js` packages.
+- The Windows plugin requires `win32` 6, so the win32-consuming packages moved in lockstep: `file_picker` 8.3.7 → 13.1.0 (federated rewrite: `pickFiles`/`pickFile`/`saveFile` call sites updated), `package_info_plus` 8.3.1 → 10.2.2, `wakelock_plus` 1.3.3 → 1.8.1 (transitive), `win32` 5.15.0 → 6.4.0.
+- The Windows ATL workaround (`scripts/patch-atl.ps1`) now derives the plugin version from `pubspec.lock` instead of a hard-coded pin, so it follows future upgrades automatically.
+
+### File picker note
+- file_picker 12+ `saveFile` writes the given bytes to the chosen path; the export flow passes an empty payload and ffmpeg overwrites that placeholder with `-y`. Picking files and the app-version display are otherwise unchanged.
+
+### No behavior changes
+- The secure-storage API subset in use (`read`/`write`/`delete`/`deleteAll`) is unchanged; Windows storage keeps using the same DPAPI-encrypted `flutter_secure_storage.dat`, so existing stored credentials remain readable — no migration needed.
+
 ## 1.37.0
 
 ### Dependency platform upgrade

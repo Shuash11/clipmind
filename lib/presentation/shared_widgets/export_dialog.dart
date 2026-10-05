@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,15 +41,19 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
   }
 
   Future<void> _pickOutputPath() async {
-    final result = await FilePicker.platform.saveFile(
+    final result = await FilePicker.saveFile(
       dialogTitle: 'Select export location',
       fileName: '${widget.project.name}_export.${_options.format}',
       type: FileType.custom,
       allowedExtensions: [_options.format],
+      // file_picker 12+ writes [bytes] to the chosen path itself. The export
+      // pipeline overwrites this empty placeholder via ffmpeg `-y`, keeping
+      // the "pick a destination, then export" flow unchanged.
+      bytes: Uint8List(0),
     );
     if (result != null && mounted) {
       setState(() {
-        _options = _options.copyWith(outputPath: result);
+        _options = _options.copyWith(outputPath: result.toFilePath());
       });
     }
   }

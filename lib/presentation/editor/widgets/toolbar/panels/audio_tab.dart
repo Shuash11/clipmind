@@ -48,11 +48,9 @@ class _AudioTabState extends ConsumerState<AudioTab> {
     }
     setState(() => _isPicking = true);
     try {
-      final picked = await FilePicker.platform.pickFiles(
-        type: FileType.audio,
-      );
-      if (picked == null || picked.files.isEmpty) return; // user cancelled
-      final path = picked.files.first.path;
+      final picked = await FilePicker.pickFile(type: FileType.audio);
+      if (picked == null) return; // user cancelled
+      final path = picked.path;
       if (path == null || path.isEmpty) {
         if (!mounted) return;
         _showMessage('Could not read the selected file path.');

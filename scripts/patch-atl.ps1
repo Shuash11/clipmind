@@ -1,4 +1,57 @@
-param([string]$PluginVersion = "3.1.2")
+<#
+.SYNOPSIS
+    Patches flutter_secure_storage_windows to build without the ATL
+    (atlstr.h) dependency.
+
+.DESCRIPTION
+    The plugin (verified through 4.2.2) includes <atlstr.h> for its CA2W/CW2A
+    string conversions. ATL is not available in the GitHub Actions
+    windows-latest image, so the build fails there. This patch:
+        1. removes the <atlstr.h> include,
+        2. injects CA2W/CW2A replacements built on MultiByteToWideChar /
+           WideCharToMultiByte,
+        3. adds the missing const_cast for cred.TargetName (LPCWSTR -> LPWSTR).
+
+    The plugin version is derived from pubspec.lock (the resolved
+    flutter_secure_storage_windows entry) so the patch follows dependency
+    upgrades automatically instead of drifting behind a hard-coded pin.
+    Idempotent: re-running against an already patched copy is a no-op.
+
+.PARAMETER PluginVersion
+    Explicit flutter_secure_storage_windows version to patch. When omitted,
+    the version resolved in pubspec.lock is used.
+#>
+param([string]$PluginVersion = '')
+
+function Get-LockedPluginVersion {
+    param([string]$LockPath)
+
+    if (-not (Test-Path -LiteralPath $LockPath)) { return $null }
+
+    $inEntry = $false
+    foreach ($line in Get-Content -LiteralPath $LockPath) {
+        if ($line -match '^  flutter_secure_storage_windows:\s*$') {
+            $inEntry = $true
+            continue
+        }
+        if (-not $inEntry) { continue }
+        if ($line -match '^  \S') { break }  # next lock entry
+        $match = [regex]::Match($line, '^    version:\s*"?([^"\s]+)"?\s*$')
+        if ($match.Success) { return $match.Groups[1].Value }
+    }
+    return $null
+}
+
+if (-not $PluginVersion) {
+    $lockFile = Join-Path $PSScriptRoot '..\pubspec.lock'
+    $PluginVersion = Get-LockedPluginVersion -LockPath $lockFile
+    if (-not $PluginVersion) {
+        Write-Error "Could not resolve flutter_secure_storage_windows version from $lockFile. Run 'flutter pub get' first, or pass -PluginVersion."
+        exit 1
+    }
+}
+
+Write-Output "Resolved flutter_secure_storage_windows version: $PluginVersion"
 
 $base = "$env:LOCALAPPDATA\Pub\Cache\hosted\pub.dev"
 $cppFile = "$base\flutter_secure_storage_windows-$PluginVersion\windows\flutter_secure_storage_windows_plugin.cpp"

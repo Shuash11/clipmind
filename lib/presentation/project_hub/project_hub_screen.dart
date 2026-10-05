@@ -151,12 +151,9 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
 
   Future<void> _handleBrowse() async {
     if (_isImporting) return;
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-      allowMultiple: true,
-    );
-    if (result != null && result.files.isNotEmpty) {
-      await _handleImportedFiles(result.files);
+    final files = await FilePicker.pickFiles(type: FileType.video);
+    if (files.isNotEmpty) {
+      await _handleImportedFiles(files);
     }
   }
 
