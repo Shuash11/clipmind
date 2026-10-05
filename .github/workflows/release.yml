@@ -47,6 +47,9 @@ jobs:
       - name: Build Windows (release)
         run: flutter build windows --release
 
+      - name: Verify release artifacts
+        run: scripts/verify-release-artifacts.ps1
+
       - name: Package portable zip
         run: |
           $ver = "${{ github.ref_name }}".TrimStart("v")

@@ -44,8 +44,12 @@ jobs:
       - name: Build Windows (release)
         run: flutter build windows --release
 
+      - name: Verify release artifacts
+        run: scripts/verify-release-artifacts.ps1
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: clipmind-windows-${{ github.sha }}
           path: build\windows\x64\runner\Release\
+          if-no-files-found: error
