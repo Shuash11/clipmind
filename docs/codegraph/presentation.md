@@ -1,4 +1,4 @@
-# Code Graph — lib/presentation (34 files, 8,573 lines; DO NOT EDIT)
+# Code Graph — lib/presentation (34 files, 8,588 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/presentation/editor/editor_screen.dart (248 lines)
@@ -153,9 +153,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L6  class DashedRRectPainter extends CustomPainter (color, strokeWidth, radius, dash, gap) — DashedRRectPainter(…) L7, paint(Canvas canvas, Size size) L22, shouldRepaint(covariant DashedRRectPainter oldDelegate) L44
 - L55  class DashedBorder extends StatelessWidget (child, color, radius, strokeWidth, dash, gap) — DashedBorder(…) L63, build(BuildContext context) L74
 
-## lib/presentation/shared_widgets/export_dialog.dart (464 lines)
+## lib/presentation/shared_widgets/export_dialog.dart (479 lines)
 - L12  class ExportDialog extends ConsumerStatefulWidget (project) — ExportDialog(…) L15, createState() L18
-- L21  class _ExportDialogState extends ConsumerState<ExportDialog> (_options, _isExporting, _progress, _done, _progressSub) — initState() L29, dispose() L38, _pickOutputPath() L43, _estimateFileSize() L61, _startExport() L79, _cancelExport() L121, build(BuildContext context) L133, _buildOptions(ThemeData theme) L162, _buildProgress(ThemeData theme) L224, _buildDone(ThemeData theme) L280, _buildDropdown(…) L316, _buildQualitySelector(ThemeData theme) L363, _buildOutputPath(ThemeData theme) L422
+- L21  class _ExportDialogState extends ConsumerState<ExportDialog> (_options, _isExporting, _progress, _done, _progressSub) — initState() L29, dispose() L38, _pickOutputPath() L43, _estimateFileSize() L61, _startExport() L79, _cancelExport() L136, build(BuildContext context) L148, _buildOptions(ThemeData theme) L177, _buildProgress(ThemeData theme) L239, _buildDone(ThemeData theme) L295, _buildDropdown(…) L331, _buildQualitySelector(ThemeData theme) L378, _buildOutputPath(ThemeData theme) L437
 
 ## lib/presentation/shared_widgets/uat_survey_dialog.dart (291 lines)
 - L7  class UatSurveyDialog extends StatefulWidget (sessionId) — UatSurveyDialog(…) L9, createState() L12

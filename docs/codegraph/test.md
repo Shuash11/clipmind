@@ -1,4 +1,4 @@
-# Code Graph — test (157 files, 38,929 lines; DO NOT EDIT)
+# Code Graph — test (157 files, 39,023 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -794,13 +794,14 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L63  function liveStep
 - L75  function main
 
-## test/widget/export_dialog_test.dart (255 lines)
-- L25  class _GatedFfmpeg extends FfmpegService (lastJob, gate, createdFiles) — _GatedFfmpeg() : super(tempDir: Directory.systemTemp.path) L26, run(FfmpegJob job) async* L33, cancel() L55
-- L58  class _FastFfmpeg extends FfmpegService (lastJob, createdFiles) — _FastFfmpeg() : super(tempDir: Directory.systemTemp.path) L59, run(FfmpegJob job) async* L65, cancel() L86
-- L89  function _project
-- L116  function _pumpDialog
-- L131  function _deleteFiles
-- L138  function main
+## test/widget/export_dialog_test.dart (349 lines)
+- L26  class _GatedFfmpeg extends FfmpegService (lastJob, gate, createdFiles) — _GatedFfmpeg() : super(tempDir: Directory.systemTemp.path) L27, run(FfmpegJob job) async* L34, cancel() L56
+- L59  class _FastFfmpeg extends FfmpegService (lastJob, createdFiles) — _FastFfmpeg() : super(tempDir: Directory.systemTemp.path) L60, run(FfmpegJob job) async* L66, cancel() L87
+- L92  class _FailingFfmpeg extends FfmpegService — _FailingFfmpeg() : super(tempDir: Directory.systemTemp.path) L93, run(FfmpegJob job) async* L96, cancel() L110
+- L113  function _project
+- L140  function _pumpDialog
+- L155  function _deleteFiles
+- L162  function main
 
 ## test/widget/left_panel_test.dart (767 lines)
 - L33  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L34, save(Project project) L37
