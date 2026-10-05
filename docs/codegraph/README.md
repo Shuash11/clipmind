@@ -11,13 +11,13 @@ so `git diff --exit-code -- docs/codegraph` detects staleness.
 | Layer | Files | Lines | Slice |
 | --- | --- | --- | --- |
 | `core` | 14 | 1,178 | `docs/codegraph/core.md` |
-| `data` | 42 | 7,554 | `docs/codegraph/data.md` |
+| `data` | 42 | 7,663 | `docs/codegraph/data.md` |
 | `domain` | 22 | 6,253 | `docs/codegraph/domain.md` |
 | `features` | 124 | 14,332 | `docs/codegraph/features.md` |
 | `lib` | 2 | 81 | `docs/codegraph/lib.md` |
 | `presentation` | 34 | 8,588 | `docs/codegraph/presentation.md` |
 | `state` | 13 | 2,827 | `docs/codegraph/state.md` |
-| `test` | 157 | 39,023 | `docs/codegraph/test.md` |
+| `test` | 157 | 39,227 | `docs/codegraph/test.md` |
 | `tool` | 2 | 621 | `docs/codegraph/tool.md` |
 
-_Total: 410 files, 80,457 lines indexed._
+_Total: 410 files, 80,770 lines indexed._
