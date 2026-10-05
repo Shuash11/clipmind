@@ -47,13 +47,15 @@ jobs:
       - name: Build Windows (release)
         run: flutter build windows --release
 
-      - name: Verify release artifacts
-        run: scripts/verify-release-artifacts.ps1
+      - name: Verify release artifacts and version
+        env:
+          EXPECTED_VERSION: ${{ github.ref_name }}
+        run: scripts/verify-release-artifacts.ps1 "$env:EXPECTED_VERSION"
 
       - name: Package portable zip
         run: |
-          $ver = "${{ github.ref_name }}".TrimStart("v")
-          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "build\clipmind-windows-${{ github.ref_name }}.zip" -CompressionLevel Optimal
+          $ver = $env:GITHUB_REF_NAME
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "build\clipmind-windows-$ver.zip" -CompressionLevel Optimal
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
@@ -61,8 +63,13 @@ jobs:
 
       - name: Build installer
         run: |
-          $ver = "${{ github.ref_name }}".TrimStart("v")
+          $ver = "$env:GITHUB_REF_NAME".TrimStart("v")
           (Get-Content "installer\clipmind.iss") -replace '#define MyAppVersion ".+"', "#define MyAppVersion `"$ver`"" | Set-Content "installer\clipmind.iss"
+          $patched = Get-Content "installer\clipmind.iss" -Raw
+          if ($patched -notmatch ('#define MyAppVersion "' + [regex]::Escape($ver) + '"')) {
+              throw "installer\clipmind.iss was not rewritten to version '$ver' — aborting installer build"
+          }
+          Write-Output "Installer version rewrite verified: $ver"
           iscc installer\clipmind.iss
         shell: pwsh
 
@@ -71,12 +78,13 @@ jobs:
         with:
           name: ClipMind-Setup
           path: build\installer\ClipMind-Setup-*.exe
+          if-no-files-found: error
 
       - name: Compute version (strip leading v)
         id: ver
         shell: pwsh
         run: |
-          $ver = "${{ github.ref_name }}".TrimStart("v")
+          $ver = "$env:GITHUB_REF_NAME".TrimStart("v")
           "ver=$ver" >> $env:GITHUB_OUTPUT
 
       - name: Create Release
