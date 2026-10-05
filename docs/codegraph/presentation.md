@@ -82,10 +82,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L23  class _AdjustmentsTabState extends ConsumerState<AdjustmentsTab> (_neutralBrightness, _neutralContrast, _neutralSaturation, _neutralSpeed, _neutralVolume, _brightness, _contrast, _saturation) — build(BuildContext context) L45, _apply() L171, _reset() L209, _resetSliders() L211, _formatValue(…) L224, _showMessage(String message) L233
 - L247  class _AdjustmentSlider extends StatelessWidget (label, value, valueText, min, max, onChanged) — _AdjustmentSlider(…) L255, build(BuildContext context) L265
 
-## lib/presentation/editor/widgets/toolbar/panels/audio_tab.dart (256 lines)
+## lib/presentation/editor/widgets/toolbar/panels/audio_tab.dart (254 lines)
 - L17  class AudioTab extends ConsumerStatefulWidget — AudioTab(…) L18, createState() L21
-- L24  class _AudioTabState extends ConsumerState<AudioTab> (_volume, _isPicking, _busyPresetId) — _presetIcons L26, _pickSound() L42, _applyPreset(ProceduralSoundPreset preset) L71, build(BuildContext context) L95, _showMessage(String message) L176
-- L186  class _SoundCard extends StatelessWidget (preset, icon, busy, enabled, onApply) — _SoundCard(…) L193, build(BuildContext context) L202, _durationLabel(double seconds) L252
+- L24  class _AudioTabState extends ConsumerState<AudioTab> (_volume, _isPicking, _busyPresetId) — _presetIcons L26, _pickSound() L42, _applyPreset(ProceduralSoundPreset preset) L69, build(BuildContext context) L93, _showMessage(String message) L174
+- L184  class _SoundCard extends StatelessWidget (preset, icon, busy, enabled, onApply) — _SoundCard(…) L191, build(BuildContext context) L200, _durationLabel(double seconds) L250
 
 ## lib/presentation/editor/widgets/toolbar/panels/effects_tab.dart (199 lines)
 - L15  class EffectsTab extends ConsumerStatefulWidget — EffectsTab(…) L16, createState() L19
@@ -110,15 +110,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L12  class TopActionBar extends ConsumerWidget — TopActionBar(…) L13, build(BuildContext context, WidgetRef ref) L16, _openExportDialog(BuildContext context, Project project) L115, _undo(BuildContext context, WidgetRef ref) L123, _redo(BuildContext context, WidgetRef ref) L135, _opLabel(EditOperation op) L147
 - L177  class _ChromeIconButton extends StatelessWidget (icon, tooltip, enabled, onPressed) — _ChromeIconButton(…) L183, build(BuildContext context) L191
 
-## lib/presentation/project_hub/project_hub_screen.dart (966 lines)
+## lib/presentation/project_hub/project_hub_screen.dart (963 lines)
 - L32  class ProjectHubScreen extends ConsumerStatefulWidget — ProjectHubScreen(…) L33, createState() L36
-- L39  class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> (_urlController, _urlFocusNode, _isDragActive, _isImporting) — initState() L46, dispose() L54, _handleUrlChanged() L61, _initUpdateCheck() L65, _checkWhatsNew() L96, _awaitLoadedSettings() L127, _updateSettings(AppSettings Function(AppSettings) mutate) L144, _handleBrowse() L152, _handleImportedFiles(List<PlatformFile> files) L163, _handleDrop(DropDoneDetails details) L173, _openProjectForMedia(…) L181, _readMediaDetails(String path) L214, _handleUploadUrl() L228, _getImportDir() L294, _fileNameFromPath(String path) L303, _showImportError(String message) L309, _createBlankProject() L316, _showImportUrlDialog(String sourceType) L334, _showAllProjects() L382, build(BuildContext context) L484, _buildImportSources(BoxConstraints constraints) L595, _buildRecentProjects(List<dynamic> projects) L634, _buildRecentError(ThemeData theme) L654, _buildEmptyRecent(ThemeData theme) L667
-- L677  class _HubIntro extends StatelessWidget (theme) — _HubIntro(…) L680, build(BuildContext context) L683
-- L726  class _SectionHeader extends StatelessWidget (title, actionLabel, onAction) — _SectionHeader(…) L731, build(BuildContext context) L734
-- L761  class _UrlImportBar extends StatelessWidget (controller, focusNode, isImporting, hasUrl, onClear, onImport) — _UrlImportBar(…) L769, build(BuildContext context) L779
-- L854  class _CompactMessage extends StatelessWidget (icon, title, message, action) — _CompactMessage(…) L860, build(BuildContext context) L868
-- L901  class _RecentSkeleton extends StatelessWidget (compact) — _RecentSkeleton(…) L904, build(BuildContext context) L907
-- L960  class _MediaDetails (durationMs, thumbnailPath) — _MediaDetails(…) L964
+- L39  class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> (_urlController, _urlFocusNode, _isDragActive, _isImporting) — initState() L46, dispose() L54, _handleUrlChanged() L61, _initUpdateCheck() L65, _checkWhatsNew() L96, _awaitLoadedSettings() L127, _updateSettings(AppSettings Function(AppSettings) mutate) L144, _handleBrowse() L152, _handleImportedFiles(List<PlatformFile> files) L160, _handleDrop(DropDoneDetails details) L170, _openProjectForMedia(…) L178, _readMediaDetails(String path) L211, _handleUploadUrl() L225, _getImportDir() L291, _fileNameFromPath(String path) L300, _showImportError(String message) L306, _createBlankProject() L313, _showImportUrlDialog(String sourceType) L331, _showAllProjects() L379, build(BuildContext context) L481, _buildImportSources(BoxConstraints constraints) L592, _buildRecentProjects(List<dynamic> projects) L631, _buildRecentError(ThemeData theme) L651, _buildEmptyRecent(ThemeData theme) L664
+- L674  class _HubIntro extends StatelessWidget (theme) — _HubIntro(…) L677, build(BuildContext context) L680
+- L723  class _SectionHeader extends StatelessWidget (title, actionLabel, onAction) — _SectionHeader(…) L728, build(BuildContext context) L731
+- L758  class _UrlImportBar extends StatelessWidget (controller, focusNode, isImporting, hasUrl, onClear, onImport) — _UrlImportBar(…) L766, build(BuildContext context) L776
+- L851  class _CompactMessage extends StatelessWidget (icon, title, message, action) — _CompactMessage(…) L857, build(BuildContext context) L865
+- L898  class _RecentSkeleton extends StatelessWidget (compact) — _RecentSkeleton(…) L901, build(BuildContext context) L904
+- L957  class _MediaDetails (durationMs, thumbnailPath) — _MediaDetails(…) L961
 
 ## lib/presentation/project_hub/widgets/blank_project_card.dart (94 lines)
 - L7  class BlankProjectCard extends StatefulWidget (onTap) — BlankProjectCard(…) L10, createState() L13
@@ -153,9 +153,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L6  class DashedRRectPainter extends CustomPainter (color, strokeWidth, radius, dash, gap) — DashedRRectPainter(…) L7, paint(Canvas canvas, Size size) L22, shouldRepaint(covariant DashedRRectPainter oldDelegate) L44
 - L55  class DashedBorder extends StatelessWidget (child, color, radius, strokeWidth, dash, gap) — DashedBorder(…) L63, build(BuildContext context) L74
 
-## lib/presentation/shared_widgets/export_dialog.dart (459 lines)
-- L11  class ExportDialog extends ConsumerStatefulWidget (project) — ExportDialog(…) L14, createState() L17
-- L20  class _ExportDialogState extends ConsumerState<ExportDialog> (_options, _isExporting, _progress, _done, _progressSub) — initState() L28, dispose() L37, _pickOutputPath() L42, _estimateFileSize() L56, _startExport() L74, _cancelExport() L116, build(BuildContext context) L128, _buildOptions(ThemeData theme) L157, _buildProgress(ThemeData theme) L219, _buildDone(ThemeData theme) L275, _buildDropdown(…) L311, _buildQualitySelector(ThemeData theme) L358, _buildOutputPath(ThemeData theme) L417
+## lib/presentation/shared_widgets/export_dialog.dart (464 lines)
+- L12  class ExportDialog extends ConsumerStatefulWidget (project) — ExportDialog(…) L15, createState() L18
+- L21  class _ExportDialogState extends ConsumerState<ExportDialog> (_options, _isExporting, _progress, _done, _progressSub) — initState() L29, dispose() L38, _pickOutputPath() L43, _estimateFileSize() L61, _startExport() L79, _cancelExport() L121, build(BuildContext context) L133, _buildOptions(ThemeData theme) L162, _buildProgress(ThemeData theme) L224, _buildDone(ThemeData theme) L280, _buildDropdown(…) L316, _buildQualitySelector(ThemeData theme) L363, _buildOutputPath(ThemeData theme) L422
 
 ## lib/presentation/shared_widgets/uat_survey_dialog.dart (291 lines)
 - L7  class UatSurveyDialog extends StatefulWidget (sessionId) — UatSurveyDialog(…) L9, createState() L12
