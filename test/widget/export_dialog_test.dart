@@ -21,7 +21,8 @@ import 'package:clipmind/state/ffmpeg_providers.dart';
 ///
 /// Two fakes: [_GatedFfmpeg] parks mid-run behind a completer so the
 /// progress UI and Cancel are observable; [_FastFfmpeg] completes
-/// immediately for the success path.
+/// immediately for the success path. [_FailingFfmpeg] throws mid-run so the
+/// failure SnackBar and the options-view retry path are observable.
 class _GatedFfmpeg extends FfmpegService {
   _GatedFfmpeg() : super(tempDir: Directory.systemTemp.path);
 
@@ -79,6 +80,29 @@ class _FastFfmpeg extends FfmpegService {
       outTimeMs: job.expectedDurationMs,
       speed: '',
       status: 'complete',
+    );
+  }
+
+  @override
+  void cancel() {}
+}
+
+/// Throws after one progress event, exercising the real use case's failure
+/// mapping (ExportResult.error) and the dialog's failure feedback.
+class _FailingFfmpeg extends FfmpegService {
+  _FailingFfmpeg() : super(tempDir: Directory.systemTemp.path);
+
+  @override
+  Stream<FfmpegProgress> run(FfmpegJob job) async* {
+    yield const FfmpegProgress(
+      percent: 0.2,
+      outTimeMs: 100,
+      speed: '',
+      status: 'running',
+    );
+    throw const FfmpegBinaryNotFoundException(
+      'FFmpeg binary not found. Check installation or configure path in '
+      'settings.',
     );
   }
 
@@ -222,16 +246,23 @@ void main() {
       expect(container.read(isExportingProvider), isFalse);
     });
 
-    testWidgets('success shows done and records the export result',
+    testWidgets('success replaces the placeholder with content and shows done',
         (WidgetTester tester) async {
       final fake = _FastFfmpeg();
-      addTearDown(() => _deleteFiles(fake.createdFiles));
+      const placeholderPath = 'WidgetExportProbe_export.mp4';
+      addTearDown(
+        () => _deleteFiles([...fake.createdFiles, placeholderPath]),
+      );
       final container = ProviderContainer.test(
         overrides: [ffmpegServiceProvider.overrideWithValue(fake)],
       );
       addTearDown(container.dispose);
 
       await _pumpDialog(tester, container);
+
+      // file_picker 12+ saveFile writes a 0-byte placeholder at selection
+      // time; the export run must replace it with real content via ffmpeg -y.
+      File(placeholderPath).writeAsStringSync('');
 
       await tester.tap(find.text('Export'));
       // Bounded pumps (no pumpAndSettle: the determinate progress UI is
@@ -248,7 +279,70 @@ void main() {
       expect(result, isNotNull);
       expect(result!.success, isTrue);
       expect(result.outputPath, endsWith('_export.mp4'));
-      expect(File(result.outputPath).existsSync(), isTrue);
+      final output = File(result.outputPath);
+      expect(output.existsSync(), isTrue);
+      expect(output.lengthSync(), greaterThan(0));
+    });
+
+    testWidgets('failure shows a message and stays on options',
+        (WidgetTester tester) async {
+      final fake = _FailingFfmpeg();
+      final container = ProviderContainer.test(
+        overrides: [ffmpegServiceProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+
+      await _pumpDialog(tester, container);
+
+      await tester.tap(find.text('Export'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.textContaining('Export failed:'), findsOneWidget);
+      expect(
+        find.textContaining('The output file may be empty or incomplete.'),
+        findsOneWidget,
+      );
+      // Options view remains (retry path); the done view never shows.
+      expect(find.text('Export'), findsOneWidget);
+      expect(find.text('Export Complete'), findsNothing);
+      expect(container.read(isExportingProvider), isFalse);
+      final result = container.read(lastExportResultProvider);
+      expect(result, isNotNull);
+      expect(result!.success, isFalse);
+      expect(result.error, contains('FFmpeg binary not found'));
+    });
+
+    testWidgets('cancel stays silent (no failure message)',
+        (WidgetTester tester) async {
+      final fake = _GatedFfmpeg();
+      addTearDown(() => _deleteFiles(fake.createdFiles));
+      final container = ProviderContainer.test(
+        overrides: [ffmpegServiceProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
+
+      await _pumpDialog(tester, container);
+
+      await tester.tap(find.text('Export'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('Exporting'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+
+      // Let the parked run finish into the cancelled use case: the result
+      // is an 'Export cancelled' failure, which must not surface a message.
+      fake.gate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.textContaining('Export failed:'), findsNothing);
+      expect(find.text('Export'), findsOneWidget);
     });
   });
 }

@@ -2,6 +2,14 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.38.1
+
+### Export failure feedback
+- A failed export now surfaces a message with the reason and a warning that the output file may be empty or incomplete, instead of silently returning to the export options. Cancelling an export stays silent (user-initiated).
+
+### Note
+- With file_picker 12+, choosing an export destination creates an empty placeholder at that path; the export replaces it with the final content on success.
+
 ## 1.38.0
 
 ### Dependency upgrade

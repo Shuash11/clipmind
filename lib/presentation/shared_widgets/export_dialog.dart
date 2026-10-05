@@ -116,6 +116,21 @@ class _ExportDialogState extends ConsumerState<ExportDialog> {
         _progress = result.success ? 1.0 : 0.0;
       });
     }
+
+    // Failure feedback (previously silent: the dialog just returned to the
+    // options view while the chosen destination could hold the 0-byte
+    // file_picker placeholder). Cancels stay silent — the user initiated
+    // them and the dialog already returned to the options view.
+    if (mounted && !result.success && result.error != 'Export cancelled') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Export failed: ${result.error ?? 'Unknown error'}. '
+            'The output file may be empty or incomplete.',
+          ),
+        ),
+      );
+    }
   }
 
   void _cancelExport() {
