@@ -2,6 +2,18 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.37.0
+
+### Dependency platform upgrade
+- Drift 2.25 → 2.35.1; SQLite is now bundled by `package:sqlite3` 3.7.0 through Dart build hooks, replacing the EOL `sqlite3_flutter_libs` package.
+- Freezed 2.5.8 → 4.0.2 (all 19 `@freezed` models migrated to `abstract` classes); json_serializable 6.9 → 6.14.1; json_annotation 4.9 → 4.12.0; build_runner 2.4 → 2.16.1.
+
+### No behavior changes
+- No API, JSON, or data-format changes; the database schema stays at v4.
+
+### Build note
+- The first `flutter build`/`flutter test` downloads the prebuilt, sha256-verified SQLite library from the `sqlite3` package's GitHub releases and caches it under `.dart_tool/hooks_runner/`; subsequent builds reuse the cache. Offline and mirror options are documented in `docs/RELEASE.md`.
+
 ## 1.36.4
 
 ### Update-flow fix

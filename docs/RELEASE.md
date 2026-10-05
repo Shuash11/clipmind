@@ -18,6 +18,24 @@ How to publish a ClipMind release. The Release workflow (`.github/workflows/rele
 
 The in-app update checker (`github_release_checker.dart`) fetches `releases/latest`, uses the first asset ending in `.exe` as the setup asset, and compares versions with the `+build` suffix stripped. Because the tag must equal the built exe's version resource (which comes from pubspec), tagging a version that does not match the pubspec version breaks both update gates (the `isNewer` comparison and the result reader's `expectedVersion` match) and can re-create an update loop. Always tag the pubspec version.
 
+## Native SQLite build hook (since 1.37.0)
+
+Since 1.37.0 the app gets SQLite from `package:sqlite3` 3.x, which bundles a native SQLite through Dart build hooks — the EOL `sqlite3_flutter_libs` platform package is gone. On the first `flutter build`/`flutter test` after a fresh checkout or `flutter clean`, the hook downloads a prebuilt, sha256-verified `sqlite3.dll` from the `sqlite3` package's GitHub releases and caches it in `.dart_tool/hooks_runner/shared/sqlite3/build/download-<hash>/`. Later builds and tests reuse that cache, so only a fresh checkout or a clean build needs network access.
+
+For air-gapped builds or an internal mirror, point the hook at another artifact host with the `url_pattern` user define in `pubspec.yaml` (or use a system SQLite via `source: system`):
+
+```yaml
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3
+      url_pattern: "https://artifacts.example.org/$RELEASE_TAG/$FILENAME"
+```
+
+Upstream hook documentation: https://github.com/simolus3/sqlite3.dart/blob/main/sqlite3/doc/hook.md
+
+No packaging change is needed: the hook output lands in `build\windows\x64\runner\Release\` next to `clipmind.exe`, and the installer (`installer\clipmind.iss` packages `Release\*` with `recursesubdirs`) plus the release ZIP (`Compress-Archive Release\*`) pick it up automatically.
+
 ## Exceptions
 
 - Do **not** bump pubspec when tagging an already-pushed version state (e.g., docs-only release commits) — the tag must match the version the exe will actually be built with.
