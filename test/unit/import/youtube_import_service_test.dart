@@ -284,6 +284,210 @@ void main() {
       expect(service.hasActiveProcess, isFalse);
     });
   });
+
+  group('YouTubeImportService checkAvailability', () {
+    test('available: --version output is reported as the version', () async {
+      final fake = _FakeYtDlpProcess(
+        stdoutStream: Stream<List<int>>.value(utf8.encode('2026.09.05\n')),
+        stderrStream: Stream<List<int>>.value(const <int>[]),
+        exitCode: 0,
+      );
+      var probeArgs = const <String>[];
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async {
+          expect(exe, equals('yt-dlp'));
+          probeArgs = args;
+          return fake;
+        },
+      );
+
+      final availability = await service.checkAvailability();
+
+      expect(probeArgs, equals(const ['--version']));
+      expect(availability.isAvailable, isTrue);
+      expect(availability.version, equals('2026.09.05'));
+      expect(availability.message, isNull);
+      expect(fake.killed, isFalse);
+      expect(service.hasActiveProcess, isFalse);
+    });
+
+    test('unavailable: ProcessException carries the typed message', () async {
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async =>
+            throw ProcessException('yt-dlp', args, 'not found', 2),
+      );
+
+      final availability = await service.checkAvailability();
+
+      expect(availability.isAvailable, isFalse);
+      expect(availability.version, isNull);
+      expect(
+        availability.message,
+        equals(YouTubeImportService.missingBinaryMessage),
+      );
+    });
+
+    test('unavailable: non-zero --version exit', () async {
+      final fake = _FakeYtDlpProcess(
+        stdoutStream: Stream<List<int>>.value(utf8.encode('boom\n')),
+        stderrStream: Stream<List<int>>.value(const <int>[]),
+        exitCode: 3,
+      );
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async => fake,
+      );
+
+      final availability = await service.checkAvailability();
+
+      expect(availability.isAvailable, isFalse);
+      expect(availability.version, isNull);
+      expect(
+        availability.message,
+        equals(YouTubeImportService.missingBinaryMessage),
+      );
+    });
+
+    test('unavailable: hung probe times out and the child is killed',
+        () async {
+      final fake = _FakeYtDlpProcess(
+        stdoutStream: _neverListStream(),
+        stderrStream: _neverListStream(),
+      );
+      final service = YouTubeImportService(
+        probeTimeout: const Duration(milliseconds: 100),
+        startProcess: (exe, args) async => fake,
+      );
+
+      final sw = Stopwatch()..start();
+      final availability = await service.checkAvailability();
+      sw.stop();
+
+      expect(availability.isAvailable, isFalse);
+      expect(availability.version, isNull);
+      expect(
+        availability.message,
+        equals(YouTubeImportService.missingBinaryMessage),
+      );
+      expect(fake.killed, isTrue);
+      expect(sw.elapsed, lessThan(const Duration(seconds: 5)));
+    });
+
+    test('unavailable: unexpected starter failure never escapes', () async {
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async => throw StateError('boom'),
+      );
+
+      final availability = await service.checkAvailability();
+
+      expect(availability.isAvailable, isFalse);
+      expect(
+        availability.message,
+        equals(YouTubeImportService.missingBinaryMessage),
+      );
+    });
+  });
+
+  group('YouTubeImportService URL validation', () {
+    test('empty input is rejected without spawning', () async {
+      var starts = 0;
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async {
+          starts++;
+          throw StateError('must not spawn for invalid input');
+        },
+      );
+
+      final outcome = await _runImport(service, '');
+
+      expect(starts, isZero);
+      expect(outcome.result, isNull);
+      expect(outcome.errors, equals([YouTubeImportService.invalidUrlMessage]));
+      expect(service.hasActiveProcess, isFalse);
+    });
+
+    test('option-like input is rejected without spawning', () async {
+      var starts = 0;
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async {
+          starts++;
+          throw StateError('must not spawn for invalid input');
+        },
+      );
+
+      final outcome = await _runImport(service, '--exec=calc');
+
+      expect(starts, isZero);
+      expect(outcome.result, isNull);
+      expect(outcome.errors, equals([YouTubeImportService.invalidUrlMessage]));
+      expect(service.hasActiveProcess, isFalse);
+    });
+
+    test('non-http scheme is rejected without spawning', () async {
+      var starts = 0;
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async {
+          starts++;
+          throw StateError('must not spawn for invalid input');
+        },
+      );
+
+      final outcome = await _runImport(service, 'file:///tmp/x.mp4');
+
+      expect(starts, isZero);
+      expect(outcome.result, isNull);
+      expect(outcome.errors, equals([YouTubeImportService.invalidUrlMessage]));
+      expect(service.hasActiveProcess, isFalse);
+    });
+
+    test('valid https URL spawns with -- before the URL', () async {
+      final capturedArgs = <String>[];
+      final fake = _FakeYtDlpProcess(
+        stdoutStream: Stream<List<int>>.value(
+          utf8.encode('/tmp/clipmind_video.mp4\n'),
+        ),
+        stderrStream: Stream<List<int>>.value(
+          utf8.encode('[download] 100%\n'),
+        ),
+        exitCode: 0,
+      );
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async {
+          expect(exe, equals('yt-dlp'));
+          capturedArgs.addAll(args);
+          return fake;
+        },
+      );
+
+      final outcome = await _runImport(service, 'https://youtu.be/x');
+
+      expect(outcome.result, equals('/tmp/clipmind_video.mp4'));
+      expect(outcome.errors, isEmpty);
+      expect(capturedArgs, contains('after_move:filepath'));
+      // The end-of-options separator must sit immediately before the URL
+      // so a valid link can never be parsed as a yt-dlp option.
+      final separator = capturedArgs.indexOf('--');
+      expect(separator, greaterThanOrEqualTo(0));
+      expect(capturedArgs[separator + 1], equals('https://youtu.be/x'));
+      expect(capturedArgs.last, equals('https://youtu.be/x'));
+    });
+  });
+}
+
+/// Runs [YouTubeImportService.import] with the production consumer pattern
+/// — subscribe right after the call, before awaiting — and returns the
+/// settled result plus every error emitted.
+Future<({String? result, List<String> errors})> _runImport(
+  YouTubeImportService service,
+  String url,
+) async {
+  final pending = service.import(url, '/tmp');
+  final errors = <String>[];
+  final subscription = service.errors.listen(errors.add);
+  final result = await pending;
+  // Flush deferred broadcast emissions before asserting.
+  await Future<void>.delayed(Duration.zero);
+  await subscription.cancel();
+  return (result: result, errors: errors);
 }
 
 /// Never-emitting, never-closing byte stream: simulates a hung yt-dlp

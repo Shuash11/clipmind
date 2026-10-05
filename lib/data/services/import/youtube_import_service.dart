@@ -10,10 +10,23 @@ class YouTubeImportService {
       'yt-dlp not found — install it (yt-dlp.exe or winget) '
       'or configure the path in settings';
 
+  /// Typed invalid-input guidance, surfaced on [errors] when [import]
+  /// receives anything that is not an http(s) URL: empty input,
+  /// `--`-prefixed options, or other schemes such as `file://`.
+  static const invalidUrlMessage =
+      'Only http and https YouTube links are supported — '
+      'enter a full video URL';
+
   /// Stall watchdog window: a healthy yt-dlp emits stdout/stderr lines
   /// regularly, so firing only when no output arrives for [stallTimeout]
   /// means the child is truly hung. No total-duration cap.
   final Duration stallTimeout;
+
+  /// Availability probe window for [checkAvailability]: `yt-dlp --version`
+  /// answers at once when the binary is healthy, so a probe that has not
+  /// settled within this window is treated as unavailable and its child
+  /// is killed.
+  final Duration probeTimeout;
 
   /// Test seam, consistent with `runJob`/`runProbe`/`startProcess`: replaces
   /// the real `Process.start` so tests can inject controllable output lines,
@@ -38,6 +51,7 @@ class YouTubeImportService {
 
   YouTubeImportService({
     this.stallTimeout = const Duration(seconds: 120),
+    this.probeTimeout = const Duration(seconds: 5),
     this.startProcess,
     this.runTreeKill,
   });
@@ -57,6 +71,71 @@ class YouTubeImportService {
   /// instant the watchdog tripped still yields its file. A child that
   /// never settles resolves to the typed stall failure after this window.
   static const _exitGrace = Duration(milliseconds: 250);
+
+  /// Probes whether `yt-dlp` is installed and runnable — never throws.
+  ///
+  /// Runs `yt-dlp --version` through the same [startProcess] seam [import]
+  /// uses (default `Process.start`), collects stdout, and waits
+  /// [probeTimeout]. Every failure — missing binary, non-zero exit, a
+  /// timeout, or an unexpected error — resolves to an unavailable
+  /// [YtDlpAvailability] carrying [missingBinaryMessage]; a timeout also
+  /// kills the hung child. Read-only: it never touches the in-flight
+  /// import lifecycle (single-flight, shared controllers, cancel handle).
+  Future<YtDlpAvailability> checkAvailability() async {
+    try {
+      final starter = startProcess;
+      final proc = starter != null
+          ? await starter('yt-dlp', const ['--version'])
+          : await Process.start('yt-dlp', const ['--version']);
+
+      final stdoutFuture = proc.stdout.transform(utf8.decoder).join();
+      // Drain stderr immediately: an unread pipe blocks the child once the
+      // OS buffer fills, and only stdout carries the version line.
+      unawaited(proc.stderr.drain<void>());
+
+      final int exitCode;
+      try {
+        exitCode = await proc.exitCode.timeout(probeTimeout);
+      } on TimeoutException {
+        try {
+          proc.kill();
+        } catch (_) {}
+        stdoutFuture.ignore();
+        return const YtDlpAvailability.unavailable(missingBinaryMessage);
+      }
+
+      final version = (await stdoutFuture).trim();
+      if (exitCode != 0 || version.isEmpty) {
+        return const YtDlpAvailability.unavailable(missingBinaryMessage);
+      }
+      return YtDlpAvailability.available(version);
+    } on ProcessException {
+      return const YtDlpAvailability.unavailable(missingBinaryMessage);
+    } catch (_) {
+      // Non-throwing contract: an unexpected probe failure reads as
+      // unavailable instead of escaping to the caller.
+      return const YtDlpAvailability.unavailable(missingBinaryMessage);
+    }
+  }
+
+  /// Reports an import failure on [errors].
+  ///
+  /// Emissions raised synchronously (invalid URL input) are deferred to a
+  /// microtask: broadcast controllers drop events added while nobody is
+  /// listening, so a listener subscribing right after [import] is called
+  /// would otherwise miss them. Same pattern as `UrlImportService`.
+  void _reportError(String message) {
+    final errors = _errorStream;
+    if (errors == null || errors.isClosed) return;
+    if (errors.hasListener) {
+      errors.add(message);
+    } else {
+      scheduleMicrotask(() {
+        if (errors.isClosed) return;
+        errors.add(message);
+      });
+    }
+  }
 
   /// Downloads [url] into [outputDir] and returns the moved file path.
   ///
@@ -92,6 +171,16 @@ class YouTubeImportService {
     }
 
     try {
+      // Input hardening: reject anything that is not an http(s) URL —
+      // empty input, `--`-prefixed yt-dlp options, other schemes such as
+      // `file://` — before spawning. Emitted through [_reportError] so a
+      // listener subscribing right after [import] is called still sees it.
+      final uri = Uri.tryParse(url);
+      if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
+        _reportError(invalidUrlMessage);
+        return null;
+      }
+
       final args = [
         '--newline',
         '--no-warnings',
@@ -100,6 +189,9 @@ class YouTubeImportService {
         '-o',
         '$outputDir/%(title)s.%(ext)s',
         '--no-playlist',
+        // Upstream-documented end-of-options: the URL is always treated as
+        // a URL, never as a yt-dlp option.
+        '--',
         url,
       ];
       final starter = startProcess;
@@ -245,6 +337,23 @@ class YouTubeImportService {
       proc.kill();
     } catch (_) {}
   }
+}
+
+/// Typed result of [YouTubeImportService.checkAvailability]: inspectable
+/// and never thrown. [version] is the reported program version when
+/// available; [message] carries actionable recovery guidance when not.
+class YtDlpAvailability {
+  final bool isAvailable;
+  final String? version;
+  final String? message;
+
+  const YtDlpAvailability.available(String this.version)
+      : isAvailable = true,
+        message = null;
+
+  const YtDlpAvailability.unavailable(String this.message)
+      : isAvailable = false,
+        version = null;
 }
 
 /// Typed single-flight failure for [YouTubeImportService.import]. Thrown
