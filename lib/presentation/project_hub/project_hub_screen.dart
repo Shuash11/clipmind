@@ -11,6 +11,7 @@ import 'package:clipmind/core/constants/release_notes.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/core/router/app_router.dart';
 import 'package:clipmind/state/ffmpeg_providers.dart';
+import 'package:clipmind/state/import_providers.dart';
 import 'package:clipmind/state/player_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/settings_providers.dart';
@@ -28,6 +29,23 @@ import 'widgets/import_source_card.dart';
 import 'widgets/recent_project_card.dart';
 import 'widgets/hub_top_bar.dart';
 import 'widgets/blank_project_card.dart';
+import 'widgets/yt_dlp_guidance_dialog.dart';
+
+/// URL bar flow: [idle] accepts input, [checking] runs the YouTube
+/// availability preflight, and [downloading] renders the service's
+/// determinate progress plus a cancel action.
+enum _UrlImportFlow { idle, checking, downloading }
+
+/// True when [url] targets YouTube by host (`youtube.com`, `youtu.be`, and
+/// their subdomains). Host-based so look-alike domains such as
+/// `notyoutube.com` keep the direct-download path.
+bool _isYouTubeUrl(String url) {
+  final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
+  return host == 'youtube.com' ||
+      host == 'youtu.be' ||
+      host.endsWith('.youtube.com') ||
+      host.endsWith('.youtu.be');
+}
 
 class ProjectHubScreen extends ConsumerStatefulWidget {
   const ProjectHubScreen({super.key});
@@ -42,6 +60,17 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
   bool _isDragActive = false;
   bool _isImporting = false;
 
+  /// URL-bar flow state; [_isImporting] stays the hub-wide busy lock.
+  _UrlImportFlow _urlFlow = _UrlImportFlow.idle;
+  double? _importProgress;
+
+  /// Bumped on every start/cancel so a superseded attempt's late emissions
+  /// and completion can never touch the UI (cancel, then a new import).
+  int _importGeneration = 0;
+  VoidCallback? _cancelActiveImport;
+  StreamSubscription<String>? _importErrorSub;
+  StreamSubscription<double>? _importProgressSub;
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +81,10 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
 
   @override
   void dispose() {
+    // A pending import's child keeps running, but its streams must not
+    // call back into a disposed state.
+    unawaited(_importErrorSub?.cancel());
+    unawaited(_importProgressSub?.cancel());
     _urlController.removeListener(_handleUrlChanged);
     _urlController.dispose();
     _urlFocusNode.dispose();
@@ -230,47 +263,117 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
       return;
     }
 
-    setState(() => _isImporting = true);
+    if (!_isYouTubeUrl(url)) {
+      await _startImport(url);
+      return;
+    }
+
+    // YouTube preflight: never spawn yt-dlp for a binary that does not
+    // answer. The probe instance is reused for the import when available.
+    setState(() {
+      _isImporting = true;
+      _urlFlow = _UrlImportFlow.checking;
+    });
+    final service = ref.read(youtubeImportServiceFactoryProvider)();
+    final availability = await service.checkAvailability();
+    if (!mounted) return;
+    if (!availability.isAvailable) {
+      setState(() {
+        _isImporting = false;
+        _urlFlow = _UrlImportFlow.idle;
+      });
+      // Recovery path for a previous runtime missing-binary failure too:
+      // the dialog explains the standalone install and links the official
+      // release page.
+      await YtDlpGuidanceDialog.show(
+        context,
+        onLaunchFailed: _handleGuidanceLaunchFailed,
+      );
+      return;
+    }
+    await _startImport(url, youtubeService: service);
+  }
+
+  void _handleGuidanceLaunchFailed() {
+    if (!mounted) return;
+    _showImportError(
+      'Could not open the download page — find yt-dlp at '
+      'github.com/yt-dlp/yt-dlp/releases',
+    );
+  }
+
+  /// Downloads [url] with the probed [youtubeService] (YouTube) or a fresh
+  /// [UrlImportService] (direct link), streaming determinate progress into
+  /// the URL bar. A cancelled attempt's late emissions and completion are
+  /// dropped by [_importGeneration].
+  Future<void> _startImport(
+    String url, {
+    YouTubeImportService? youtubeService,
+  }) async {
+    final generation = ++_importGeneration;
+    setState(() {
+      _isImporting = true;
+      _urlFlow = _UrlImportFlow.downloading;
+      _importProgress = null;
+    });
+
+    String? downloadedPath;
+    String? reportedError;
+    StreamSubscription<String>? errorSub;
+    StreamSubscription<double>? progressSub;
+
+    void trackError(String message) {
+      if (generation != _importGeneration) return;
+      reportedError ??= message;
+      if (mounted) _showImportError(message);
+    }
 
     try {
       final dir = await _getImportDir();
-      String? downloadedPath;
-      String? reportedError;
+      if (!mounted || generation != _importGeneration) return;
 
-      void trackError(String message) {
-        reportedError ??= message;
-        if (mounted) _showImportError(message);
-      }
-
-      // NOTE: the import future is created before subscribing: both
-      // services create their errors controllers synchronously inside
-      // import(), so subscribing earlier would attach to Stream.empty().
-      // The services defer sync emissions to a microtask, therefore a
-      // subscription in the same synchronous block still observes them.
-      if (url.contains('youtube.com') || url.contains('youtu.be')) {
-        final service = YouTubeImportService();
-        final pending = service.import(url, dir.path);
-        final subscription = service.errors.listen(trackError);
-        try {
-          downloadedPath = await pending;
-        } finally {
-          await subscription.cancel();
-        }
+      // NOTE: as before the refactor, the import future is created before
+      // subscribing: both services create their controllers synchronously
+      // inside import(), so subscribing earlier would attach to
+      // Stream.empty().
+      final Future<String?> pending;
+      final Stream<String> errors;
+      final Stream<double> progress;
+      final VoidCallback onCancel;
+      if (youtubeService != null) {
+        pending = youtubeService.import(url, dir.path);
+        errors = youtubeService.errors;
+        progress = youtubeService.progress;
+        onCancel = youtubeService.cancel;
       } else {
-        final service = UrlImportService();
-        final pending = service.import(
-          url,
-          '${dir.path}/direct_download.mp4',
-        );
-        final subscription = service.errors.listen(trackError);
-        try {
-          downloadedPath = await pending;
-        } finally {
-          await subscription.cancel();
-        }
+        final service = ref.read(urlImportServiceFactoryProvider)();
+        pending = service.import(url, '${dir.path}/direct_download.mp4');
+        errors = service.errors;
+        progress = service.progress;
+        onCancel = service.cancel;
       }
 
+      _cancelActiveImport = onCancel;
+      errorSub = errors.listen(trackError);
+      progressSub = progress.listen((value) {
+        if (generation != _importGeneration || !mounted) return;
+        setState(() => _importProgress = value.clamp(0.0, 1.0));
+      });
+      _importErrorSub = errorSub;
+      _importProgressSub = progressSub;
+
+      downloadedPath = await pending;
+
+      if (generation != _importGeneration) return;
       if (downloadedPath != null && mounted) {
+        // The download is done — nothing left to cancel. Hide the cancel
+        // affordance before the open step (ffprobe + thumbnail can take
+        // seconds); _isImporting stays true so the field and submit remain
+        // disabled until the finally resets the bar.
+        setState(() {
+          _urlFlow = _UrlImportFlow.idle;
+          _importProgress = null;
+        });
         await _openProjectForMedia(
           name: _fileNameFromPath(downloadedPath),
           path: downloadedPath,
@@ -280,12 +383,46 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
         _showImportError('Import failed. Check the URL and try again.');
       }
     } catch (_) {
-      if (mounted) {
+      if (generation == _importGeneration && mounted) {
         _showImportError('Import failed. Check the URL and try again.');
       }
     } finally {
-      if (mounted) setState(() => _isImporting = false);
+      await errorSub?.cancel();
+      await progressSub?.cancel();
+      if (generation == _importGeneration && mounted) {
+        setState(() {
+          _isImporting = false;
+          _urlFlow = _UrlImportFlow.idle;
+          _importProgress = null;
+          _importErrorSub = null;
+          _importProgressSub = null;
+          _cancelActiveImport = null;
+        });
+      }
     }
+  }
+
+  /// Cancels the in-flight download: invalidates the attempt first (so its
+  /// late completion, errors, and progress cannot reach the UI), then drops
+  /// the subscriptions and kills the child. The bar returns to idle with a
+  /// single notice — the direct-download service's own "Download cancelled"
+  /// error lands on a stale generation and is dropped.
+  void _handleCancelImport() {
+    if (_urlFlow != _UrlImportFlow.downloading) return;
+    _importGeneration++;
+    final cancel = _cancelActiveImport;
+    _cancelActiveImport = null;
+    unawaited(_importErrorSub?.cancel());
+    _importErrorSub = null;
+    unawaited(_importProgressSub?.cancel());
+    _importProgressSub = null;
+    cancel?.call();
+    setState(() {
+      _isImporting = false;
+      _urlFlow = _UrlImportFlow.idle;
+      _importProgress = null;
+    });
+    _showImportError('Download cancelled');
   }
 
   Future<Directory> _getImportDir() async {
@@ -579,9 +716,12 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
               controller: _urlController,
               focusNode: _urlFocusNode,
               isImporting: _isImporting,
+              urlFlow: _urlFlow,
+              progress: _importProgress,
               hasUrl: hasUrl,
               onClear: () => _urlController.clear(),
               onImport: _handleUploadUrl,
+              onCancel: _handleCancelImport,
             ),
           ],
         ),
@@ -759,21 +899,28 @@ class _UrlImportBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isImporting;
+  final _UrlImportFlow urlFlow;
+  final double? progress;
   final bool hasUrl;
   final VoidCallback onClear;
   final VoidCallback onImport;
+  final VoidCallback onCancel;
 
   const _UrlImportBar({
     required this.controller,
     required this.focusNode,
     required this.isImporting,
+    required this.urlFlow,
+    required this.progress,
     required this.hasUrl,
     required this.onClear,
     required this.onImport,
+    required this.onCancel,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final pillBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(999),
       borderSide: const BorderSide(color: ClipMindColors.borderColor),
@@ -822,27 +969,95 @@ class _UrlImportBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              SizedBox(
-                height: 48,
-                child: FilledButton.icon(
-                  onPressed: isImporting ? null : onImport,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: ClipMindColors.bgElevated,
-                    foregroundColor: ClipMindColors.textPrimary,
-                  ),
-                  icon: isImporting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.arrow_forward_rounded, size: 18),
-                  label: Text(isImporting ? 'Importing' : 'Import'),
+              if (urlFlow == _UrlImportFlow.downloading)
+                _buildProgressCluster(theme)
+              else
+                _buildSubmitButton(
+                  isChecking: urlFlow == _UrlImportFlow.checking,
                 ),
-              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Idle/checking submit affordance. While any hub operation is in flight
+  /// the button stays disabled; a YouTube preflight reads "Checking".
+  Widget _buildSubmitButton({required bool isChecking}) {
+    return SizedBox(
+      height: 48,
+      child: FilledButton.icon(
+        onPressed: isImporting ? null : onImport,
+        style: FilledButton.styleFrom(
+          backgroundColor: ClipMindColors.bgElevated,
+          foregroundColor: ClipMindColors.textPrimary,
+        ),
+        icon: isImporting
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.arrow_forward_rounded, size: 18),
+        label: Text(
+          isImporting ? (isChecking ? 'Checking' : 'Importing') : 'Import',
+        ),
+      ),
+    );
+  }
+
+  /// Downloading affordance: label + helper text above a compact 4px track
+  /// (text stays outside the bar), with cancel replacing the submit button.
+  /// [LinearProgressIndicator] is determinate whenever the service has
+  /// reported a value, indeterminate until then.
+  Widget _buildProgressCluster(ThemeData theme) {
+    final value = progress;
+    final percent = value == null ? null : (value * 100).round();
+    return SizedBox(
+      height: 48,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 208,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  percent == null ? 'Downloading…' : 'Downloading… $percent%',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: ClipMindColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 7),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    key: const ValueKey('url-import-progress'),
+                    value: value,
+                    minHeight: 4,
+                    backgroundColor: ClipMindColors.bgElevated,
+                    valueColor: const AlwaysStoppedAnimation(
+                      ClipMindColors.accentPrimary,
+                    ),
+                    semanticsLabel: 'Download progress',
+                    semanticsValue: percent == null ? null : '$percent%',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Cancel download',
+            icon: const Icon(Icons.close_rounded),
+            onPressed: onCancel,
+          ),
+        ],
       ),
     );
   }

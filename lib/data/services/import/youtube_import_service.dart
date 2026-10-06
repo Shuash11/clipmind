@@ -5,10 +5,12 @@ import 'dart:io';
 class YouTubeImportService {
   /// Typed missing-binary guidance, surfaced on [errors] when `yt-dlp`
   /// cannot be started. Same actionable-message family as the FFmpeg
-  /// binary-not-found failures.
+  /// binary-not-found failures. Mirrors the import guidance dialog: the
+  /// official standalone build, placed on PATH — there is no in-app path
+  /// setting (and no winget assumption).
   static const missingBinaryMessage =
-      'yt-dlp not found — install it (yt-dlp.exe or winget) '
-      'or configure the path in settings';
+      'yt-dlp not found — install the official standalone yt-dlp.exe '
+      '(Windows) or yt-dlp_macos (macOS) build, then add it to your PATH';
 
   /// Typed invalid-input guidance, surfaced on [errors] when [import]
   /// receives anything that is not an http(s) URL: empty input,

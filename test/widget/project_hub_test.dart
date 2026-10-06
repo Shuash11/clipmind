@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -5,18 +6,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/repositories/project_repository.dart';
+import 'package:clipmind/data/services/ffmpeg/ffprobe_service.dart';
 import 'package:clipmind/data/services/updates/github_release_checker.dart';
 import 'package:clipmind/data/services/updates/release_info.dart';
 import 'package:clipmind/data/services/import/url_import_service.dart';
+import 'package:clipmind/data/services/import/youtube_import_service.dart';
 import 'package:clipmind/presentation/project_hub/project_hub_screen.dart';
 import 'package:clipmind/presentation/project_hub/widgets/blank_project_card.dart';
 import 'package:clipmind/presentation/project_hub/widgets/recent_project_card.dart';
+import 'package:clipmind/presentation/project_hub/widgets/yt_dlp_guidance_dialog.dart';
 import 'package:clipmind/presentation/shared_widgets/dashed_border.dart';
+import 'package:clipmind/state/ffmpeg_providers.dart';
+import 'package:clipmind/state/import_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/update_providers.dart';
 
@@ -155,6 +162,134 @@ void _mockPathProvider(String appSupportPath) {
 class _FailingChecker extends GithubReleaseChecker {
   @override
   Future<ReleaseInfo?> checkForUpdate() async => null;
+}
+
+/// Fake YouTube service: scripted availability, and an import that stays
+/// pending until the test emits progress/errors or cancels. The streams are
+/// broadcast controllers created up front, mirroring the real services'
+/// "controllers exist before a listener subscribes" contract.
+class _FakeYouTubeImportService extends YouTubeImportService {
+  _FakeYouTubeImportService({required this.availability, this.availabilityGate});
+
+  final YtDlpAvailability availability;
+  final Completer<YtDlpAvailability>? availabilityGate;
+  final _progress = StreamController<double>.broadcast();
+  final _errors = StreamController<String>.broadcast();
+
+  int checkCalls = 0;
+  int importCalls = 0;
+  int cancelCalls = 0;
+  String? lastUrl;
+  String? lastOutputDir;
+  Completer<String?>? _pending;
+
+  @override
+  Stream<double> get progress => _progress.stream;
+
+  @override
+  Stream<String> get errors => _errors.stream;
+
+  @override
+  Future<YtDlpAvailability> checkAvailability() {
+    checkCalls++;
+    final gate = availabilityGate;
+    if (gate != null) return gate.future;
+    return Future.value(availability);
+  }
+
+  @override
+  Future<String?> import(String url, String outputDir) {
+    importCalls++;
+    lastUrl = url;
+    lastOutputDir = outputDir;
+    _pending = Completer<String?>();
+    return _pending!.future;
+  }
+
+  @override
+  void cancel() {
+    cancelCalls++;
+    _pending?.complete(null);
+    _pending = null;
+  }
+
+  void emitProgress(double value) => _progress.add(value);
+}
+
+/// Fake direct-URL service: pending import plus a cancel that mimics the
+/// real service by also emitting its own "Download cancelled" error.
+class _FakeUrlImportService extends UrlImportService {
+  final _progress = StreamController<double>.broadcast();
+  final _errors = StreamController<String>.broadcast();
+
+  int importCalls = 0;
+  int cancelCalls = 0;
+  String? lastUrl;
+  String? lastOutputPath;
+  Completer<String?>? _pending;
+
+  @override
+  Stream<double> get progress => _progress.stream;
+
+  @override
+  Stream<String> get errors => _errors.stream;
+
+  @override
+  Future<String?> import(String fileUrl, String outputPath) {
+    importCalls++;
+    lastUrl = fileUrl;
+    lastOutputPath = outputPath;
+    _pending = Completer<String?>();
+    return _pending!.future;
+  }
+
+  @override
+  void cancel() {
+    cancelCalls++;
+    _errors.add('Download cancelled');
+    _pending?.complete(null);
+    _pending = null;
+  }
+
+  /// Completes the pending import with [path], as a finished download does.
+  void completeImport(String? path) {
+    _pending?.complete(path);
+    _pending = null;
+  }
+
+  void emitProgress(double value) => _progress.add(value);
+}
+
+/// Fake ffprobe: [extractMetadata] waits on [metadataGate] so the hub's
+/// open step (ffprobe + thumbnail) can be observed mid-flight; the
+/// thumbnail resolves immediately to no path.
+class _FakeFfprobeService extends FfprobeService {
+  _FakeFfprobeService({required this.metadataGate});
+
+  final Completer<VideoMetadata?> metadataGate;
+
+  @override
+  Future<VideoMetadata?> extractMetadata(String filePath) =>
+      metadataGate.future;
+
+  @override
+  Future<String?> generateThumbnail(
+    String filePath, {
+    int atMs = 0,
+    String? outputPath,
+  }) async => null;
+}
+
+List<Override> _importServiceOverrides({
+  _FakeYouTubeImportService? youtube,
+  _FakeUrlImportService? url,
+}) {
+  return [
+    if (youtube != null)
+      youtubeImportServiceFactoryProvider.overrideWithValue(() => youtube),
+    if (url != null)
+      urlImportServiceFactoryProvider.overrideWithValue(() => url),
+  ];
 }
 
 void main() {
@@ -537,5 +672,434 @@ void main() {
       isFalse,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  group('URL import preflight, progress, and cancel', () {
+    Future<ProviderContainer> pumpImportHub(
+      WidgetTester tester, {
+      _FakeYouTubeImportService? youtube,
+      _FakeUrlImportService? url,
+      FfprobeService? ffprobe,
+    }) async {
+      final repo = _FakeProjectRepository(db: db);
+      final container = ProviderContainer.test(
+        overrides: [
+          projectRepositoryProvider.overrideWithValue(repo),
+          if (ffprobe != null)
+            ffprobeServiceProvider.overrideWithValue(ffprobe),
+          ..._importServiceOverrides(youtube: youtube, url: url),
+        ],
+      );
+      addTearDown(container.dispose);
+      await _pumpHub(tester, container);
+      await tester.pump();
+      return container;
+    }
+
+    testWidgets(
+      'YouTube preflight starts the import, streams determinate progress, '
+      'and cancel resets to idle with one notice',
+      (tester) async {
+        final youtube = _FakeYouTubeImportService(
+          availability: const YtDlpAvailability.available('2026.05.01'),
+        );
+        _mockPathProvider(importTempDir.path);
+        await pumpImportHub(tester, youtube: youtube);
+
+        await tester.enterText(
+          find.byType(TextField),
+          'https://www.youtube.com/watch?v=abc123',
+        );
+        await tester.pump();
+
+        // The preflight + spawn touch real dart:io (imports dir), so drive
+        // them in the real async zone.
+        await tester.runAsync(() async {
+          await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+        });
+        await tester.pump();
+
+        expect(youtube.checkCalls, 1);
+        expect(youtube.importCalls, 1);
+        expect(youtube.lastUrl, 'https://www.youtube.com/watch?v=abc123');
+        expect(youtube.lastOutputDir, endsWith('imports'));
+
+        // No stream value yet: indeterminate track, label without percent.
+        final pending = tester.widget<LinearProgressIndicator>(
+          find.byKey(const ValueKey('url-import-progress')),
+        );
+        expect(pending.value, isNull);
+        expect(find.text('Downloading…'), findsOneWidget);
+
+        youtube.emitProgress(0.25);
+        await tester.pump();
+        final quarter = tester.widget<LinearProgressIndicator>(
+          find.byKey(const ValueKey('url-import-progress')),
+        );
+        expect(quarter.value, closeTo(0.25, 0.0001));
+        expect(find.text('Downloading… 25%'), findsOneWidget);
+
+        final semanticsHandle = tester.ensureSemantics();
+        final progressSemantics = tester.getSemantics(
+          find.byKey(const ValueKey('url-import-progress')),
+        );
+        expect(progressSemantics.label, 'Download progress');
+        expect(progressSemantics.value, '25%');
+        semanticsHandle.dispose();
+
+        youtube.emitProgress(0.75);
+        await tester.pump();
+        final threeQuarters = tester.widget<LinearProgressIndicator>(
+          find.byKey(const ValueKey('url-import-progress')),
+        );
+        expect(threeQuarters.value, closeTo(0.75, 0.0001));
+        expect(find.text('Downloading… 75%'), findsOneWidget);
+
+        // Cancel: the fake's cancel() runs, the bar returns to idle, and
+        // exactly one notice is shown.
+        expect(find.byTooltip('Cancel download'), findsOneWidget);
+        await tester.tap(find.byTooltip('Cancel download'));
+        await tester.pump();
+
+        expect(youtube.cancelCalls, 1);
+        expect(find.text('Download cancelled'), findsOneWidget);
+        expect(find.byKey(const ValueKey('url-import-progress')), findsNothing);
+        expect(find.widgetWithText(FilledButton, 'Import'), findsOneWidget);
+        expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue);
+
+        // No duplicate notice arrives on later frames. Visibility alone
+        // cannot prove nothing is queued: after the first notice's 4s
+        // duration elapses and it leaves, nothing may remain.
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('Download cancelled'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+        expect(find.text('Download cancelled'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('unavailable yt-dlp shows guidance and never spawns', (
+      tester,
+    ) async {
+      final youtube = _FakeYouTubeImportService(
+        availability: const YtDlpAvailability.unavailable(
+          YouTubeImportService.missingBinaryMessage,
+        ),
+      );
+      await pumpImportHub(tester, youtube: youtube);
+      await tester.enterText(find.byType(TextField), 'https://youtu.be/abc');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await tester.pumpAndSettle();
+
+      expect(youtube.checkCalls, 1);
+      expect(youtube.importCalls, 0);
+      expect(find.text('yt-dlp is required for YouTube links'), findsOneWidget);
+      expect(find.textContaining('yt-dlp_macos'), findsOneWidget);
+      expect(find.textContaining('deno'), findsOneWidget);
+      expect(find.textContaining('winget'), findsNothing);
+      // Behind the dialog the bar is back to idle.
+      expect(find.widgetWithText(FilledButton, 'Import'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('yt-dlp is required for YouTube links'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('guidance dialog opens the official yt-dlp releases page', (
+      tester,
+    ) async {
+      final launchedUrls = <String>[];
+      final useWebViewFlags = <bool>[];
+      _mockUrlLauncher(
+        result: true,
+        launchedUrls: launchedUrls,
+        useWebViewFlags: useWebViewFlags,
+      );
+
+      final youtube = _FakeYouTubeImportService(
+        availability: const YtDlpAvailability.unavailable(
+          YouTubeImportService.missingBinaryMessage,
+        ),
+      );
+      await pumpImportHub(tester, youtube: youtube);
+      await tester.enterText(find.byType(TextField), 'https://youtu.be/abc');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Open download page'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(launchedUrls, [YtDlpGuidanceDialog.downloadPageUrl]);
+      // LaunchMode.externalApplication maps to useWebView: false.
+      expect(useWebViewFlags, [false]);
+      expect(find.text('yt-dlp is required for YouTube links'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('guidance launch failure surfaces the fallback notice', (
+      tester,
+    ) async {
+      _mockUrlLauncher(result: false);
+
+      final youtube = _FakeYouTubeImportService(
+        availability: const YtDlpAvailability.unavailable(
+          YouTubeImportService.missingBinaryMessage,
+        ),
+      );
+      await pumpImportHub(tester, youtube: youtube);
+      await tester.enterText(find.byType(TextField), 'https://youtu.be/abc');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Open download page'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Could not open the download page'),
+        findsOneWidget,
+      );
+      expect(find.text('yt-dlp is required for YouTube links'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('host-based routing picks YouTube for youtube hosts only', (
+      tester,
+    ) async {
+      const youtubeUrls = [
+        'https://youtube.com/watch?v=abc123',
+        'https://www.youtube.com/watch?v=abc123',
+        'https://music.youtube.com/watch?v=abc123',
+        'https://youtu.be/abc123',
+        'https://www.youtu.be/abc123',
+      ];
+      const directUrls = [
+        // Regression: the old substring check routed these to yt-dlp.
+        'https://notyoutube.com/watch?v=abc123',
+        'https://youtube.com.evil.example/video.mp4',
+      ];
+
+      for (final url in youtubeUrls) {
+        final youtube = _FakeYouTubeImportService(
+          availability: const YtDlpAvailability.available('2026.05.01'),
+        );
+        final urlFake = _FakeUrlImportService();
+        _mockPathProvider(importTempDir.path);
+        await pumpImportHub(tester, youtube: youtube, url: urlFake);
+        await tester.enterText(find.byType(TextField), url);
+        await tester.pump();
+
+        await tester.runAsync(() async {
+          await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        });
+        await tester.pump();
+
+        expect(youtube.importCalls, 1, reason: url);
+        expect(urlFake.importCalls, 0, reason: url);
+      }
+
+      for (final url in directUrls) {
+        final youtube = _FakeYouTubeImportService(
+          availability: const YtDlpAvailability.available('2026.05.01'),
+        );
+        final urlFake = _FakeUrlImportService();
+        _mockPathProvider(importTempDir.path);
+        await pumpImportHub(tester, youtube: youtube, url: urlFake);
+        await tester.enterText(find.byType(TextField), url);
+        await tester.pump();
+
+        await tester.runAsync(() async {
+          await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        });
+        await tester.pump();
+
+        expect(youtube.importCalls, 0, reason: url);
+        expect(urlFake.importCalls, 1, reason: url);
+        expect(
+          urlFake.lastOutputPath,
+          endsWith('direct_download.mp4'),
+          reason: url,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'direct-URL cancel shows exactly one notice despite the service error',
+      (tester) async {
+        final urlFake = _FakeUrlImportService();
+        _mockPathProvider(importTempDir.path);
+        await pumpImportHub(tester, url: urlFake);
+
+        await tester.enterText(
+          find.byType(TextField),
+          'https://cdn.example.com/clip.mp4',
+        );
+        await tester.pump();
+
+        await tester.runAsync(() async {
+          await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+        });
+        await tester.pump();
+        expect(urlFake.importCalls, 1);
+
+        urlFake.emitProgress(0.5);
+        await tester.pump();
+        expect(find.text('Downloading… 50%'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Cancel download'));
+        await tester.pump();
+
+        expect(urlFake.cancelCalls, 1);
+        // The fake emitted its own "Download cancelled" on the errors
+        // stream; the stale generation drops it — one notice, not two.
+        expect(find.text('Download cancelled'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.text('Download cancelled'), findsOneWidget);
+        // ScaffoldMessenger queues SnackBars, so visibility cannot prove
+        // there is no duplicate: after the 4s duration elapses and the
+        // notice leaves, nothing may remain.
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+        expect(find.text('Download cancelled'), findsNothing);
+        expect(find.widgetWithText(FilledButton, 'Import'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'cancel affordance disappears once the download resolves, before '
+      'the project opens',
+      (tester) async {
+        final metadataGate = Completer<VideoMetadata?>();
+        final urlFake = _FakeUrlImportService();
+        _mockPathProvider(importTempDir.path);
+        final container = await pumpImportHub(
+          tester,
+          url: urlFake,
+          ffprobe: _FakeFfprobeService(metadataGate: metadataGate),
+        );
+
+        await tester.enterText(
+          find.byType(TextField),
+          'https://cdn.example.com/clip.mp4',
+        );
+        await tester.pump();
+        await tester.runAsync(() async {
+          await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+        });
+        await tester.pump();
+        expect(urlFake.importCalls, 1);
+        expect(find.byTooltip('Cancel download'), findsOneWidget);
+
+        // The download resolves while the open step (ffprobe + thumbnail)
+        // is still pending. Real async zone: the import future's
+        // continuation was registered there by the runAsync tap.
+        await tester.runAsync(() async {
+          urlFake.completeImport('${importTempDir.path}/imports/clip.mp4');
+          await Future<void>.delayed(const Duration(milliseconds: 150));
+        });
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // Nothing left to cancel: the affordance is gone before the open
+        // step, so no "Download cancelled" can appear while the project is
+        // about to open. The bar itself stays disabled (_isImporting).
+        expect(find.byTooltip('Cancel download'), findsNothing);
+        expect(find.byKey(const ValueKey('url-import-progress')), findsNothing);
+        expect(find.text('Download cancelled'), findsNothing);
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).enabled,
+          isFalse,
+        );
+        expect(find.widgetWithText(FilledButton, 'Importing'), findsOneWidget);
+
+        // Completing the probe lets the project-open path proceed.
+        await tester.runAsync(() async {
+          metadataGate.complete(null);
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        });
+        await tester.pump();
+        await tester.pump();
+        expect(container.read(projectProvider).value?.name, 'clip.mp4');
+        expect(find.byKey(const ValueKey('editor-stub')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('YouTube preflight exposes a compact checking state', (
+      tester,
+    ) async {
+      final gate = Completer<YtDlpAvailability>();
+      final youtube = _FakeYouTubeImportService(
+        availability: const YtDlpAvailability.available('2026.05.01'),
+        availabilityGate: gate,
+      );
+      await pumpImportHub(tester, youtube: youtube);
+      await tester.enterText(find.byType(TextField), 'https://youtu.be/abc');
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+      await tester.pump();
+
+      expect(youtube.checkCalls, 1);
+      expect(youtube.importCalls, 0);
+      expect(find.text('Checking'), findsOneWidget);
+      expect(find.byTooltip('Cancel download'), findsNothing);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Checking'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+}
+
+/// Stubs the url_launcher method channel: records every launched URL (and
+/// the useWebView option) and answers [result], so the guidance dialog's
+/// browser launch is observable and its failure path controllable.
+void _mockUrlLauncher({
+  required bool result,
+  List<String>? launchedUrls,
+  List<bool>? useWebViewFlags,
+}) {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+    const MethodChannel('plugins.flutter.io/url_launcher'),
+    (call) async {
+      if (call.method == 'launch') {
+        final args = call.arguments as Map<Object?, Object?>;
+        launchedUrls?.add(args['url'] as String);
+        useWebViewFlags?.add(args['useWebView'] as bool);
+        return result;
+      }
+      return null;
+    },
+  );
+  addTearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/url_launcher'),
+      null,
+    );
   });
 }

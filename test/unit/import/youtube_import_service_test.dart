@@ -158,7 +158,14 @@ void main() {
       expect(errors, equals([YouTubeImportService.missingBinaryMessage]));
       expect(
         errors.single,
-        allOf(contains('yt-dlp not found'), contains('winget')),
+        allOf(
+          contains('yt-dlp not found'),
+          contains('yt-dlp.exe'),
+          isNot(contains('winget')),
+          // No in-app yt-dlp path setting exists; the copy must not send
+          // users looking for one.
+          isNot(contains('settings')),
+        ),
       );
       expect(service.hasActiveProcess, isFalse);
     });

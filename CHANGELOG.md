@@ -2,6 +2,15 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.39.0
+
+### YouTube import experience
+- Determinate download progress in the hub's URL bar (live bar + percentage) for both YouTube (yt-dlp) and direct-link downloads, driven by the services' progress streams.
+- Cancel an in-flight download from the URL bar; the bar returns to idle with a single "Download cancelled" notice.
+- yt-dlp availability preflight for YouTube links: when the binary is missing, a guidance dialog explains the official standalone install (`yt-dlp.exe` on Windows, `yt-dlp_macos` on macOS), notes that pip installs may also need a JavaScript runtime (deno recommended), and links to the official releases page.
+- Host-based URL routing (`youtube.com`/`youtu.be` plus subdomains) replaces substring matching, so look-alike domains take the direct-download path.
+- The runtime "yt-dlp not found" message now matches the dialog guidance (standalone build on PATH; no settings reference and no winget assumption).
+
 ## 1.38.1
 
 ### Export failure feedback
