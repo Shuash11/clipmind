@@ -1,4 +1,4 @@
-# Code Graph — lib/features (124 files, 14,332 lines; DO NOT EDIT)
+# Code Graph — lib/features (124 files, 14,410 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/features/agent/data/provider_tool_call_normalizer.dart (68 lines)
@@ -269,8 +269,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/features/projects/presentation/timeline_project_controller.dart (55 lines)
 - L13  class TimelineProjectController (_factory, _transactions, _document) — TimelineProjectController(…) L14, removeRange(…) L26
 
-## lib/features/providers/data/adapters/anthropic_adapter.dart (153 lines)
-- L12  class AnthropicAdapter extends ProviderAdapterBase — AnthropicAdapter(…) L13, discoverModels(…) L17, complete(…) L30, testConnection(…) L121
+## lib/features/providers/data/adapters/anthropic_adapter.dart (227 lines)
+- L12  class AnthropicAdapter extends ProviderAdapterBase (_discoveryPageLimit, _maxDiscoveryPages) — AnthropicAdapter(…) L13, discoverModels(…) L20, _modelsUri(ProviderProfile profile,…) L92, complete(…) L104, testConnection(…) L195
 
 ## lib/features/providers/data/adapters/gemini_adapter.dart (229 lines)
 - L11  class GeminiAdapter extends ProviderAdapterBase — GeminiAdapter(…) L12, discoverModels(…) L16, complete(…) L79, _uriAndHeaders(…) L193
@@ -285,8 +285,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/features/providers/data/adapters/provider_adapter_support.dart (256 lines)
 - L19  class ProviderAdapterBase (transport, credentials, providerIds) — ProviderAdapterBase(…) L20, validation L30, cancelled L33, validateProfile L35, headersFor(…) L71, apiKeyFor(ProviderProfile profile) L138, endpoint(ProviderProfile profile, String relative) L178, send(…) L181, testConnection(…) L196, objectMap(Object? value) L209, arguments(Object? value) L219, toolCall(…) L230, manualModels(ProviderProfile profile) L243
 
-## lib/features/providers/data/catalog/provider_catalog.dart (98 lines)
-- L5  class ProviderCatalog (ProviderCatalog) — List L8, presets L9, _compatible(…) L75, byId(String providerId) L91
+## lib/features/providers/data/catalog/provider_catalog.dart (102 lines)
+- L5  class ProviderCatalog (ProviderCatalog) — List L8, presets L9, _compatible(…) L79, byId(String providerId) L95
 
 ## lib/features/providers/data/http/provider_http_transport.dart (289 lines)
 - L11  enum ProviderHttpMethod

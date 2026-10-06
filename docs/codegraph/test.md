@@ -1,4 +1,4 @@
-# Code Graph — test (157 files, 39,798 lines; DO NOT EDIT)
+# Code Graph — test (157 files, 39,984 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -207,8 +207,11 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L90  function recordFor
 - L111  function textOverlayFixture
 
-## test/features/providers/data/adapters/anthropic_adapter_test.dart (108 lines)
-- L13  function main
+## test/features/providers/data/adapters/anthropic_adapter_test.dart (292 lines)
+- L16  function _adapter
+- L26  function _page
+- L31  function _modelPage
+- L43  function main
 
 ## test/features/providers/data/adapters/gemini_adapter_test.dart (127 lines)
 - L13  function main
@@ -227,7 +230,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L224  class _LegacyCredentials (values, failDelete) — _LegacyCredentials(this.values) L225, deleteApiKey(String providerId) L229, readApiKey(String providerId) L236
 - L240  class _Credentials (values, writes, failWrite) — delete(String credentialId) L245, read(String credentialId) L251, write(String credentialId, String secret) L254
 
-## test/features/providers/data/provider_catalog_test.dart (52 lines)
+## test/features/providers/data/provider_catalog_test.dart (54 lines)
 - L5  function main
 
 ## test/features/providers/data/provider_endpoint_resolver_test.dart (32 lines)
