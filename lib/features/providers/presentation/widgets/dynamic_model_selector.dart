@@ -74,6 +74,11 @@ class DynamicModelSelector extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: ClipMindColors.bgSurface,
+      // The picker hosts a search field above a 520-capped list; letting the
+      // sheet size to that cap (instead of 9/16 of the window) keeps the
+      // list usable on short windows, where the fixed chrome alone would
+      // otherwise starve it of height.
+      isScrollControlled: true,
       builder: (sheetContext) => _ModelPicker(profileId: profile.id),
     );
   }
@@ -88,6 +93,7 @@ class _ModelPicker extends ConsumerStatefulWidget {
 
 class _ModelPickerState extends ConsumerState<_ModelPicker> {
   final _manual = TextEditingController();
+  final _search = TextEditingController();
 
   @override
   void initState() {
@@ -122,6 +128,7 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
   @override
   void dispose() {
     _manual.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -132,6 +139,7 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
     if (profile == null || profile.id != widget.profileId) {
       return const SizedBox.shrink();
     }
+    final query = _search.text.trim().toLowerCase();
     final manualIds = profile.manualModelIds.toSet();
     final discovered = (state.discoveredModels[profile.id] ?? const [])
         .where((model) => !manualIds.contains(model.id))
@@ -139,6 +147,16 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
     final canDiscover = modelDiscoverySupported(
       ref.watch(providerPlatformRegistryProvider),
       profile,
+    );
+    final groups = _filteredGroups(discovered, query);
+    final manualMatches = _filteredManualModels(profile.manualModelIds, query);
+    final rows = _buildRows(
+      state: state,
+      query: query,
+      groups: groups,
+      manualMatches: manualMatches,
+      canDiscover: canDiscover,
+      hasDiscovered: discovered.isNotEmpty,
     );
     return SafeArea(
       child: Padding(
@@ -195,6 +213,28 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                 profile.displayName,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: TextField(
+                  key: const ValueKey('model-search'),
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Search models',
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            key: const ValueKey('clear-model-search'),
+                            tooltip: 'Clear search',
+                            icon: const Icon(Icons.close_rounded, size: 16),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => setState(() => _search.clear()),
+                          ),
+                  ),
+                ),
+              ),
               if (canDiscover)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -227,101 +267,10 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
                 ),
               const SizedBox(height: 12),
               Flexible(
-                child: ListView(
-                  children: [
-                    if (state.action == ProviderProfileAction.discovering)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            SizedBox(width: 8),
-                            Text('Discovering models…'),
-                          ],
-                        ),
-                      )
-                    else if (canDiscover &&
-                        discovered.isEmpty &&
-                        state.failureMessage == null)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          'No models discovered yet. Use Discover or enter a model ID below.',
-                        ),
-                      ),
-                    if (discovered.isNotEmpty) ...[
-                      Text(
-                        'DISCOVERED',
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                      ...groupDiscoveredByOrg(discovered).entries.expand(
-                        (group) => <Widget>[
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              group.key.toUpperCase(),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: ClipMindColors.textMuted,
-                                  ),
-                            ),
-                          ),
-                          ...group.value.map(
-                            (model) => ListTile(
-                              dense: true,
-                              title: Text(model.displayName),
-                              subtitle: Text(model.id),
-                              trailing: model.id == profile.selectedModelId
-                                  ? const Icon(
-                                      Icons.check,
-                                      color: ClipMindColors.accentPrimary,
-                                    )
-                                  : null,
-                              onTap: () async {
-                                await ref
-                                    .read(
-                                      providerProfileNotifierProvider.notifier,
-                                    )
-                                    .selectModel(profile.id, model.id);
-                                if (context.mounted) Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (profile.manualModelIds.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'MANUAL',
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                      ...profile.manualModelIds.map(
-                        (model) => ListTile(
-                          dense: true,
-                          title: Text(model),
-                          trailing: model == profile.selectedModelId
-                              ? const Icon(
-                                  Icons.check,
-                                  color: ClipMindColors.accentPrimary,
-                                )
-                              : null,
-                          onTap: () async {
-                            await ref
-                                .read(providerProfileNotifierProvider.notifier)
-                                .selectModel(profile.id, model);
-                            if (context.mounted) Navigator.pop(context);
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
+                child: ListView.builder(
+                  itemCount: rows.length,
+                  itemBuilder: (context, index) =>
+                      _pickerRow(context, rows[index], profile.selectedModelId),
                 ),
               ),
               const Divider(),
@@ -346,6 +295,139 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
     );
   }
 
+  /// Renders one flattened row of the picker list.
+  Widget _pickerRow(
+    BuildContext context,
+    _PickerItem row,
+    String? selectedModelId,
+  ) {
+    switch (row) {
+      case _DiscoveringItem():
+        return const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 8),
+              Text('Discovering models…'),
+            ],
+          ),
+        );
+      case _MessageItem(:final message):
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(message),
+        );
+      case _SectionHeaderItem(:final label, :final muted, :final topPadding):
+        final baseStyle = Theme.of(context).textTheme.labelSmall;
+        return Padding(
+          padding: EdgeInsets.only(top: topPadding),
+          child: Text(
+            label,
+            style: muted
+                ? baseStyle?.copyWith(color: ClipMindColors.textMuted)
+                : baseStyle,
+          ),
+        );
+      case _ModelItem(:final id, :final title, :final subtitle):
+        return ListTile(
+          key: ValueKey('model-$id'),
+          dense: true,
+          title: Text(title),
+          subtitle: subtitle == null ? null : Text(subtitle),
+          trailing: id == selectedModelId
+              ? const Icon(Icons.check, color: ClipMindColors.accentPrimary)
+              : null,
+          onTap: () => _selectModel(id),
+        );
+    }
+  }
+
+  /// Flattens status rows, section headers, and model tiles into one item list
+  /// so the picker renders through a single lazy list — discovering catalogs
+  /// can hold hundreds of models.
+  List<_PickerItem> _buildRows({
+    required ProviderProfileState state,
+    required String query,
+    required Map<String, List<ModelDescriptor>> groups,
+    required List<String> manualMatches,
+    required bool canDiscover,
+    required bool hasDiscovered,
+  }) {
+    final rows = <_PickerItem>[];
+    if (state.action == ProviderProfileAction.discovering) {
+      rows.add(const _DiscoveringItem());
+    } else if (query.isNotEmpty) {
+      if (groups.isEmpty && manualMatches.isEmpty) {
+        rows.add(const _MessageItem('No models match'));
+      }
+    } else if (canDiscover && !hasDiscovered && state.failureMessage == null) {
+      rows.add(
+        const _MessageItem(
+          'No models discovered yet. Use Discover or enter a model ID below.',
+        ),
+      );
+    }
+    if (groups.isNotEmpty) {
+      rows.add(const _SectionHeaderItem('DISCOVERED', topPadding: 0));
+      for (final group in groups.entries) {
+        rows.add(_SectionHeaderItem(group.key.toUpperCase(), muted: true));
+        rows.addAll(
+          group.value.map(
+            (model) => _ModelItem(
+              id: model.id,
+              title: model.displayName,
+              subtitle: model.id,
+            ),
+          ),
+        );
+      }
+    }
+    if (manualMatches.isNotEmpty) {
+      rows.add(const _SectionHeaderItem('MANUAL'));
+      rows.addAll(manualMatches.map((id) => _ModelItem(id: id, title: id)));
+    }
+    return rows;
+  }
+
+  /// Groups discovered models by org, dropping groups with no match. A query
+  /// matching the org key surfaces the whole group; otherwise a model matches
+  /// on its ID or display name. An empty [query] keeps every group.
+  Map<String, List<ModelDescriptor>> _filteredGroups(
+    List<ModelDescriptor> models,
+    String query,
+  ) {
+    final grouped = groupDiscoveredByOrg(models);
+    if (query.isEmpty) return grouped;
+    final filtered = <String, List<ModelDescriptor>>{};
+    for (final group in grouped.entries) {
+      final matches = group.key.contains(query)
+          ? group.value
+          : group.value
+                .where(
+                  (model) =>
+                      model.id.toLowerCase().contains(query) ||
+                      model.displayName.toLowerCase().contains(query),
+                )
+                .toList(growable: false);
+      if (matches.isNotEmpty) {
+        filtered[group.key] = matches;
+      }
+    }
+    return filtered;
+  }
+
+  List<String> _filteredManualModels(List<String> models, String query) {
+    if (query.isEmpty) return models;
+    return models
+        .where((id) => id.toLowerCase().contains(query))
+        .toList(growable: false);
+  }
+
   Future<void> _add(String value) async {
     if (value.trim().isEmpty) return;
     await ref
@@ -353,6 +435,47 @@ class _ModelPickerState extends ConsumerState<_ModelPicker> {
         .addManualModel(widget.profileId, value);
     if (mounted) Navigator.pop(context);
   }
+
+  Future<void> _selectModel(String modelId) async {
+    await ref
+        .read(providerProfileNotifierProvider.notifier)
+        .selectModel(widget.profileId, modelId);
+    if (mounted) Navigator.pop(context);
+  }
+}
+
+/// One flattened row in the model picker: a status line, a section header, or
+/// a selectable model. Rows are data-only so the list builder can render them
+/// lazily and the row switch stays exhaustive.
+sealed class _PickerItem {
+  const _PickerItem();
+}
+
+final class _DiscoveringItem extends _PickerItem {
+  const _DiscoveringItem();
+}
+
+final class _MessageItem extends _PickerItem {
+  const _MessageItem(this.message);
+  final String message;
+}
+
+final class _SectionHeaderItem extends _PickerItem {
+  const _SectionHeaderItem(
+    this.label, {
+    this.muted = false,
+    this.topPadding = 8,
+  });
+  final String label;
+  final bool muted;
+  final double topPadding;
+}
+
+final class _ModelItem extends _PickerItem {
+  const _ModelItem({required this.id, required this.title, this.subtitle});
+  final String id;
+  final String title;
+  final String? subtitle;
 }
 
 const String otherOrgGroupKey = 'other';

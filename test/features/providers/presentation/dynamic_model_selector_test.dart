@@ -499,6 +499,483 @@ void main() {
     },
   );
 
+  testWidgets(
+    'filters discovered models by display name and id, case-insensitively',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'remote',
+        providerId: 'openai',
+        displayName: 'Remote',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      final adapter = CountingDiscoveryAdapter(<ModelDescriptor>[
+        ModelDescriptor(
+          id: 'meta/llama-3',
+          providerId: 'openai',
+          displayName: 'Llama 3',
+        ),
+        ModelDescriptor(
+          id: 'z-ai/glm-4',
+          providerId: 'openai',
+          displayName: 'GLM 4',
+        ),
+        ModelDescriptor(
+          id: 'nvidia/nemotron',
+          providerId: 'openai',
+          displayName: 'Nemotron',
+        ),
+      ]);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_discoveringDefinition],
+                    adapter: adapter,
+                  ),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pumpAndSettle();
+
+      // Display-name match, cased differently from the catalog.
+      await tester.enterText(
+        find.byKey(const ValueKey('model-search')),
+        'LLAMA',
+      );
+      await tester.pump();
+      expect(find.text('Llama 3'), findsOneWidget);
+      expect(find.text('GLM 4'), findsNothing);
+      expect(find.text('Nemotron'), findsNothing);
+      expect(find.text('META'), findsOneWidget);
+      expect(find.text('Z-AI'), findsNothing);
+
+      // ID match, also case-insensitive.
+      await tester.enterText(
+        find.byKey(const ValueKey('model-search')),
+        'NVIDIA/NEM',
+      );
+      await tester.pump();
+      expect(find.text('Nemotron'), findsOneWidget);
+      expect(find.text('Llama 3'), findsNothing);
+      expect(find.text('NVIDIA'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'surfaces a group through its org key and omits empty groups',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'remote',
+        providerId: 'openai',
+        displayName: 'Remote',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      final adapter = CountingDiscoveryAdapter(<ModelDescriptor>[
+        ModelDescriptor(
+          id: 'meta/llama-3',
+          providerId: 'openai',
+          displayName: 'Llama 3',
+        ),
+        ModelDescriptor(
+          id: 'meta/llama-2',
+          providerId: 'openai',
+          displayName: 'Llama 2',
+        ),
+        ModelDescriptor(
+          id: 'z-ai/glm-4',
+          providerId: 'openai',
+          displayName: 'GLM 4',
+        ),
+        ModelDescriptor(
+          id: 'bare-model',
+          providerId: 'openai',
+          displayName: 'Bare model',
+        ),
+      ]);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_discoveringDefinition],
+                    adapter: adapter,
+                  ),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pumpAndSettle();
+
+      // The org key surfaces the whole group; other groups are omitted.
+      await tester.enterText(
+        find.byKey(const ValueKey('model-search')),
+        'meta',
+      );
+      await tester.pump();
+      expect(find.text('META'), findsOneWidget);
+      expect(find.text('Llama 3'), findsOneWidget);
+      expect(find.text('Llama 2'), findsOneWidget);
+      expect(find.text('GLM 4'), findsNothing);
+      expect(find.text('Z-AI'), findsNothing);
+
+      // No ID or display name contains "other": only the org-key match can
+      // surface the OTHER group of bare model IDs.
+      await tester.enterText(
+        find.byKey(const ValueKey('model-search')),
+        'other',
+      );
+      await tester.pump();
+      expect(find.text('OTHER'), findsOneWidget);
+      expect(find.text('Bare model'), findsOneWidget);
+      expect(find.text('META'), findsNothing);
+      expect(find.text('Llama 3'), findsNothing);
+      expect(find.text('GLM 4'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'filters manual models and keeps manual entry usable under a query',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'local',
+        providerId: 'manual',
+        displayName: 'Local',
+        endpoint: Uri.parse('https://example.test'),
+        manualModelIds: const ['local-alpha', 'local-beta', 'zed-model'],
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(definitions: [_manualDefinition]),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('model-search')),
+        'ALPHA',
+      );
+      await tester.pump();
+      expect(find.byKey(const ValueKey('model-local-alpha')), findsOneWidget);
+      expect(find.text('local-beta'), findsNothing);
+      expect(find.text('zed-model'), findsNothing);
+
+      // A query never disables manual entry: the new ID still persists.
+      await tester.enterText(
+        find.byKey(const ValueKey('manual-model-id')),
+        'fresh-model',
+      );
+      await tester.tap(find.text('Use model'));
+      await tester.pump();
+      expect(
+        repository.document.profiles.single.manualModelIds,
+        contains('fresh-model'),
+      );
+      expect(
+        repository.document.profiles.single.selectedModelId,
+        'fresh-model',
+      );
+    },
+  );
+
+  testWidgets(
+    'shows a no-match state and clear restores the full list',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'remote',
+        providerId: 'openai',
+        displayName: 'Remote',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      final adapter = CountingDiscoveryAdapter(<ModelDescriptor>[
+        ModelDescriptor(
+          id: 'meta/llama-3',
+          providerId: 'openai',
+          displayName: 'Llama 3',
+        ),
+        ModelDescriptor(
+          id: 'z-ai/glm-4',
+          providerId: 'openai',
+          displayName: 'GLM 4',
+        ),
+      ]);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_discoveringDefinition],
+                    adapter: adapter,
+                  ),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('model-search')),
+        'zzz-nope',
+      );
+      await tester.pump();
+      expect(find.text('No models match'), findsOneWidget);
+      expect(
+        find.text(
+          'No models discovered yet. Use Discover or enter a model ID below.',
+        ),
+        findsNothing,
+      );
+      expect(find.text('DISCOVERED'), findsNothing);
+      expect(find.text('Llama 3'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('clear-model-search')));
+      await tester.pump();
+      expect(find.text('No models match'), findsNothing);
+      expect(find.text('DISCOVERED'), findsOneWidget);
+      expect(find.text('Llama 3'), findsOneWidget);
+      expect(find.byKey(const ValueKey('clear-model-search')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'keeps the discovering row under a query and filters released results',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'remote',
+        providerId: 'openai',
+        displayName: 'Remote',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      final adapter = CountingDiscoveryAdapter(
+        <ModelDescriptor>[
+          ModelDescriptor(
+            id: 'meta/llama-3',
+            providerId: 'openai',
+            displayName: 'Llama 3',
+          ),
+          ModelDescriptor(
+            id: 'z-ai/glm-4',
+            providerId: 'openai',
+            displayName: 'GLM 4',
+          ),
+        ],
+        holdDiscovery: true,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_discoveringDefinition],
+                    adapter: adapter,
+                  ),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Discovering models…'), findsOneWidget);
+
+      // While discovery is in flight the query pre-filters nothing yet, so the
+      // in-progress row stays put instead of a premature no-match state.
+      await tester.enterText(
+        find.byKey(const ValueKey('model-search')),
+        'llama',
+      );
+      await tester.pump();
+      expect(find.text('Discovering models…'), findsOneWidget);
+      expect(find.text('No models match'), findsNothing);
+
+      adapter.releaseDiscovery();
+      await tester.pumpAndSettle();
+      expect(find.text('Discovering models…'), findsNothing);
+      expect(find.text('Llama 3'), findsOneWidget);
+      expect(find.text('GLM 4'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'selects a model from the filtered list and persists it',
+    (tester) async {
+      final profile = ProviderProfile(
+        id: 'remote',
+        providerId: 'openai',
+        displayName: 'Remote',
+        endpoint: Uri.parse('https://example.test'),
+      );
+      final repository = MemoryProfileRepository(
+        ProviderProfilesDocument(
+          schemaVersion: 1,
+          profiles: [profile],
+          activeProfileId: profile.id,
+        ),
+      );
+      final adapter = CountingDiscoveryAdapter(<ModelDescriptor>[
+        ModelDescriptor(
+          id: 'meta/llama-3',
+          providerId: 'openai',
+          displayName: 'Llama 3',
+        ),
+        ModelDescriptor(
+          id: 'z-ai/glm-4',
+          providerId: 'openai',
+          displayName: 'GLM 4',
+        ),
+      ]);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            providerPlatformBootstrapResultProvider.overrideWithValue(
+              Success(
+                ProviderPlatformBootstrapResult(
+                  FakeProviderRegistry(
+                    definitions: [_discoveringDefinition],
+                    adapter: adapter,
+                  ),
+                  profiles: [profile],
+                  activeProfileId: profile.id,
+                  repository: repository,
+                  credentials: MemoryCredentialStore(),
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ClipMindTheme.dark,
+            home: const Scaffold(body: DynamicModelSelector()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('dynamic-model-selector')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('model-search')),
+        'llama',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('model-meta/llama-3')));
+      await tester.pumpAndSettle();
+      expect(
+        repository.document.profiles.single.selectedModelId,
+        'meta/llama-3',
+      );
+      expect(find.byKey(const ValueKey('model-search')), findsNothing);
+    },
+  );
+
   test(
     'groups discovered models by org prefix with OTHER trailing',
     () {

@@ -2,6 +2,15 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.40.0
+
+### Model picker search
+- The agent chat's model picker gains a search field under the profile header. Typing filters discovered and manual models immediately — case-insensitive, matching model ID, display name, or org group — while preserving group ordering and omitting empty groups.
+- A clear button on the field restores the full list, a "No models match" state appears when nothing matches, and the manual model ID entry stays usable throughout.
+
+### Anthropic model discovery
+- Anthropic dedicated profiles can now discover models via `/v1/models`; the picker's auto-discovery path includes them, so opening the picker lists the account's available Claude models without manual entry.
+
 ## 1.39.0
 
 ### YouTube import experience
