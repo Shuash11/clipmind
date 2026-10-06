@@ -1,4 +1,4 @@
-# Code Graph — lib/features (124 files, 14,410 lines; DO NOT EDIT)
+# Code Graph — lib/features (124 files, 14,533 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/features/agent/data/provider_tool_call_normalizer.dart (68 lines)
@@ -431,11 +431,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L126  class _ConfigurationSurface extends ConsumerWidget (state) — _ConfigurationSurface(…) L127, build(BuildContext context, WidgetRef ref) L130
 - L154  class _EmptyProfiles extends StatelessWidget — _EmptyProfiles() L155, build(BuildContext context) L157
 
-## lib/features/providers/presentation/widgets/dynamic_model_selector.dart (391 lines)
+## lib/features/providers/presentation/widgets/dynamic_model_selector.dart (514 lines)
 - L14  class DynamicModelSelector extends ConsumerWidget — DynamicModelSelector(…) L15, build(BuildContext context, WidgetRef ref) L18, _showPicker(BuildContext context, WidgetRef ref) L70
-- L82  class _ModelPicker extends ConsumerStatefulWidget (profileId) — _ModelPicker(…) L83, createState() L86
-- L89  class _ModelPickerState extends ConsumerState<_ModelPicker> (_manual) — initState() L93, _discoverOnOpen() L102, dispose() L123, build(BuildContext context) L129, _add(String value) L349
-- L365  function groupDiscoveredByOrg
+- L87  class _ModelPicker extends ConsumerStatefulWidget (profileId) — _ModelPicker(…) L88, createState() L91
+- L94  class _ModelPickerState extends ConsumerState<_ModelPicker> (_manual, _search) — initState() L99, _discoverOnOpen() L108, dispose() L129, build(BuildContext context) L136, _pickerRow(…) L299, _buildRows(…) L353, _filteredGroups(…) L400, _filteredManualModels(List<String> models, String query) L424, _add(String value) L431, _selectModel(String modelId) L439
+- L450  class _PickerItem — _PickerItem() L451
+- L454  class _DiscoveringItem extends _PickerItem — _DiscoveringItem() L455
+- L458  class _MessageItem extends _PickerItem (message) — _MessageItem(this.message) L459
+- L463  class _SectionHeaderItem extends _PickerItem (label, muted, topPadding) — _SectionHeaderItem(…) L464
+- L474  class _ModelItem extends _PickerItem (id, title, subtitle) — _ModelItem(…) L475
+- L488  function groupDiscoveredByOrg
 
 ## lib/features/providers/presentation/widgets/model_discovery_support.dart (15 lines)
 - L11  function modelDiscoverySupported

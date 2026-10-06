@@ -1,4 +1,4 @@
-# Code Graph — test (157 files, 39,984 lines; DO NOT EDIT)
+# Code Graph — test (157 files, 40,461 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -277,7 +277,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L17  function main
 - L209  class _SettingsPlaceholder extends StatelessWidget — _SettingsPlaceholder() L210, build(BuildContext context) L212
 
-## test/features/providers/presentation/dynamic_model_selector_test.dart (662 lines)
+## test/features/providers/presentation/dynamic_model_selector_test.dart (1139 lines)
 - L19  function main
 
 ## test/features/providers/presentation/model_selector_dropdown_test.dart (27 lines)
