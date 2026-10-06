@@ -1,4 +1,4 @@
-# Code Graph — test (157 files, 39,227 lines; DO NOT EDIT)
+# Code Graph — test (157 files, 39,798 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -578,10 +578,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L50  function _verifyNoDownload
 - L61  function main
 
-## test/unit/import/youtube_import_service_test.dart (552 lines)
+## test/unit/import/youtube_import_service_test.dart (559 lines)
 - L12  function main
-- L495  function _neverListStream
-- L501  class _FakeYtDlpProcess (stdoutStream, stderrStream, killExitCode, _exitCompleter, killed) — _FakeYtDlpProcess(…) L502, pid L523, stdout L526, stderr L529, exitCode L532, stdin L535, kill([ProcessSignal signal = ProcessSignal.sigterm]) L538, completeExit(int code) L548
+- L502  function _neverListStream
+- L508  class _FakeYtDlpProcess (stdoutStream, stderrStream, killExitCode, _exitCompleter, killed) — _FakeYtDlpProcess(…) L509, pid L530, stdout L533, stderr L536, exitCode L539, stdin L542, kill([ProcessSignal signal = ProcessSignal.sigterm]) L545, completeExit(int code) L555
 
 ## test/unit/llm/anthropic_provider_tools_test.dart (278 lines)
 - L8  class _MockDio extends Mock implements Dio
@@ -813,16 +813,21 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L137  function _twoClipProject
 - L160  function main
 
-## test/widget/project_hub_test.dart (542 lines)
-- L26  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L27, createNew(…) L35, save(Project project) L52, listRecent() L55
-- L58  function _project
-- L70  function _testRouter
-- L86  function _useDesktopViewport
-- L95  function _pumpHub
-- L111  function _mockPackageInfo
-- L134  function _mockPathProvider
-- L155  class _FailingChecker extends GithubReleaseChecker — checkForUpdate() L157
-- L160  function main
+## test/widget/project_hub_test.dart (1106 lines)
+- L33  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L34, createNew(…) L42, save(Project project) L59, listRecent() L62
+- L65  function _project
+- L77  function _testRouter
+- L93  function _useDesktopViewport
+- L102  function _pumpHub
+- L118  function _mockPackageInfo
+- L141  function _mockPathProvider
+- L162  class _FailingChecker extends GithubReleaseChecker — checkForUpdate() L164
+- L171  class _FakeYouTubeImportService extends YouTubeImportService (availability, availabilityGate, _progress, _errors, checkCalls, importCalls, cancelCalls, lastUrl) — _FakeYouTubeImportService(…) L172, progress L187, errors L190, checkAvailability() L193, import(String url, String outputDir) L201, cancel() L210, emitProgress(double value) L216
+- L221  class _FakeUrlImportService extends UrlImportService (_progress, _errors, importCalls, cancelCalls, lastUrl, lastOutputPath, _pending) — progress L232, errors L235, import(String fileUrl, String outputPath) L238, cancel() L247, completeImport(String? path) L255, emitProgress(double value) L260
+- L266  class _FakeFfprobeService extends FfprobeService (metadataGate) — _FakeFfprobeService(…) L267, extractMetadata(String filePath) L272, generateThumbnail(…) L276
+- L283  function _importServiceOverrides
+- L295  function main
+- L1080  function _mockUrlLauncher
 
 ## test/widget/settings_screen_test.dart (187 lines)
 - L13  class _RecordingSettingsRepository extends SettingsRepository (saves, lastSaved) — load() L18, save(AppSettings settings) L21

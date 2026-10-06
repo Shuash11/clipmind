@@ -1,4 +1,4 @@
-# Code Graph — lib/state (13 files, 2,827 lines; DO NOT EDIT)
+# Code Graph — lib/state (14 files, 2,849 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/state/agent_analysis_providers.dart (70 lines)
@@ -21,6 +21,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 
 ## lib/state/ffmpeg_providers.dart (34 lines)
 - L19  class ActiveJobsNotifier extends StateNotifier<List<FfmpegJob>> — ActiveJobsNotifier() : super([]) L20, add(FfmpegJob job) L22, remove(String jobId) L26, clear() L30
+
+## lib/state/import_providers.dart (22 lines)
 
 ## lib/state/manual_edit_providers.dart (1313 lines)
 - L25  class ManualCutResult (success, message, outputPath) — ManualCutResult(…) L30, ManualCutResult L36, ManualCutResult L41, ManualCutResult L48, ManualCutResult L56

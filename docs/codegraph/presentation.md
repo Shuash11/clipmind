@@ -1,4 +1,4 @@
-# Code Graph — lib/presentation (34 files, 8,588 lines; DO NOT EDIT)
+# Code Graph — lib/presentation (35 files, 8,984 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/presentation/editor/editor_screen.dart (248 lines)
@@ -110,15 +110,17 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L12  class TopActionBar extends ConsumerWidget — TopActionBar(…) L13, build(BuildContext context, WidgetRef ref) L16, _openExportDialog(BuildContext context, Project project) L115, _undo(BuildContext context, WidgetRef ref) L123, _redo(BuildContext context, WidgetRef ref) L135, _opLabel(EditOperation op) L147
 - L177  class _ChromeIconButton extends StatelessWidget (icon, tooltip, enabled, onPressed) — _ChromeIconButton(…) L183, build(BuildContext context) L191
 
-## lib/presentation/project_hub/project_hub_screen.dart (963 lines)
-- L32  class ProjectHubScreen extends ConsumerStatefulWidget — ProjectHubScreen(…) L33, createState() L36
-- L39  class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> (_urlController, _urlFocusNode, _isDragActive, _isImporting) — initState() L46, dispose() L54, _handleUrlChanged() L61, _initUpdateCheck() L65, _checkWhatsNew() L96, _awaitLoadedSettings() L127, _updateSettings(AppSettings Function(AppSettings) mutate) L144, _handleBrowse() L152, _handleImportedFiles(List<PlatformFile> files) L160, _handleDrop(DropDoneDetails details) L170, _openProjectForMedia(…) L178, _readMediaDetails(String path) L211, _handleUploadUrl() L225, _getImportDir() L291, _fileNameFromPath(String path) L300, _showImportError(String message) L306, _createBlankProject() L313, _showImportUrlDialog(String sourceType) L331, _showAllProjects() L379, build(BuildContext context) L481, _buildImportSources(BoxConstraints constraints) L592, _buildRecentProjects(List<dynamic> projects) L631, _buildRecentError(ThemeData theme) L651, _buildEmptyRecent(ThemeData theme) L664
-- L674  class _HubIntro extends StatelessWidget (theme) — _HubIntro(…) L677, build(BuildContext context) L680
-- L723  class _SectionHeader extends StatelessWidget (title, actionLabel, onAction) — _SectionHeader(…) L728, build(BuildContext context) L731
-- L758  class _UrlImportBar extends StatelessWidget (controller, focusNode, isImporting, hasUrl, onClear, onImport) — _UrlImportBar(…) L766, build(BuildContext context) L776
-- L851  class _CompactMessage extends StatelessWidget (icon, title, message, action) — _CompactMessage(…) L857, build(BuildContext context) L865
-- L898  class _RecentSkeleton extends StatelessWidget (compact) — _RecentSkeleton(…) L901, build(BuildContext context) L904
-- L957  class _MediaDetails (durationMs, thumbnailPath) — _MediaDetails(…) L961
+## lib/presentation/project_hub/project_hub_screen.dart (1178 lines)
+- L37  enum _UrlImportFlow
+- L42  function _isYouTubeUrl
+- L50  class ProjectHubScreen extends ConsumerStatefulWidget — ProjectHubScreen(…) L51, createState() L54
+- L57  class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> (_urlController, _urlFocusNode, _isDragActive, _isImporting, _urlFlow, _importProgress, _importGeneration, _cancelActiveImport) — initState() L75, dispose() L83, _handleUrlChanged() L94, _initUpdateCheck() L98, _checkWhatsNew() L129, _awaitLoadedSettings() L160, _updateSettings(AppSettings Function(AppSettings) mutate) L177, _handleBrowse() L185, _handleImportedFiles(List<PlatformFile> files) L193, _handleDrop(DropDoneDetails details) L203, _openProjectForMedia(…) L211, _readMediaDetails(String path) L244, _handleUploadUrl() L258, _handleGuidanceLaunchFailed() L297, _startImport(…) L309, _handleCancelImport() L410, _getImportDir() L428, _fileNameFromPath(String path) L437, _showImportError(String message) L443, _createBlankProject() L450, _showImportUrlDialog(String sourceType) L468, _showAllProjects() L516, build(BuildContext context) L618, _buildImportSources(BoxConstraints constraints) L732, _buildRecentProjects(List<dynamic> projects) L771, _buildRecentError(ThemeData theme) L791, _buildEmptyRecent(ThemeData theme) L804
+- L814  class _HubIntro extends StatelessWidget (theme) — _HubIntro(…) L817, build(BuildContext context) L820
+- L863  class _SectionHeader extends StatelessWidget (title, actionLabel, onAction) — _SectionHeader(…) L868, build(BuildContext context) L871
+- L898  class _UrlImportBar extends StatelessWidget (controller, focusNode, isImporting, urlFlow, progress, hasUrl, onClear, onImport) — _UrlImportBar(…) L909, build(BuildContext context) L922, _buildSubmitButton(…) L987, _buildProgressCluster(ThemeData theme) L1014
+- L1066  class _CompactMessage extends StatelessWidget (icon, title, message, action) — _CompactMessage(…) L1072, build(BuildContext context) L1080
+- L1113  class _RecentSkeleton extends StatelessWidget (compact) — _RecentSkeleton(…) L1116, build(BuildContext context) L1119
+- L1172  class _MediaDetails (durationMs, thumbnailPath) — _MediaDetails(…) L1176
 
 ## lib/presentation/project_hub/widgets/blank_project_card.dart (94 lines)
 - L7  class BlankProjectCard extends StatefulWidget (onTap) — BlankProjectCard(…) L10, createState() L13
@@ -140,6 +142,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L6  class UploadDropzone extends StatefulWidget (onBrowse, isDragActive, isBusy) — Function(DropEventDetails)? onDragEntered L8, Function(DropEventDetails)? onDragExited L9, Function(DropDoneDetails)? onDragDone L10, UploadDropzone(…) L14, createState() L25
 - L28  class _UploadDropzoneState extends State<UploadDropzone> (_isHovering) — build(BuildContext context) L32
 - L146  class _BusyPill extends StatelessWidget — _BusyPill() L147, build(BuildContext context) L150
+
+## lib/presentation/project_hub/widgets/yt_dlp_guidance_dialog.dart (181 lines)
+- L14  class YtDlpGuidanceDialog extends StatelessWidget (onLaunchFailed) — downloadPageUrl L17, YtDlpGuidanceDialog(…) L24, show(…) L28, _openDownloadPage(BuildContext context) L38, build(BuildContext context) L57
+- L138  class _GuidanceStep extends StatelessWidget (number, text) — _GuidanceStep(…) L142, build(BuildContext context) L145
 
 ## lib/presentation/settings/settings_screen.dart (298 lines)
 - L16  class SettingsScreen extends ConsumerStatefulWidget — SettingsScreen(…) L17, createState() L19
