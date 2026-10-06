@@ -42,7 +42,11 @@ final class ProviderCatalog {
       displayName: 'Anthropic dedicated',
       baseUri: Uri(scheme: 'https', host: 'api.anthropic.com', path: '/v1'),
       protocol: ProviderProtocol.anthropic,
-      capabilities: const ProviderCapabilities(supportsTools: true),
+      capabilities: const ProviderCapabilities(
+        supportsModelDiscovery: true,
+        supportsTools: true,
+      ),
+      modelDiscoveryRelativePath: 'models',
     ),
     ProviderDefinition(
       id: 'gemini',

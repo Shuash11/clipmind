@@ -34,7 +34,9 @@ void main() {
   test('model discovery is explicit for each provider family', () {
     final anthropic = ProviderCatalog.byId('anthropic')!;
     expect(anthropic.protocol, ProviderProtocol.anthropic);
-    expect(anthropic.modelDiscoveryIsAvailable, isFalse);
+    expect(anthropic.capabilities.supportsModelDiscovery, isTrue);
+    expect(anthropic.modelDiscoveryRelativePath, 'models');
+    expect(anthropic.modelDiscoveryIsAvailable, isTrue);
     expect(
       ProviderCatalog.byId('openai')!.modelDiscoveryRelativePath,
       'models',
