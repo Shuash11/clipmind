@@ -7,6 +7,7 @@ import 'package:clipmind/domain/agent/agent_confirmation.dart';
 import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/domain/agent/tools/project_command_gateway.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 
 /// Single entry point from the state layer into the Gen A tool path.
@@ -36,6 +37,7 @@ class RunAgentCommandUseCase {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) {
     return _pipeline.submitCommand(
       command,
@@ -52,6 +54,7 @@ class RunAgentCommandUseCase {
       writeAnalysis: writeAnalysis,
       whisperConfig: whisperConfig,
       resolveFont: resolveFont,
+      gateway: gateway,
     );
   }
 
@@ -72,6 +75,7 @@ class RunAgentCommandUseCase {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) {
     return _pipeline.executePlanned(
       planned,
@@ -83,6 +87,7 @@ class RunAgentCommandUseCase {
       writeAnalysis: writeAnalysis,
       whisperConfig: whisperConfig,
       resolveFont: resolveFont,
+      gateway: gateway,
     );
   }
 }

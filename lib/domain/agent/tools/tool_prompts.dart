@@ -51,6 +51,14 @@ class ToolPromptBuilder {
         'saturation. strength 0-1 drives vignette/blur; contrast/saturation '
         'are 0-3 multipliers (1.0 unchanged). For brightness use '
         'adjust_brightness.',
+    'create_tag': 'create a tag for assets/clips (hex #RRGGBB color).',
+    'update_tag': 'rename or recolor a tag by ID.',
+    'delete_tag': 'delete a tag by ID (removes it from every target).',
+    'assign_tag': 'attach a tag to one asset or clip.',
+    'unassign_tag': 'detach a tag from one asset or clip.',
+    'create_marker': 'create a point or range marker on the timeline.',
+    'update_marker': 'update a marker by ID (label, color, position).',
+    'delete_marker': 'delete a marker by ID.',
   };
 
   /// Builds the system prompt from the tools actually on offer: the

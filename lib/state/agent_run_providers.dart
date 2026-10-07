@@ -22,6 +22,7 @@ import 'package:clipmind/domain/usecases/run_agent_command_usecase.dart';
 import 'package:clipmind/state/agent_analysis_providers.dart';
 import 'package:clipmind/state/agent_providers.dart';
 import 'package:clipmind/state/player_providers.dart';
+import 'package:clipmind/state/project_command_gateway_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/settings_providers.dart';
 
@@ -299,6 +300,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
           modelPath: settings?.whisperModelPath ?? '',
         ),
         resolveFont: resolveFont,
+        gateway: _ref.read(projectCommandGatewayProvider),
       );
 
       if (planPreview && result.status == SubmitStatus.success) {
@@ -442,6 +444,7 @@ class AgentRunController extends StateNotifier<AgentRunState> {
                     _ref.read(projectProvider).value ?? project,
                 cancellation: controller.token,
                 resolveFont: _ref.read(resolveFontProvider),
+                gateway: _ref.read(projectCommandGatewayProvider),
               );
       final steps = [
         for (final record in result.records) _toChatStep(record),

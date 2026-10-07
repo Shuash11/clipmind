@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:clipmind/core/async/cancellation_token.dart';
+import 'package:clipmind/core/results/result.dart';
 import 'package:clipmind/core/utils/timecode_utils.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/models/project.dart';
@@ -15,6 +16,13 @@ import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
 import 'package:clipmind/domain/agent/stage_6_execution.dart';
+import 'package:clipmind/features/projects/data/ids/uuid_id_generator.dart';
+import 'package:clipmind/features/projects/domain/commands/marker_commands.dart';
+import 'package:clipmind/features/projects/domain/commands/project_command.dart';
+import 'package:clipmind/features/projects/domain/commands/project_command_factory.dart';
+import 'package:clipmind/features/projects/domain/commands/tag_commands.dart';
+import 'package:clipmind/features/projects/domain/ids/id_generator.dart';
+import 'project_command_gateway.dart';
 import 'tool_definition.dart';
 import 'tool_registry.dart';
 
@@ -63,6 +71,17 @@ class ToolExecutionContext {
   /// path — `font_file` is always app-generated (the srt_path pattern).
   final Future<String?> Function(String familyId)? resolveFont;
 
+  /// Agent tag/marker pipeline: live snapshot (reader tool) + transactional
+  /// command application (`CommandToolExecutor`). Wired by the state layer
+  /// through `projectCommandGatewayProvider`; null = command tools degrade
+  /// with an actionable failure instead of guessing an editor.
+  final ProjectCommandGateway? gateway;
+
+  /// ID source for commands built by the tool path (uuid in production,
+  /// deterministic fakes in tests). Mirrors `ProjectCommandFactory`'s only
+  /// dependency; entity IDs are never model-filled.
+  final IdGenerator commandIdGenerator;
+
   int jobsUsed = 0;
 
   /// Run journal: every successfully applied edit lands here so the agent
@@ -86,9 +105,12 @@ class ToolExecutionContext {
     this.writeAnalysis,
     this.whisperConfig,
     this.resolveFont,
+    this.gateway,
+    IdGenerator? commandIdGenerator,
   }) : sceneDetectionService =
            sceneDetectionService ?? SceneDetectionService(),
-       whisperService = whisperService ?? WhisperTranscriptionService();
+       whisperService = whisperService ?? WhisperTranscriptionService(),
+       commandIdGenerator = commandIdGenerator ?? UuidIdGenerator();
 
   void resetRun() {
     jobsUsed = 0;
@@ -119,11 +141,14 @@ class ReadToolExecutor implements ToolExecutor {
           return _storyboard(call.args);
         case 'get_transcript':
           return await _transcript(call.args);
+        case 'list_tags_and_markers':
+          return _listTagsAndMarkers();
         default:
           return ToolResult.fail(
             'Unknown read tool "${call.name}". '
             'Available: list_project_clips, probe_video, get_edit_history, '
-            'detect_scenes, get_storyboard, get_transcript.',
+            'detect_scenes, get_storyboard, get_transcript, '
+            'list_tags_and_markers.',
           );
       }
     } catch (e) {
@@ -148,6 +173,81 @@ class ReadToolExecutor implements ToolExecutor {
     return ToolResult.ok(
       data: {'clips': clips, 'count': clips.length},
       summary: '${clips.length} clip(s) in project.',
+    );
+  }
+
+  /// Tag/marker/asset inventory from the live project document (the
+  /// gateway snapshot). Asset IDs are required for `assign_tag`; tag
+  /// `targets` tell the model which associations already exist, so a
+  /// duplicate assignment is never attempted.
+  ToolResult _listTagsAndMarkers() {
+    final snapshot = _ctx.gateway?.snapshot();
+    if (snapshot == null) {
+      return ToolResult.fail(
+        'No tag/marker inventory is available (no live project document). '
+        'Open a project first, then retry.',
+      );
+    }
+
+    final tagTargets = <String, ({List<String> assets, List<String> clips})>{};
+    for (final tag in snapshot.tags) {
+      tagTargets[tag.id] = (
+        assets: [
+          for (final asset in snapshot.assets)
+            if (asset.tagIds.contains(tag.id)) asset.id,
+        ],
+        clips: [
+          for (final track in snapshot.tracks)
+            for (final clip in track.clips)
+              if (clip.tagIds.contains(tag.id)) clip.id,
+        ],
+      );
+    }
+
+    final tags = [
+      for (final tag in snapshot.tags)
+        {
+          'id': tag.id,
+          'name': tag.name,
+          'color': tag.color,
+          'targets': {
+            'assets': tagTargets[tag.id]!.assets,
+            'clips': tagTargets[tag.id]!.clips,
+          },
+        },
+    ];
+    final markers = [
+      for (final marker in snapshot.markers)
+        {
+          'id': marker.id,
+          'label': marker.label,
+          'color': marker.color,
+          if (marker.atMs != null) 'atMs': marker.atMs,
+          if (marker.atMs == null) 'startMs': marker.startMs,
+          if (marker.atMs == null) 'endMs': marker.endMs,
+        },
+    ];
+    final assets = [
+      for (final asset in snapshot.assets)
+        {
+          'id': asset.id,
+          'displayName': asset.displayName,
+          'tagIds': asset.tagIds.toList(),
+        },
+    ];
+    return ToolResult.ok(
+      data: {
+        'tags': tags,
+        'markers': markers,
+        'assets': assets,
+        'counts': {
+          'tags': tags.length,
+          'markers': markers.length,
+          'assets': assets.length,
+        },
+      },
+      summary: '${tags.length} tag(s), ${markers.length} marker(s), '
+          '${assets.length} asset(s).',
     );
   }
 
@@ -1501,11 +1601,277 @@ class EditToolExecutor implements ToolExecutor {
   }
 }
 
-/// Default registry wiring every tool name to the read/edit executors
-/// bound to [ctx]. Used by [ToolCallingAgent] and the state providers.
+/// Tag/marker command tools: one tool call = one [ProjectCommand] through
+/// the live command pipeline ([ProjectCommandGateway] →
+/// `ProjectCommandExecutor` → `ProjectTransactionService`, agent-sourced),
+/// so agent metadata edits are undoable and persisted exactly like manual
+/// tagging edits.
+class CommandToolExecutor implements ToolExecutor {
+  const CommandToolExecutor(this._ctx);
+
+  final ToolExecutionContext _ctx;
+
+  /// Actionable follow-ups appended to project validation failures so the
+  /// model can self-correct (handler rules are never duplicated here).
+  static const Map<String, String> _failureHints = {
+    'create_tag':
+        'Tag names are 1-64 characters and unique; colors are #RRGGBB. '
+        'Call list_tags_and_markers to see existing tags.',
+    'update_tag':
+        'Call list_tags_and_markers to see tag IDs. Names are 1-64 '
+        'characters and unique; colors are #RRGGBB.',
+    'delete_tag': 'Call list_tags_and_markers to see tag IDs.',
+    'assign_tag':
+        'Call list_tags_and_markers to see tag and asset IDs. '
+        'target_kind is "asset" or "clip".',
+    'unassign_tag':
+        'Call list_tags_and_markers to see tag and asset IDs. '
+        'target_kind is "asset" or "clip".',
+    'create_marker':
+        'Pass at_ms for a point marker, or start_ms and end_ms for a '
+        'range — never both. Colors are #RRGGBB.',
+    'update_marker':
+        'Call list_tags_and_markers to see marker IDs; pass at_ms or '
+        'start_ms and end_ms — never both.',
+    'delete_marker': 'Call list_tags_and_markers to see marker IDs.',
+  };
+
+  /// Human labels for the success step summary (from the canonical
+  /// command type).
+  static const Map<String, String> _doneLabels = {
+    'create_tag': 'Created tag',
+    'update_tag': 'Updated tag',
+    'delete_tag': 'Deleted tag',
+    'assign_tag': 'Assigned tag',
+    'unassign_tag': 'Unassigned tag',
+    'create_marker': 'Created marker',
+    'update_marker': 'Updated marker',
+    'delete_marker': 'Deleted marker',
+  };
+
+  @override
+  Future<ToolResult> execute(ToolCall call) async {
+    final factory = ProjectCommandFactory(_ctx.commandIdGenerator);
+    final Result<ProjectCommand> built = _buildCommand(factory, call);
+    if (built case Failure<ProjectCommand>(:final error)) {
+      return ToolResult.fail(error.message);
+    }
+    final command = (built as Success<ProjectCommand>).value;
+
+    if (_ctx.dryRun) {
+      // Plan preview: the command is only shaped here. Replay executes it
+      // against the then-live document so sequenced calls (create_tag,
+      // then assign_tag) validate against updated state, not this pass's.
+      return ToolResult.ok(
+        data: {
+          'planned': true,
+          'command_type': command.type,
+          'target_ids': _targetIds(command),
+        },
+        summary: 'Would apply ${command.type}.',
+      );
+    }
+
+    final gateway = _ctx.gateway;
+    if (gateway == null) {
+      return ToolResult.fail(
+        'Tag and marker tools need the live project document, which is not '
+        'available. Open a project first, then retry.',
+      );
+    }
+    final Result<CommandExecution> result;
+    try {
+      result = await gateway.applyCommands([command]);
+    } catch (e) {
+      return ToolResult.fail('Tool "${call.name}" failed: $e');
+    }
+    return switch (result) {
+      Success<CommandExecution>(:final value) => ToolResult.ok(
+        data: {
+          'command_type': command.type,
+          'target_ids': _targetIds(command),
+          'summaries': [
+            for (final summary in value.summaries) summary.toJson(),
+          ],
+        },
+        summary: _successSummary(value.summaries, command),
+      ),
+      Failure<CommandExecution>(:final error) => ToolResult.fail(
+        _failureMessage(call.name, error.message),
+      ),
+    };
+  }
+
+  // --- Command construction (shape for the strict schemas) ----------------
+
+  Result<ProjectCommand> _buildCommand(
+    ProjectCommandFactory factory,
+    ToolCall call,
+  ) {
+    switch (call.name) {
+      case 'create_tag':
+        final name = _requiredCommandString(call.args, 'name');
+        final color = _requiredCommandString(call.args, 'color');
+        if (name == null || color == null) {
+          return _invalidArgs(call.name, '"name" and "color"');
+        }
+        return Success(factory.createTag(name: name, color: color));
+      case 'update_tag':
+        final tagId = _requiredCommandString(call.args, 'tag_id');
+        final name = _requiredCommandString(call.args, 'name');
+        final color = _requiredCommandString(call.args, 'color');
+        if (tagId == null || name == null || color == null) {
+          return _invalidArgs(call.name, '"tag_id", "name" and "color"');
+        }
+        return Success(
+          factory.updateTag(tagId: tagId, name: name, color: color),
+        );
+      case 'delete_tag':
+        final tagId = _requiredCommandString(call.args, 'tag_id');
+        if (tagId == null) return _invalidArgs(call.name, '"tag_id"');
+        return Success(factory.deleteTag(tagId: tagId));
+      case 'assign_tag':
+      case 'unassign_tag':
+        final tagId = _requiredCommandString(call.args, 'tag_id');
+        final targetKind = _targetKind(call.args['target_kind']);
+        final targetId = _requiredCommandString(call.args, 'target_id');
+        if (tagId == null || targetKind == null || targetId == null) {
+          return _invalidArgs(
+            call.name,
+            '"tag_id", "target_kind" ("asset" or "clip") and "target_id"',
+          );
+        }
+        return Success(
+          call.name == 'assign_tag'
+              ? factory.assignTag(
+                  tagId: tagId,
+                  targetKind: targetKind,
+                  targetId: targetId,
+                )
+              : factory.unassignTag(
+                  tagId: tagId,
+                  targetKind: targetKind,
+                  targetId: targetId,
+                ),
+        );
+      case 'create_marker':
+        return _markerCommand(factory, call, create: true);
+      case 'update_marker':
+        return _markerCommand(factory, call, create: false);
+      case 'delete_marker':
+        final markerId = _requiredCommandString(call.args, 'marker_id');
+        if (markerId == null) return _invalidArgs(call.name, '"marker_id"');
+        return Success(factory.deleteMarker(markerId: markerId));
+      default:
+        return Failure(
+          ProjectValidationFailure('Unknown command tool "${call.name}".'),
+        );
+    }
+  }
+
+  Result<ProjectCommand> _markerCommand(
+    ProjectCommandFactory factory,
+    ToolCall call, {
+    required bool create,
+  }) {
+    final label = _requiredCommandString(call.args, 'label');
+    final color = _requiredCommandString(call.args, 'color');
+    final markerId =
+        create ? null : _requiredCommandString(call.args, 'marker_id');
+    if (label == null ||
+        color == null ||
+        (!create && markerId == null)) {
+      return _invalidArgs(
+        call.name,
+        create
+            ? '"label" and "color"'
+            : '"marker_id", "label" and "color"',
+      );
+    }
+    // Point-vs-range is enforced by the marker handler (single source of
+    // truth); a malformed combination returns its validation message.
+    final atMs = _numArg(call.args, 'at_ms')?.toInt();
+    final startMs = _numArg(call.args, 'start_ms')?.toInt();
+    final endMs = _numArg(call.args, 'end_ms')?.toInt();
+    return Success(
+      create
+          ? factory.createMarker(
+              label: label,
+              color: color,
+              atMs: atMs,
+              startMs: startMs,
+              endMs: endMs,
+            )
+          : factory.updateMarker(
+              markerId: markerId!,
+              label: label,
+              color: color,
+              atMs: atMs,
+              startMs: startMs,
+              endMs: endMs,
+            ),
+    );
+  }
+
+  /// Non-empty string arg; null when missing, blank or not a string.
+  static String? _requiredCommandString(
+    Map<String, dynamic> args,
+    String key,
+  ) {
+    final raw = args[key];
+    if (raw is! String || raw.trim().isEmpty) return null;
+    return raw;
+  }
+
+  static AssignmentTargetKind? _targetKind(Object? raw) {
+    if (raw is! String) return null;
+    for (final kind in AssignmentTargetKind.values) {
+      if (kind.name == raw) return kind;
+    }
+    return null;
+  }
+
+  static Result<ProjectCommand> _invalidArgs(String tool, String expected) =>
+      Failure(ProjectValidationFailure('$tool needs $expected.'));
+
+  static String _failureMessage(String tool, String message) {
+    final hint = _failureHints[tool];
+    return hint == null ? message : '$message $hint';
+  }
+
+  /// Success step summary from the canonical summary (type + target IDs),
+  /// falling back to the built command when a gateway returns none.
+  static String _successSummary(
+    List<CanonicalCommandSummary> summaries,
+    ProjectCommand command,
+  ) {
+    final summary = summaries.isEmpty ? null : summaries.first;
+    final type = summary?.type ?? command.type;
+    final targets = summary?.targetIds ?? _targetIds(command);
+    final label = _doneLabels[type] ?? type;
+    return targets.isEmpty ? '$label.' : '$label (${targets.join(', ')}).';
+  }
+
+  static List<String> _targetIds(ProjectCommand command) => switch (command) {
+    CreateTagCommand(:final tagId) => [tagId],
+    UpdateTagCommand(:final tagId) => [tagId],
+    DeleteTagCommand(:final tagId) => [tagId],
+    AssignTagCommand(:final targetId) => [targetId],
+    UnassignTagCommand(:final targetId) => [targetId],
+    CreateMarkerCommand(:final markerId) => [markerId],
+    UpdateMarkerCommand(:final markerId) => [markerId],
+    DeleteMarkerCommand(:final markerId) => [markerId],
+    _ => const <String>[],
+  };
+}
+
+/// Default registry wiring every tool name to the read/edit/command
+/// executors bound to [ctx]. Used by [ToolCallingAgent] and the state
+/// providers.
 ToolRegistry createToolRegistry(ToolExecutionContext ctx) {
   final read = ReadToolExecutor(ctx);
   final edit = EditToolExecutor(ctx);
+  final command = CommandToolExecutor(ctx);
   return ToolRegistry(executors: {
     'list_project_clips': read,
     'probe_video': read,
@@ -1513,6 +1879,7 @@ ToolRegistry createToolRegistry(ToolExecutionContext ctx) {
     'detect_scenes': read,
     'get_storyboard': read,
     'get_transcript': read,
+    'list_tags_and_markers': read,
     'trim_clip': edit,
     'cut_segment': edit,
     'merge_clips': edit,
@@ -1527,6 +1894,14 @@ ToolRegistry createToolRegistry(ToolExecutionContext ctx) {
     'burn_captions': edit,
     'add_transition': edit,
     'apply_effect': edit,
+    'create_tag': command,
+    'update_tag': command,
+    'delete_tag': command,
+    'assign_tag': command,
+    'unassign_tag': command,
+    'create_marker': command,
+    'update_marker': command,
+    'delete_marker': command,
   });
 }
 

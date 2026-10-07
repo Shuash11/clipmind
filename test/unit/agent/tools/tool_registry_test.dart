@@ -16,9 +16,9 @@ class _StubExecutor implements ToolExecutor {
 
 void main() {
   group('ToolRegistry surface', () {
-    test('catalog: 20 curated tools, every one classified', () {
+    test('catalog: 29 curated tools, every one classified', () {
       final defs = ToolRegistry.defaultDefinitions();
-      expect(defs, hasLength(20));
+      expect(defs, hasLength(29));
       expect(
         defs.every((d) =>
             d.exposure == ToolExposure.core ||
@@ -51,6 +51,7 @@ void main() {
       expect(byName, containsPair('detect_scenes', ToolCategory.read));
       expect(byName, containsPair('get_storyboard', ToolCategory.read));
       expect(byName, containsPair('get_transcript', ToolCategory.read));
+      expect(byName, containsPair('list_tags_and_markers', ToolCategory.read));
       for (final name in [
         'trim_clip',
         'cut_segment',
@@ -66,6 +67,14 @@ void main() {
         'burn_captions',
         'add_transition',
         'apply_effect',
+        'create_tag',
+        'update_tag',
+        'delete_tag',
+        'assign_tag',
+        'unassign_tag',
+        'create_marker',
+        'update_marker',
+        'delete_marker',
       ]) {
         expect(byName, containsPair(name, ToolCategory.edit));
       }
@@ -75,6 +84,10 @@ void main() {
       final names = ToolRegistry.defaultDefinitions()
           .map((d) => d.name)
           .toSet();
+      // Deliberate deferral (Cycle 7 Phase 2 ruling, future cycle): each of
+      // these needs a new FFmpeg executor + schema + UX semantics (notably
+      // a model-chosen watermark image path — a trust problem best solved
+      // with asset-based pickers), so they stay out of the agent catalog.
       for (final deferred in [
         'change_format',
         'generate_thumbnail',
@@ -84,7 +97,7 @@ void main() {
       }
     });
 
-    test('exposure mapping: 14 core (all reads + 8 common edits)', () {
+    test('exposure mapping: 15 core (all reads + 8 common edits)', () {
       final byName = {
         for (final d in ToolRegistry.defaultDefinitions()) d.name: d.exposure,
       };
@@ -95,6 +108,7 @@ void main() {
         'detect_scenes',
         'get_storyboard',
         'get_transcript',
+        'list_tags_and_markers',
         'trim_clip',
         'cut_segment',
         'merge_clips',
@@ -111,10 +125,18 @@ void main() {
         'burn_captions',
         'add_transition',
         'apply_effect',
+        'create_tag',
+        'update_tag',
+        'delete_tag',
+        'assign_tag',
+        'unassign_tag',
+        'create_marker',
+        'update_marker',
+        'delete_marker',
       };
-      expect(byName, hasLength(20));
-      expect(core.length, equals(14));
-      expect(deferred.length, equals(6));
+      expect(byName, hasLength(29));
+      expect(core.length, equals(15));
+      expect(deferred.length, equals(14));
       for (final name in core) {
         expect(byName[name], ToolExposure.core, reason: name);
       }

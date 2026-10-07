@@ -45,6 +45,37 @@ void main() {
       expect(prompt, contains('- mystery_tool'));
     });
 
+    test('tag/marker deferred names carry hints and the reader lists', () {
+      final prompt = ToolPromptBuilder.buildSystemPrompt(
+        available: [
+          _def('list_tags_and_markers', 'List tags, markers and assets.'),
+        ],
+        deferredNames: const [
+          'create_tag',
+          'update_tag',
+          'delete_tag',
+          'assign_tag',
+          'unassign_tag',
+          'create_marker',
+          'update_marker',
+          'delete_marker',
+        ],
+      );
+
+      expect(prompt, contains('- list_tags_and_markers: List tags'));
+      expect(prompt, contains('- create_tag: create a tag'));
+      expect(prompt, contains('- update_tag: rename or recolor a tag'));
+      expect(prompt, contains('- delete_tag: delete a tag by ID'));
+      expect(prompt, contains('- assign_tag: attach a tag'));
+      expect(prompt, contains('- unassign_tag: detach a tag'));
+      expect(
+        prompt,
+        contains('- create_marker: create a point or range marker'),
+      );
+      expect(prompt, contains('- update_marker: update a marker by ID'));
+      expect(prompt, contains('- delete_marker: delete a marker by ID'));
+    });
+
     test('collapses multiline descriptions to one prompt line', () {
       final prompt = ToolPromptBuilder.buildSystemPrompt(
         available: [_def('probe_video', 'Line one.\n    Line two.')],

@@ -21,6 +21,7 @@ import 'stage_5_command_mapping.dart';
 import 'stage_6_execution.dart';
 import 'operation_schema.dart';
 import 'tool_calling_agent.dart';
+import 'tools/project_command_gateway.dart';
 import 'tools/tool_definition.dart';
 import 'tools/tool_executors.dart';
 
@@ -98,10 +99,13 @@ class Nl2VecPipeline {
     //     `ref.read(settingsProvider).value` (empty strings = unset).
     //   resolveFont: `ref.read(resolveFontProvider)` (wired to
     //     FontResolver via fontResolverProvider).
+    //   gateway: `projectCommandGatewayProvider` (state) — the live
+    //     tag/marker command pipeline. Null = command tools degrade.
     Map<String, dynamic>? Function(String kind)? readAnalysis,
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) async {
     if (provider == null) {
       const result = SubmitResult(
@@ -144,6 +148,7 @@ class Nl2VecPipeline {
           writeAnalysis: writeAnalysis,
           whisperConfig: whisperConfig,
           resolveFont: resolveFont,
+          gateway: gateway,
         );
       }
       if (dryRun) {
@@ -327,6 +332,7 @@ class Nl2VecPipeline {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) {
     return _executeWithEvents(() async {
       _events.add(
@@ -342,6 +348,7 @@ class Nl2VecPipeline {
         writeAnalysis: writeAnalysis,
         whisperConfig: whisperConfig,
         resolveFont: resolveFont,
+        gateway: gateway,
       );
       final registry = createToolRegistry(ctx);
       final records = <AgentToolCallRecord>[];
@@ -426,6 +433,7 @@ class Nl2VecPipeline {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) {
     final Project Function() readLive = liveProject ?? () => project;
     final clipPathMap = _buildClipPathMap(project);
@@ -450,6 +458,7 @@ class Nl2VecPipeline {
       writeAnalysis: writeAnalysis,
       whisperConfig: whisperConfig,
       resolveFont: resolveFont,
+      gateway: gateway,
     );
   }
 
@@ -467,6 +476,7 @@ class Nl2VecPipeline {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) async {
     _events.add(const PipelineEvent(PipelineStage.thinking, 'Planning with tools...'));
 
@@ -480,6 +490,7 @@ class Nl2VecPipeline {
       writeAnalysis: writeAnalysis,
       whisperConfig: whisperConfig,
       resolveFont: resolveFont,
+      gateway: gateway,
     );
     final agent = ToolCallingAgent(provider: provider, context: ctx);
     final forward = agent.activityEvents.listen(_agentActivity.add);

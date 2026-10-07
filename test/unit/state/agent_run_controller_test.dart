@@ -24,12 +24,17 @@ import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/domain/agent/tools/project_command_gateway.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
+import 'package:clipmind/features/projects/domain/commands/project_command.dart';
+import 'package:clipmind/features/tagging/presentation/providers/tagging_providers.dart';
 import 'package:clipmind/state/agent_providers.dart';
 import 'package:clipmind/state/agent_run_providers.dart';
 import 'package:clipmind/state/player_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/settings_providers.dart';
+
+import '../../features/tagging/support/tagging_widget_harness.dart';
 
 class _LegacyStub extends LlmProvider {
   final EditOperationSet response;
@@ -120,6 +125,7 @@ class _CapturingPipeline extends Nl2VecPipeline {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) async {
     seenHistory = recentHistory;
     seenDryRun = dryRun;
@@ -141,6 +147,7 @@ class _CapturingPipeline extends Nl2VecPipeline {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) async {
     seenPlannedResolveFont = resolveFont;
     return result;
@@ -1220,6 +1227,102 @@ void main() {
         container.read(pendingPlanProvider)!.calls.map((c) => c.name),
         equals(['trim_clip']),
       );
+    });
+
+    test('dry-run create_tag replays as an agent transaction, no skips',
+        () async {
+      final harness = TaggingWidgetHarness();
+      final provider = _ScriptTools([
+        const AgentTurnResult(
+          toolCalls: [
+            AgentToolCall(
+              id: 'load_1',
+              name: 'load_tools',
+              args: {
+                'tools': ['create_tag'],
+              },
+            ),
+          ],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          toolCalls: [
+            AgentToolCall(
+              id: 'tag_call',
+              name: 'create_tag',
+              args: {'name': 'Music', 'color': '#AABBCC'},
+            ),
+          ],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          text: 'Planned one tag.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final container = ProviderContainer.test(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
+          ffmpegServiceProvider.overrideWithValue(_FakeFfmpeg()),
+          providerRegistryProvider.overrideWithValue(_FakeRegistry(provider)),
+          projectMetadataProvider.overrideWith((ref) async => null),
+          taggingProvidersProvider.overrideWithValue(harness.providers),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(projectProvider.notifier).setProject(
+            _project(input, outDir.path),
+          );
+      for (var i = 0; i < 200; i++) {
+        if (container.read(settingsProvider).value != null) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      await container.read(settingsProvider.notifier).update(
+            container
+                .read(settingsProvider)
+                .value!
+                .copyWith(planEditsBeforeApply: true),
+          );
+
+      await container
+          .read(agentRunControllerProvider.notifier)
+          .submit('Create a Music tag');
+
+      // Dry run parks the plan without touching the project document.
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.planReady));
+      final plan = container.read(pendingPlanProvider)!;
+      expect(plan.calls.map((c) => c.name), equals(['create_tag']));
+      expect(harness.repository.saveCalls, 0);
+      expect(
+        harness.document.currentState.tags.map((tag) => tag.name),
+        isNot(contains('Music')),
+      );
+
+      await container.read(agentRunControllerProvider.notifier).approvePlan();
+
+      // Replay executed the command through the agent transaction path.
+      expect(
+        harness.document.currentState.tags.map((tag) => tag.name),
+        contains('Music'),
+      );
+      expect(harness.repository.saveCalls, 1);
+      expect(
+        harness.document.history.single.sourceKind,
+        TransactionSourceKind.agent,
+      );
+      final reply = container.read(chatMessagesProvider).last;
+      expect(reply.status, equals(MessageStatus.applied));
+      expect(reply.steps.map((s) => s.toolName), equals(['create_tag']));
+      expect(reply.steps.single.success, isTrue);
+      expect(
+        reply.steps.any((s) => s.summary.contains('Skipped in replay')),
+        isFalse,
+      );
+      expect(container.read(pendingPlanProvider), isNull);
+      expect(container.read(agentRunControllerProvider),
+          equals(AgentRunState.idle));
     });
   });
 }

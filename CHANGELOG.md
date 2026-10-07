@@ -2,6 +2,15 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.42.0
+
+### Agent tagging and markers
+- The agent can now create, rename, recolor and delete tags; assign and unassign tags to assets or clips; and create, update and delete timeline markers. These edits run through the same undoable, revision-guarded transactions as manual tagging edits and persist with agent-sourced history records.
+- A new core read tool (`list_tags_and_markers`) exposes tag, marker and asset IDs plus existing tag assignments, so the agent can discover what to edit before touching it.
+- The eight tag/marker commands are deferred tools: the agent unlocks them on demand with `load_tools`, keeping the per-round tool payload bounded.
+
+Note: the document-based tagging layer is still being wired into the editor; until that composition lands, these agent tools return an actionable "tagging unavailable" error rather than modifying state.
+
 ## 1.41.0
 
 ### On-demand tool loading

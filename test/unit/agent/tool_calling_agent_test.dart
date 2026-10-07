@@ -15,10 +15,15 @@ import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/domain/agent/stage_1_input_validation.dart';
 import 'package:clipmind/domain/agent/tool_calling_agent.dart';
+import 'package:clipmind/domain/agent/tools/project_command_gateway.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/domain/agent/tools/tool_executors.dart';
 import 'package:clipmind/domain/agent/tools/tool_registry.dart';
 import 'package:clipmind/domain/agent/tools/tool_selection.dart';
+import 'package:clipmind/features/projects/domain/commands/tag_commands.dart';
+
+import '../../features/projects/support/project_test_data.dart';
+import 'tools/support/fake_project_command_gateway.dart';
 
 /// Scripted provider: returns one canned turn per round.
 class _ScriptProvider extends LlmProvider {
@@ -177,8 +182,12 @@ AgentTurnResult _loadTurn(String id, List<String> tools) => AgentTurnResult(
 // Minimal context: no FFmpeg runs in these loop tests (stub executors,
 // so services are never touched). The dry-run variant uses the real
 // registry executors: mapping builds arg strings only, and dry-run
-// returns before any FFmpeg execution.
-ToolExecutionContext _context({bool dryRun = false}) {
+// returns before any FFmpeg execution. [gateway] wires the tag/marker
+// command executor to the fake command pipeline.
+ToolExecutionContext _context({
+  bool dryRun = false,
+  ProjectCommandGateway? gateway,
+}) {
   final project = Project(
     id: 'p1',
     name: 'Test',
@@ -213,6 +222,7 @@ ToolExecutionContext _context({bool dryRun = false}) {
     ffmpegService: FfmpegService(),
     ffprobeService: FfprobeService(),
     dryRun: dryRun,
+    gateway: gateway,
   );
 }
 
@@ -1046,6 +1056,91 @@ void main() {
       expect(
         result.records.where((r) => r.name == 'mute_clip'),
         hasLength(3),
+      );
+      agent.dispose();
+    });
+  });
+
+  group('ToolCallingAgent tag/marker commands', () {
+    const createTagCall = AgentToolCall(
+      id: 'tag_call',
+      name: 'create_tag',
+      args: {'name': 'Music', 'color': '#AABBCC'},
+    );
+
+    test('a tag command before load_tools never reaches the gateway',
+        () async {
+      final gateway = FakeProjectCommandGateway(state: stateWithOneClip());
+      final provider = _ScriptProvider([
+        const AgentTurnResult(
+          toolCalls: [createTagCall],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          text: 'I need to load it first.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(gateway: gateway),
+      );
+
+      final result = await agent.run(validated: _validated());
+
+      expect(result.records.single.success, isFalse);
+      expect(
+        result.records.single.summary,
+        contains('deferred and not loaded'),
+      );
+      expect(result.records.single.summary, contains('load_tools'));
+      expect(gateway.batches, isEmpty);
+      agent.dispose();
+    });
+
+    test('load_tools unlocks create_tag and the command reaches the gateway',
+        () async {
+      final gateway = FakeProjectCommandGateway(state: stateWithOneClip());
+      final provider = _ScriptProvider([
+        _loadTurn('load_1', ['create_tag']),
+        const AgentTurnResult(
+          toolCalls: [createTagCall],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          text: 'Tag created.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final agent = ToolCallingAgent(
+        provider: provider,
+        context: _context(gateway: gateway),
+      );
+
+      final result = await agent.run(validated: _validated());
+
+      // Round 1 hides the deferred command; round 2 offers it.
+      expect(
+        provider.seen[0].tools.map((d) => d.name),
+        isNot(contains('create_tag')),
+      );
+      expect(
+        provider.seen[1].tools.map((d) => d.name),
+        contains('create_tag'),
+      );
+
+      expect(
+        result.records.map((r) => r.name),
+        equals(['load_tools', 'create_tag']),
+      );
+      expect(result.records.last.success, isTrue);
+      expect(result.records.last.summary, contains('Created tag'));
+
+      // The command really executed through the gateway and advanced state.
+      expect(gateway.appliedCommands.single, isA<CreateTagCommand>());
+      expect(
+        gateway.state!.tags.map((tag) => tag.name),
+        contains('Music'),
       );
       agent.dispose();
     });

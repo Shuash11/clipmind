@@ -2,13 +2,15 @@ import 'tool_definition.dart';
 
 /// Curated tool surface for the agentic loop (D4, Phase 6a).
 ///
-/// Exactly 20 tools (at the ≤20 cap). Every tool is classified by
-/// [ToolExposure]: 14 core tools ride every round's payload; the 6
-/// deferred tools are loaded on demand via the reserved `load_tools`
-/// meta-tool (see `ToolSelection`), keeping per-request exposure within
-/// budget while the catalog can keep growing. The model references clips
-/// by ID learned from [list_project_clips]; the app resolves file paths
-/// itself — file paths are never model-filled args.
+/// 29 tools: 15 core tools ride every round's payload; the 14 deferred
+/// tools are loaded on demand via the reserved `load_tools` meta-tool
+/// (see `ToolSelection`), keeping per-request exposure within budget
+/// (core + loader ≤ 16) while the catalog keeps growing. The 8 tag/marker
+/// commands are deferred and execute through the live project command
+/// pipeline (agent-sourced transactions shared with manual tagging). The
+/// model references clips by ID learned from [list_project_clips] and
+/// tags/assets/markers by ID learned from `list_tags_and_markers`; the app
+/// resolves file paths itself — file paths are never model-filled args.
 class ToolRegistry {
   /// Max operation rounds (rounds that execute tool work) per agent run
   /// (D-bounds). `load_tools` rounds are not operation rounds, so total
@@ -32,7 +34,7 @@ class ToolRegistry {
     _validate();
   }
 
-  /// The 20 canonical definitions.
+  /// The canonical model-tool definitions.
   static List<ToolDefinition> defaultDefinitions() => _catalog;
 
   List<ToolDefinition> definitions() => _byName.values.toList();
@@ -190,6 +192,20 @@ class ToolRegistry {
           },
         },
         'required': ['clip_id', 'max_chars'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.read,
+    ),
+    const ToolDefinition(
+      name: 'list_tags_and_markers',
+      description:
+          'List the project tags, timeline markers and media assets with '
+          'their IDs. Call this before any tag or marker edit to learn tag '
+          'IDs, marker IDs and asset IDs.',
+      inputSchema: {
+        'type': 'object',
+        'properties': <String, dynamic>{},
+        'required': <String>[],
         'additionalProperties': false,
       },
       category: ToolCategory.read,
@@ -566,6 +582,242 @@ class ToolRegistry {
           },
         },
         'required': ['clip_id', 'effect', 'strength', 'contrast', 'saturation'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
+    ),
+    // --- Tag / marker commands (deferred; live command pipeline) ----------
+    const ToolDefinition(
+      name: 'create_tag',
+      description:
+          'Create a tag. Colors are hex #RRGGBB. Call '
+          'list_tags_and_markers first to see the existing tags.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'name': {
+            'type': 'string',
+            'description': 'Tag name, 1-64 characters, unique.',
+          },
+          'color': {
+            'type': 'string',
+            'description': 'Tag color as #RRGGBB.',
+          },
+        },
+        'required': ['name', 'color'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
+    ),
+    const ToolDefinition(
+      name: 'update_tag',
+      description:
+          'Rename or recolor an existing tag. Colors are hex #RRGGBB. '
+          'Call list_tags_and_markers first to learn tag IDs.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'tag_id': {
+            'type': 'string',
+            'description': 'Tag ID from list_tags_and_markers.',
+          },
+          'name': {
+            'type': 'string',
+            'description': 'New tag name, 1-64 characters, unique.',
+          },
+          'color': {
+            'type': 'string',
+            'description': 'New tag color as #RRGGBB.',
+          },
+        },
+        'required': ['tag_id', 'name', 'color'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
+    ),
+    const ToolDefinition(
+      name: 'delete_tag',
+      description:
+          'Delete a tag and remove it from every asset and clip that '
+          'carries it. Call list_tags_and_markers first to learn tag IDs.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'tag_id': {
+            'type': 'string',
+            'description': 'Tag ID from list_tags_and_markers.',
+          },
+        },
+        'required': ['tag_id'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
+    ),
+    const ToolDefinition(
+      name: 'assign_tag',
+      description:
+          'Attach a tag to one asset or clip. Call list_tags_and_markers '
+          'first to learn tag IDs and asset IDs.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'tag_id': {
+            'type': 'string',
+            'description': 'Tag ID from list_tags_and_markers.',
+          },
+          'target_kind': {
+            'type': 'string',
+            'enum': ['asset', 'clip'],
+            'description': 'Whether target_id names an asset or a clip.',
+          },
+          'target_id': {
+            'type': 'string',
+            'description':
+                'Asset ID (list_tags_and_markers) or clip ID '
+                '(list_project_clips).',
+          },
+        },
+        'required': ['tag_id', 'target_kind', 'target_id'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
+    ),
+    const ToolDefinition(
+      name: 'unassign_tag',
+      description:
+          'Detach a tag from one asset or clip. Call list_tags_and_markers '
+          'first to learn tag IDs and asset IDs.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'tag_id': {
+            'type': 'string',
+            'description': 'Tag ID from list_tags_and_markers.',
+          },
+          'target_kind': {
+            'type': 'string',
+            'enum': ['asset', 'clip'],
+            'description': 'Whether target_id names an asset or a clip.',
+          },
+          'target_id': {
+            'type': 'string',
+            'description':
+                'Asset ID (list_tags_and_markers) or clip ID '
+                '(list_project_clips).',
+          },
+        },
+        'required': ['tag_id', 'target_kind', 'target_id'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
+    ),
+    const ToolDefinition(
+      name: 'create_marker',
+      description:
+          'Create a timeline marker with a hex #RRGGBB color. Pass at_ms '
+          'for a point marker, or start_ms and end_ms for a range — never '
+          'both. Call list_tags_and_markers first.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'label': {
+            'type': 'string',
+            'description': 'Marker label, 1-120 characters.',
+          },
+          'color': {
+            'type': 'string',
+            'description': 'Marker color as #RRGGBB.',
+          },
+          'at_ms': {
+            'type': ['number', 'null'],
+            'description':
+                'Point position in milliseconds, or null for a range.',
+          },
+          'start_ms': {
+            'type': ['number', 'null'],
+            'description':
+                'Range start in milliseconds, or null for a point.',
+          },
+          'end_ms': {
+            'type': ['number', 'null'],
+            'description': 'Range end in milliseconds, or null for a point.',
+          },
+        },
+        'required': ['label', 'color', 'at_ms', 'start_ms', 'end_ms'],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
+    ),
+    const ToolDefinition(
+      name: 'update_marker',
+      description:
+          'Update a marker label, color and position. Pass at_ms for a '
+          'point marker, or start_ms and end_ms for a range — never both. '
+          'Call list_tags_and_markers first to learn marker IDs.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'marker_id': {
+            'type': 'string',
+            'description': 'Marker ID from list_tags_and_markers.',
+          },
+          'label': {
+            'type': 'string',
+            'description': 'New marker label, 1-120 characters.',
+          },
+          'color': {
+            'type': 'string',
+            'description': 'New marker color as #RRGGBB.',
+          },
+          'at_ms': {
+            'type': ['number', 'null'],
+            'description':
+                'Point position in milliseconds, or null for a range.',
+          },
+          'start_ms': {
+            'type': ['number', 'null'],
+            'description':
+                'Range start in milliseconds, or null for a point.',
+          },
+          'end_ms': {
+            'type': ['number', 'null'],
+            'description': 'Range end in milliseconds, or null for a point.',
+          },
+        },
+        'required': [
+          'marker_id',
+          'label',
+          'color',
+          'at_ms',
+          'start_ms',
+          'end_ms',
+        ],
+        'additionalProperties': false,
+      },
+      category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
+    ),
+    const ToolDefinition(
+      name: 'delete_marker',
+      description:
+          'Delete a timeline marker. Call list_tags_and_markers first to '
+          'learn marker IDs.',
+      inputSchema: {
+        'type': 'object',
+        'properties': {
+          'marker_id': {
+            'type': 'string',
+            'description': 'Marker ID from list_tags_and_markers.',
+          },
+        },
+        'required': ['marker_id'],
         'additionalProperties': false,
       },
       category: ToolCategory.edit,

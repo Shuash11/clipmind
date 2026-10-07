@@ -25,6 +25,7 @@ const _coreNames = [
   'detect_scenes',
   'get_storyboard',
   'get_transcript',
+  'list_tags_and_markers',
   'trim_clip',
   'cut_segment',
   'merge_clips',
@@ -42,6 +43,14 @@ const _deferredNames = [
   'burn_captions',
   'add_transition',
   'apply_effect',
+  'create_tag',
+  'update_tag',
+  'delete_tag',
+  'assign_tag',
+  'unassign_tag',
+  'create_marker',
+  'update_marker',
+  'delete_marker',
 ];
 
 void main() {
@@ -55,7 +64,7 @@ void main() {
       expect(selection.loadsUsed, isZero);
     });
 
-    test('deferredNames lists the six deferred tools in catalog order', () {
+    test('deferredNames lists the fourteen deferred tools in catalog order', () {
       expect(_selection().deferredNames(), equals(_deferredNames));
     });
 
@@ -84,11 +93,27 @@ void main() {
       );
     });
 
+    test('tag/marker commands are loadable; the reader is core', () {
+      final selection = _selection();
+      expect(selection.isActive('list_tags_and_markers'), isTrue);
+      expect(selection.isActive('create_tag'), isFalse);
+
+      final result = selection.load(
+        ['create_tag', 'assign_tag', 'create_marker'],
+      );
+
+      expect(result.success, isTrue);
+      expect(selection.isActive('create_tag'), isTrue);
+      expect(selection.isActive('assign_tag'), isTrue);
+      expect(selection.isActive('create_marker'), isTrue);
+      expect(selection.isActive('delete_marker'), isFalse);
+    });
+
     test('loader disappears once every deferred tool is loaded', () {
       final selection = _selection();
-      // Two loads can activate all six deferred tools.
-      expect(selection.load(_deferredNames.sublist(0, 3)).success, isTrue);
-      expect(selection.load(_deferredNames.sublist(3)).success, isTrue);
+      // Two loads can activate all fourteen deferred tools.
+      expect(selection.load(_deferredNames.sublist(0, 7)).success, isTrue);
+      expect(selection.load(_deferredNames.sublist(7)).success, isTrue);
 
       expect(selection.loaderAvailable, isFalse);
       final names = selection.roundDefinitions().map((d) => d.name).toList();

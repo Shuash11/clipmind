@@ -25,6 +25,7 @@ import 'package:clipmind/domain/agent/agent_edit_applier.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
+import 'package:clipmind/domain/agent/tools/project_command_gateway.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/presentation/editor/widgets/agent_chat/agent_chat_panel.dart';
 import 'package:clipmind/presentation/editor/widgets/agent_chat/agent_steps_view.dart';
@@ -87,6 +88,7 @@ class _GatePipeline extends Nl2VecPipeline {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) async {
     calls++;
     await this.gate.future;
@@ -127,6 +129,7 @@ class _ConfirmingPipeline extends Nl2VecPipeline {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) async {
     calls++;
     final approved = await gate!.ask(request);
@@ -166,6 +169,7 @@ class _PlanningPipeline extends Nl2VecPipeline {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) async {
     return dryRunResult;
   }
@@ -181,6 +185,7 @@ class _PlanningPipeline extends Nl2VecPipeline {
     void Function(String kind, Map<String, dynamic> payload)? writeAnalysis,
     WhisperPaths? Function()? whisperConfig,
     Future<String?> Function(String familyId)? resolveFont,
+    ProjectCommandGateway? gateway,
   }) async {
     planned++;
     return plannedResult;
