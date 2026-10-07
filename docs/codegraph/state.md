@@ -1,4 +1,4 @@
-# Code Graph — lib/state (14 files, 2,849 lines; DO NOT EDIT)
+# Code Graph — lib/state (14 files, 2,853 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/state/agent_analysis_providers.dart (70 lines)
@@ -7,15 +7,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/state/agent_providers.dart (191 lines)
 - L155  class ChatMessagesNotifier extends StateNotifier<List<ChatMessage>> — ChatMessagesNotifier() : super([]) L156, add(ChatMessage message) L158, replaceAll(List<ChatMessage> messages) L163, addAgentResult(…) L168, clear() L186
 
-## lib/state/agent_run_providers.dart (597 lines)
-- L27  enum AgentRunState
-- L40  class AgentConfirmEditsFlag extends StateNotifier<bool> (_ref) — AgentConfirmEditsFlag(this._ref) : super(false) L41, _syncFromSettings(AppSettings? settings) L51, state(bool value) L58, _persist(bool value) L64
-- L82  class PendingConfirmation — PendingConfirmation() : super(null) L83, set(ConfirmationRequest request) L85, clear() L89
-- L96  class PendingPlan (command, projectId, steps, calls) — PendingPlan(…) L102
-- L115  class PendingPlanHolder — PendingPlanHolder() : super(null) L116, set(PendingPlan plan) L118, clear() L122
-- L129  class AgentConfirmationGate (_ref, perEdit, _completer) — AgentConfirmationGate(this._ref,…) L134, requiresPerEditApproval L137, ask(ConfirmationRequest request) L140, resolve(bool approved) L153
-- L168  class AgentRunController extends StateNotifier<AgentRunState> (_ref, _uuid, _cancel, _feedSub, _gate) — AgentRunController(this._ref) : super(AgentRunState.idle) L175, isBusy L177, loadHistory(String projectId) L181, submit(String command) L201, _completeAsPlan(…) L329, _postReply(…) L376, approvePlan() L412, discardPlan() L464, approvePendingConfirmation(bool approved) L489, cancel() L497, _toolKinds L511, _toChatStep(AgentToolCallRecord record) L515, _recentHistory() L530, _replyError(Project? project, String text) L550
-- L576  class AgentActivityFeed extends StateNotifier<List<AgentActivityEvent>> (maxEvents) — AgentActivityFeed() : super(const []) L579, push(AgentActivityEvent event) L581, clear() L588
+## lib/state/agent_run_providers.dart (601 lines)
+- L28  enum AgentRunState
+- L41  class AgentConfirmEditsFlag extends StateNotifier<bool> (_ref) — AgentConfirmEditsFlag(this._ref) : super(false) L42, _syncFromSettings(AppSettings? settings) L52, state(bool value) L59, _persist(bool value) L65
+- L83  class PendingConfirmation — PendingConfirmation() : super(null) L84, set(ConfirmationRequest request) L86, clear() L90
+- L97  class PendingPlan (command, projectId, steps, calls) — PendingPlan(…) L103
+- L116  class PendingPlanHolder — PendingPlanHolder() : super(null) L117, set(PendingPlan plan) L119, clear() L123
+- L130  class AgentConfirmationGate (_ref, perEdit, _completer) — AgentConfirmationGate(this._ref,…) L135, requiresPerEditApproval L138, ask(ConfirmationRequest request) L141, resolve(bool approved) L154
+- L169  class AgentRunController extends StateNotifier<AgentRunState> (_ref, _uuid, _cancel, _feedSub, _gate) — AgentRunController(this._ref) : super(AgentRunState.idle) L176, isBusy L178, loadHistory(String projectId) L182, submit(String command) L202, _completeAsPlan(…) L330, _postReply(…) L377, approvePlan() L413, discardPlan() L465, approvePendingConfirmation(bool approved) L490, cancel() L498, _toolKinds L514, _toChatStep(AgentToolCallRecord record) L519, _recentHistory() L534, _replyError(Project? project, String text) L554
+- L580  class AgentActivityFeed extends StateNotifier<List<AgentActivityEvent>> (maxEvents) — AgentActivityFeed() : super(const []) L583, push(AgentActivityEvent event) L585, clear() L592
 
 ## lib/state/export_providers.dart (14 lines)
 

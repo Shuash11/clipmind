@@ -1,4 +1,4 @@
-# Code Graph — lib/domain (22 files, 6,253 lines; DO NOT EDIT)
+# Code Graph — lib/domain (23 files, 6,613 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/domain/agent/agent_activity.dart (42 lines)
@@ -61,17 +61,18 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L22  class ExecutionResult (success, summary, outputPaths, appliedOps, errorMessage) — ExecutionResult(…) L29
 - L38  class ExecutionEngine (_ffmpegService) — _progressCtrl L40, progress L43, ExecutionEngine(this._ffmpegService) L45, execute(…) L47, _extractOpType(FfmpegJob job) L138, _parseOpType(FfmpegJob job) L177, cancel() L205, dispose() L209
 
-## lib/domain/agent/tool_calling_agent.dart (490 lines)
-- L15  enum AgentRunStatus
-- L18  class AgentRunResult (status, message, appliedOperations, outputPath, records) — AgentRunResult(…) L29
-- L45  class ToolCallingAgent (provider, registry, context) — _activity L49, activityEvents L52, ToolCallingAgent(…) L54, run(…) L61, _maybeBulkConfirm(…) L225, _confirmOne(…) L259, _askGate(…) L293, _isEditTool(String name) L306, _bulkSummary(List<AgentToolCall> edits) L310, _recordSkipped(…) L316, _executeOne(…) L361, _cancelled(…) L432, _recentHistoryLines(List<AgentRequest>? recentHistory) L455, _emit(…) L464, dispose() L486
+## lib/domain/agent/tool_calling_agent.dart (600 lines)
+- L16  enum AgentRunStatus
+- L19  class AgentRunResult (status, message, appliedOperations, outputPath, records) — AgentRunResult(…) L30
+- L46  class ToolCallingAgent (provider, registry, context) — _activity L50, activityEvents L53, ToolCallingAgent(…) L55, run(…) L62, _maybeBulkConfirm(…) L251, _confirmOne(…) L285, _askGate(…) L319, _isEditTool(String name) L332, _bulkSummary(List<AgentToolCall> edits) L336, _recordSkipped(…) L342, _executeOne(…) L387, _handleToolLoad(…) L475, _toolNamesArg(Map<String, dynamic> args) L531, _cancelled(…) L542, _recentHistoryLines(List<AgentRequest>? recentHistory) L565, _emit(…) L574, dispose() L596
 
-## lib/domain/agent/tools/tool_definition.dart (99 lines)
+## lib/domain/agent/tools/tool_definition.dart (117 lines)
 - L2  enum ToolCategory
-- L10  class ToolDefinition (name, description, inputSchema, category) — ToolDefinition(…) L16, toJson() L23, ToolDefinition L30
-- L45  class ToolCall (id, name, args) — ToolCall(…) L50
-- L61  class ToolResult (success, data, error, summary) — ToolResult(…) L67, ToolResult L74, ToolResult L81
-- L96  class ToolExecutor — execute(ToolCall call) L97
+- L10  enum ToolExposure
+- L21  class ToolDefinition (name, description, inputSchema, category, exposure) — ToolDefinition(…) L28, toJson() L36, ToolDefinition L44
+- L63  class ToolCall (id, name, args) — ToolCall(…) L68
+- L79  class ToolResult (success, data, error, summary) — ToolResult(…) L85, ToolResult L92, ToolResult L99
+- L114  class ToolExecutor — execute(ToolCall call) L115
 
 ## lib/domain/agent/tools/tool_executors.dart (1620 lines)
 - L26  class ToolExecutionContext (outputDir, projectDir, applier, ffmpegService, ffprobeService, sceneDetectionService, whisperService, maxJobs) — Function() project L27, Function(String kind)? readAnalysis L49, Function(String kind, Map<String, dynamic> payload)? writeAnalysis L50, Function()? whisperConfig L56, Function(String familyId)? resolveFont L64, ToolExecutionContext(…) L73, resetRun() L93
@@ -87,14 +88,17 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L1594  function _clipPath
 - L1612  function _defaultPath
 
-## lib/domain/agent/tools/tool_prompts.dart (78 lines)
-- L7  class ProjectContextWriter — write(ProjectSnapshot project) L8
-- L30  class ToolPromptBuilder — buildSystemPrompt() L31
-- L35  function TOOLS
-- L53  function commands
+## lib/domain/agent/tools/tool_prompts.dart (116 lines)
+- L9  class ProjectContextWriter — write(ProjectSnapshot project) L10
+- L32  class ToolPromptBuilder — _deferredHints L36, buildSystemPrompt(…) L60
+- L88  function commands
 
-## lib/domain/agent/tools/tool_registry.dart (562 lines)
-- L8  class ToolRegistry (maxToolRounds, maxEditJobsPerRun, validName, _byName, _executors) — ToolRegistry(…) L21, defaultDefinitions() L30, definitions() L32, definitionFor(String name) L34, executorFor(String name) L36, hasAllExecutors L38, _validate() L41, _validateStrictSchema(ToolDefinition def) L54, _catalog L77
+## lib/domain/agent/tools/tool_registry.dart (576 lines)
+- L12  class ToolRegistry (maxToolRounds, maxEditJobsPerRun, validName, _byName, _executors) — ToolRegistry(…) L27, defaultDefinitions() L36, definitions() L38, definitionFor(String name) L40, executorFor(String name) L42, hasAllExecutors L44, _validate() L47, _validateStrictSchema(ToolDefinition def) L60, _catalog L83
+
+## lib/domain/agent/tools/tool_selection.dart (180 lines)
+- L9  class ToolLoadResult (loaded, unknown, alreadyAvailable, validDeferred, limitReached) — ToolLoadResult(…) L25, success L33, message L40
+- L67  class ToolSelection (loadToolsName, maxToolLoads, registry, _loaded, _loadsUsed) — loadToolsDefinition L76, ToolSelection(this.registry) L101, loadsUsed L104, loadsRemaining L107, isActive(String name) L112, activeDefinitions() L117, deferredNames() L123, loaderAvailable L129, roundDefinitions() L136, load(List<String> names) L148
 
 ## lib/domain/usecases/export_project_usecase.dart (247 lines)
 - L9  class ExportResult (success, outputPath, error) — ExportResult(…) L14

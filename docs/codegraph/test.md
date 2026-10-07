@@ -1,4 +1,4 @@
-# Code Graph — test (158 files, 41,452 lines; DO NOT EDIT)
+# Code Graph — test (160 files, 42,334 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -424,18 +424,20 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L4  function main
 - L103  function _tc
 
-## test/unit/agent/tool_calling_agent_test.dart (703 lines)
-- L22  class _ScriptProvider extends LlmProvider (script, seen, calls) — _ScriptProvider(this.script) L27, id L30, supportsToolCalling L33, chatWithTools(AgentTurnRequest request) L36, availableModels() L42, parseCommand(AgentRequest request) L45, watchConnection() L49
-- L55  class _NimScriptProvider extends _ScriptProvider — _NimScriptProvider(super.script) L56, id L59
-- L66  class _GeminiScriptProvider extends _ScriptProvider — _GeminiScriptProvider(super.script) L67, id L70
-- L75  class _SlowLocalScriptProvider extends _ScriptProvider — _SlowLocalScriptProvider(super.script) L76, id L79, suggestedRoundTimeoutSeconds L82
-- L85  class _OkExecutor — execute(ToolCall call) L87
-- L93  class _FailExecutor — execute(ToolCall call) L95
-- L101  class _JournalAndCancel (ctx, controller) — _JournalAndCancel(this.ctx, this.controller) L102, execute(ToolCall call) L108
-- L121  function _registryWith
-- L130  function _validated
-- L152  function _context
-- L190  function main
+## test/unit/agent/tool_calling_agent_test.dart (1055 lines)
+- L24  class _ScriptProvider extends LlmProvider (script, seen, calls) — _ScriptProvider(this.script) L29, id L32, supportsToolCalling L35, chatWithTools(AgentTurnRequest request) L38, availableModels() L44, parseCommand(AgentRequest request) L47, watchConnection() L51
+- L57  class _NimScriptProvider extends _ScriptProvider — _NimScriptProvider(super.script) L58, id L61
+- L68  class _GeminiScriptProvider extends _ScriptProvider — _GeminiScriptProvider(super.script) L69, id L72
+- L77  class _SlowLocalScriptProvider extends _ScriptProvider — _SlowLocalScriptProvider(super.script) L78, id L81, suggestedRoundTimeoutSeconds L84
+- L87  class _OkExecutor — execute(ToolCall call) L89
+- L95  class _FailExecutor — execute(ToolCall call) L97
+- L102  class _RecordingGate (approve, calls, seen) — _RecordingGate(…) L107, requiresPerEditApproval L110, ask(ConfirmationRequest request) L113
+- L122  class _JournalAndCancel (ctx, controller) — _JournalAndCancel(this.ctx, this.controller) L123, execute(ToolCall call) L129
+- L142  function _registryWith
+- L151  function _validated
+- L170  function _loadTurn
+- L181  function _context
+- L219  function main
 
 ## test/unit/agent/tools/add_transition_test.dart (589 lines)
 - L20  class _MockFfprobe extends Mock implements FfprobeService
@@ -488,9 +490,18 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L53  function _project
 - L88  function main
 
-## test/unit/agent/tools/tool_registry_test.dart (136 lines)
-- L10  class _StubExecutor — execute(ToolCall call) L12
-- L16  function main
+## test/unit/agent/tools/tool_prompts_test.dart (69 lines)
+- L5  function _def
+- L17  function main
+
+## test/unit/agent/tools/tool_registry_test.dart (249 lines)
+- L11  class _StubExecutor — execute(ToolCall call) L13
+- L17  function main
+
+## test/unit/agent/tools/tool_selection_test.dart (277 lines)
+- L6  class _StubExecutor — execute(ToolCall call) L8
+- L12  function _selection
+- L47  function main
 
 ## test/unit/core/effect_presets_test.dart (101 lines)
 - L15  function main
@@ -640,10 +651,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L55  function _textResponse
 - L70  function main
 
-## test/unit/llm/openai_provider_tools_test.dart (283 lines)
-- L10  class _MockDio extends Mock implements Dio
-- L12  function _request
-- L35  function main
+## test/unit/llm/openai_provider_tools_test.dart (292 lines)
+- L11  class _MockDio extends Mock implements Dio
+- L13  function _request
+- L36  function main
 
 ## test/unit/llm/provider_conformance_test.dart (330 lines)
 - L24  class _MockDio extends Mock implements Dio
@@ -662,7 +673,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/state/agent_analysis_port_test.dart (91 lines)
 - L8  function main
 
-## test/unit/state/agent_run_controller_test.dart (1168 lines)
+## test/unit/state/agent_run_controller_test.dart (1230 lines)
 - L34  class _LegacyStub extends LlmProvider (response) — _LegacyStub(this.response) L36, id L39, availableModels() L42, parseCommand(AgentRequest request) L45, watchConnection() L49
 - L53  class _ScriptTools extends LlmProvider (script, gate, calls) — _ScriptTools(this.script, [Completer<void>? gate]) L58, id L62, supportsToolCalling L65, chatWithTools(AgentTurnRequest request) L68, availableModels() L75, parseCommand(AgentRequest request) L78, watchConnection() L82
 - L86  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L88, getActiveProvider() L91
