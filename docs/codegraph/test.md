@@ -1,4 +1,4 @@
-# Code Graph — test (157 files, 40,461 lines; DO NOT EDIT)
+# Code Graph — test (158 files, 41,452 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -286,6 +286,25 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/features/providers/presentation/provider_profile_form_test.dart (510 lines)
 - L20  function main
 - L494  function _draft
+
+## test/features/providers/security/key_egress_canary_test.dart (991 lines)
+- L72  function _containsCanary
+- L74  function _metadataProfile
+- L90  function _turnRequest
+- L95  function _requestContextFailure
+- L115  function _stubPostFailure
+- L136  class _GenAErrorCase (withQueryParameters) — _GenAErrorCase(…) L137, Function(Dio dio) build L143, Function() failure L144
+- L148  class _MockDio extends Mock implements Dio
+- L150  class _StubSettingsRepository extends SettingsRepository — load() L152, save(AppSettings settings) L154
+- L159  class _CanaryKeyStore extends SecureKeyStore — readApiKey(String provider) L161
+- L164  class _MemorySecureBackend (values) — delete(…) L167, read(…) L169, write(…) L171
+- L178  class _FailingSecureBackend — delete(…) L180, read(…) L182, write(…) L184
+- L188  class _MemoryProfileStorage (value) — read() L191, write(String contents) L193
+- L196  class _FixedLegacySettings (value) — _FixedLegacySettings(this.value) L197, load() L200
+- L204  class _MapLegacyCredentials (values) — _MapLegacyCredentials(this.values) L205, deleteApiKey(String providerId) L208, readApiKey(String providerId) L214
+- L218  class _MapCredentialStore (values, failWrite) — delete(String credentialId) L222, read(String credentialId) L228, write(String credentialId, String secret) L231
+- L240  class _ScriptedClient (_results) — _ScriptedClient(this._results) L241, send(ProviderHttpRequest request) L244
+- L253  function main
 
 ## test/features/providers/support/provider_adapter_fakes.dart (54 lines)
 - L7  class RecordingTransport (responses, requests) — RecordingTransport(this.responses) L8, send(…) L13

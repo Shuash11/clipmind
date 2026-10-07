@@ -1,4 +1,4 @@
-# Code Graph — lib/data (42 files, 7,665 lines; DO NOT EDIT)
+# Code Graph — lib/data (43 files, 7,695 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -107,17 +107,17 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L347  class YtDlpAvailability (isAvailable, version, message) — YtDlpAvailability L352, YtDlpAvailability L356
 - L366  class YoutubeImportBusyException (message) — YoutubeImportBusyException(this.message) L368, toString() L371
 
-## lib/data/services/llm/anthropic_provider.dart (444 lines)
-- L10  class AnthropicConfig (model, apiKey) — AnthropicConfig(…) L14
-- L20  class AnthropicProvider extends LlmProvider (_baseUrl, _apiVersion, config, _keyStore, _dio, _healthTimer, _status) — _models L23, _connectionCtrl L32, id L38, AnthropicProvider(…) L40, _resolveApiKey() L59, availableModels() L69, parseCommand(AgentRequest request) L74, supportsToolCalling L164, chatWithTools(AgentTurnRequest request) L173, _toWireMessages(AgentTurnRequest request) L217, _turnToWire(AgentTurnMessage turn) L234, _parseTurnResponse(Map<String, dynamic>? data) L272, _buildSchema(String schemaJson) L315, _cleanJsonResponse(String raw) L350, _isTransientError(DioException e) L363, _formatDioError(DioException e) L378, watchConnection() L398, _checkHealth() L408, dispose() L438
+## lib/data/services/llm/anthropic_provider.dart (453 lines)
+- L11  class AnthropicConfig (model, apiKey) — AnthropicConfig(…) L15
+- L21  class AnthropicProvider extends LlmProvider (_baseUrl, _apiVersion, config, _keyStore, _dio, _healthTimer, _status) — _models L24, _connectionCtrl L33, id L39, AnthropicProvider(…) L41, _resolveApiKey() L60, availableModels() L70, parseCommand(AgentRequest request) L75, supportsToolCalling L167, chatWithTools(AgentTurnRequest request) L176, _toWireMessages(AgentTurnRequest request) L222, _turnToWire(AgentTurnMessage turn) L239, _parseTurnResponse(Map<String, dynamic>? data) L277, _buildSchema(String schemaJson) L320, _cleanJsonResponse(String raw) L355, _isTransientError(DioException e) L368, _formatDioError(DioException e,…) L383, watchConnection() L407, _checkHealth() L417, dispose() L447
 
 ## lib/data/services/llm/custom_openai_compatible_provider.dart (204 lines)
 - L11  class CustomOpenAiConfig (endpoint, model, apiKey) — CustomOpenAiConfig(…) L21
 - L40  class CustomOpenAiCompatibleProvider extends OpenAiCompatibleLlmProvider (config, _dio, _healthTimer, _status) — _connectionCtrl L43, id L49, baseUrl L52, _normalizedEndpoint L58, modelName L64, dio L67, chatCompletionsPath L73, usesMaxCompletionTokens L78, supportsToolCalling L81, suggestedRoundTimeoutSeconds L85, CustomOpenAiCompatibleProvider(…) L87, resolveApiKey() L104, availableModels() L113, parseCommand(AgentRequest request) L122, chatWithTools(AgentTurnRequest request) L135, connectionErrorText() L139, watchConnection() L146, _checkHealth() L160, _setConnected() L185, _setDisconnected() L192, dispose() L199
 
-## lib/data/services/llm/gemini_provider.dart (487 lines)
-- L10  class GeminiConfig (model, apiKey) — GeminiConfig(…) L14
-- L28  class GeminiProvider extends LlmProvider (_baseUrl, config, _keyStore, _dio, _healthTimer, _status, _toolCallTurns) — _models L30, _connectionCtrl L42, id L48, GeminiProvider(…) L54, _resolveApiKey() L69, availableModels() L79, parseCommand(AgentRequest request) L84, supportsToolCalling L161, chatWithTools(AgentTurnRequest request) L173, _toContents(AgentTurnRequest request) L233, _turnToContent(AgentTurnMessage turn) L252, _decodeResultPayload(String? content) L298, _parseTurnResponse(Map<String, dynamic>? data) L309, _buildResponseSchema(String schemaJson) L357, _cleanJsonResponse(String raw) L391, _isTransientError(DioException e) L404, _formatDioError(DioException e) L419, watchConnection() L439, _checkHealth() L449, dispose() L481
+## lib/data/services/llm/gemini_provider.dart (496 lines)
+- L11  class GeminiConfig (model, apiKey) — GeminiConfig(…) L15
+- L29  class GeminiProvider extends LlmProvider (_baseUrl, config, _keyStore, _dio, _healthTimer, _status, _toolCallTurns) — _models L31, _connectionCtrl L43, id L49, GeminiProvider(…) L55, _resolveApiKey() L70, availableModels() L80, parseCommand(AgentRequest request) L85, supportsToolCalling L164, chatWithTools(AgentTurnRequest request) L176, _toContents(AgentTurnRequest request) L238, _turnToContent(AgentTurnMessage turn) L257, _decodeResultPayload(String? content) L303, _parseTurnResponse(Map<String, dynamic>? data) L314, _buildResponseSchema(String schemaJson) L362, _cleanJsonResponse(String raw) L396, _isTransientError(DioException e) L409, _formatDioError(DioException e,…) L424, watchConnection() L448, _checkHealth() L458, dispose() L490
 
 ## lib/data/services/llm/llm_provider.dart (33 lines)
 - L4  enum ConnectionStatus
@@ -137,6 +137,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/services/llm/openai_provider.dart (265 lines)
 - L11  class OpenAiConfig (model, apiKey) — OpenAiConfig(…) L15
 - L18  class OpenAiProvider extends OpenAiCompatibleLlmProvider (_base, config, _keyStore, _dio, _healthTimer, _status) — _models L20, _connectionCtrl L32, id L38, baseUrl L41, modelName L44, dio L47, OpenAiProvider(…) L49, resolveApiKey() L68, availableModels() L78, parseCommand(AgentRequest request) L83, chatWithTools(AgentTurnRequest request) L156, _buildStructuredOutputSchema(String schemaJson) L159, _cleanJsonResponse(String raw) L198, _isTransientError(DioException e) L211, watchConnection() L227, _checkHealth() L237, dispose() L260
+
+## lib/data/services/llm/provider_error_redaction.dart (12 lines)
+- L8  function redactApiKeyFromError
 
 ## lib/data/services/llm/provider_registry.dart (262 lines)
 - L13  class ActiveLlmConfig (providerId, endpoint, apiKey, model) — ActiveLlmConfig(…) L26
