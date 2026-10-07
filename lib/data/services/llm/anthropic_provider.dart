@@ -6,6 +6,7 @@ import 'package:clipmind/data/local/secure_key_store.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'llm_provider.dart';
+import 'provider_error_redaction.dart';
 
 class AnthropicConfig {
   final String model;
@@ -74,10 +75,12 @@ class AnthropicProvider extends LlmProvider {
   Future<EditOperationSet> parseCommand(AgentRequest request) async {
     const maxRetries = 2;
     var attempt = 0;
+    String? resolvedApiKey;
 
     while (true) {
       try {
         final apiKey = await _resolveApiKey();
+        resolvedApiKey = apiKey;
         final schema = _buildSchema(request.schemaJson);
 
         final messages = [
@@ -149,7 +152,7 @@ class AnthropicProvider extends LlmProvider {
           await Future<void>.delayed(Duration(seconds: attempt * 2));
           continue;
         }
-        throw ProviderFailure(id, _formatDioError(e), e);
+        throw ProviderFailure(id, _formatDioError(e, secret: resolvedApiKey), e);
       } on FormatException catch (e) {
         throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
       } on ProviderFailure {
@@ -171,8 +174,10 @@ class AnthropicProvider extends LlmProvider {
   /// history including `tool_result` / `is_error`.
   @override
   Future<AgentTurnResult> chatWithTools(AgentTurnRequest request) async {
+    String? resolvedApiKey;
     try {
       final apiKey = await _resolveApiKey();
+      resolvedApiKey = apiKey;
       final body = {
         'model': config.model,
         'max_tokens': 4096,
@@ -204,7 +209,7 @@ class AnthropicProvider extends LlmProvider {
 
       return _parseTurnResponse(response.data);
     } on DioException catch (e) {
-      throw ProviderFailure(id, _formatDioError(e), e);
+      throw ProviderFailure(id, _formatDioError(e, secret: resolvedApiKey), e);
     } on FormatException catch (e) {
       throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
     } on ProviderFailure {
@@ -375,7 +380,7 @@ class AnthropicProvider extends LlmProvider {
     }
   }
 
-  String _formatDioError(DioException e) {
+  String _formatDioError(DioException e, {String? secret}) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -385,7 +390,11 @@ class AnthropicProvider extends LlmProvider {
         final status = e.response?.statusCode ?? 0;
         if (status == 401) return 'Invalid API key';
         if (status == 429) return 'Rate limited. Please try again.';
-        if (status == 400) return 'Bad request: ${e.response?.data}';
+        if (status == 400) {
+          // The error body is untrusted: never relay an echoed key.
+          return 'Bad request: '
+              '${redactApiKeyFromError('${e.response?.data}', secret)}';
+        }
         return 'Server error: $status';
       case DioExceptionType.connectionError:
         return 'Cannot connect to Anthropic API';

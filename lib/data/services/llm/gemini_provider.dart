@@ -6,6 +6,7 @@ import 'package:clipmind/data/local/secure_key_store.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'llm_provider.dart';
+import 'provider_error_redaction.dart';
 
 class GeminiConfig {
   final String model;
@@ -84,10 +85,12 @@ class GeminiProvider extends LlmProvider {
   Future<EditOperationSet> parseCommand(AgentRequest request) async {
     const maxRetries = 2;
     var attempt = 0;
+    String? resolvedApiKey;
 
     while (true) {
       try {
         final apiKey = await _resolveApiKey();
+        resolvedApiKey = apiKey;
         final responseSchema = _buildResponseSchema(request.schemaJson);
 
         final body = {
@@ -146,7 +149,7 @@ class GeminiProvider extends LlmProvider {
           await Future<void>.delayed(Duration(seconds: attempt * 2));
           continue;
         }
-        throw ProviderFailure(id, _formatDioError(e), e);
+        throw ProviderFailure(id, _formatDioError(e, secret: resolvedApiKey), e);
       } on FormatException catch (e) {
         throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
       } on ProviderFailure {
@@ -173,10 +176,12 @@ class GeminiProvider extends LlmProvider {
   Future<AgentTurnResult> chatWithTools(AgentTurnRequest request) async {
     const maxRetries = 2;
     var attempt = 0;
+    String? resolvedApiKey;
 
     while (true) {
       try {
         final apiKey = await _resolveApiKey();
+        resolvedApiKey = apiKey;
         final body = {
           'systemInstruction': {
             'parts': [
@@ -219,7 +224,7 @@ class GeminiProvider extends LlmProvider {
           await Future<void>.delayed(Duration(seconds: attempt * 2));
           continue;
         }
-        throw ProviderFailure(id, _formatDioError(e), e);
+        throw ProviderFailure(id, _formatDioError(e, secret: resolvedApiKey), e);
       } on FormatException catch (e) {
         throw ProviderFailure(id, 'Failed to parse response: ${e.message}');
       } on ProviderFailure {
@@ -416,7 +421,7 @@ class GeminiProvider extends LlmProvider {
     }
   }
 
-  String _formatDioError(DioException e) {
+  String _formatDioError(DioException e, {String? secret}) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -424,7 +429,11 @@ class GeminiProvider extends LlmProvider {
         return 'Connection timed out';
       case DioExceptionType.badResponse:
         final status = e.response?.statusCode ?? 0;
-        if (status == 400) return 'Bad request: ${e.response?.data}';
+        if (status == 400) {
+          // The error body is untrusted: never relay an echoed key.
+          return 'Bad request: '
+              '${redactApiKeyFromError('${e.response?.data}', secret)}';
+        }
         if (status == 403) return 'API key not authorized';
         if (status == 429) return 'Rate limited. Please try again.';
         return 'Server error: $status';

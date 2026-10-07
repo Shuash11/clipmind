@@ -2,6 +2,12 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.40.1
+
+### Security hardening
+- Gen A provider `400` error messages (Anthropic, Gemini) now redact the resolved API key when a provider response body echoes it back, so keys remain impossible to leak through error strings.
+- New key-egress canary suite pins every key path across both provider stacks (Gen B profiles/adapters/redactor and the Gen A legacy bridge): the canary sentinel must appear only in the intended request header/query and never in persisted metadata, failures, migrations, `toString()` output, or UI.
+
 ## 1.40.0
 
 ### Model picker search
