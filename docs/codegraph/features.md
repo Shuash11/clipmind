@@ -1,4 +1,4 @@
-# Code Graph — lib/features (124 files, 14,533 lines; DO NOT EDIT)
+# Code Graph — lib/features (125 files, 14,584 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/features/agent/data/provider_tool_call_normalizer.dart (68 lines)
@@ -239,6 +239,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/features/projects/domain/transactions/edit_transaction.dart (24 lines)
 - L4  class EditTransaction (planId, expectedRevision, beforeState, candidateState, commands, summaries, sourceKind) — EditTransaction(…) L5
 
+## lib/features/projects/domain/transactions/project_command_application.dart (20 lines)
+- L11  class ProjectCommandApplication (execution, outcome) — ProjectCommandApplication(…) L12
+
 ## lib/features/projects/domain/transactions/project_document_publisher.dart (10 lines)
 
 ## lib/features/projects/domain/transactions/project_file_write_outcome.dart (19 lines)
@@ -470,8 +473,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/features/tagging/domain/tagging_controller.dart (75 lines)
 - L5  class TaggingController (_commandFactory) — TaggingController(this._commandFactory) L6, createTag(…) L10, updateTag(…) L13, deleteTag(…) L19, assignTag(…) L22, unassignTag(…) L32, createMarker(…) L42, updateMarker(…) L56, deleteMarker(…) L72
 
-## lib/features/tagging/presentation/providers/tagging_providers.dart (102 lines)
-- L24  class TaggingProviders (controller, _transactions) — TaggingProviders(…) L25, TaggingProviders L37, Function() _currentDocument L45, Function() _manualTransactionId L47, document L49, applyManual(ProjectCommand command) L51
+## lib/features/tagging/presentation/providers/tagging_providers.dart (133 lines)
+- L25  class TaggingProviders (controller, _transactions) — TaggingProviders(…) L26, TaggingProviders L38, Function() _currentDocument L46, Function() _manualTransactionId L48, document L50, applyTransaction(…) L57, applyManual(ProjectCommand command) L120
 
 ## lib/features/tagging/presentation/widgets/asset_tag_chips.dart (60 lines)
 - L6  class AssetTagChips extends ConsumerStatefulWidget (assetId) — AssetTagChips(…) L7, createState() L12

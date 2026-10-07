@@ -1,4 +1,4 @@
-# Code Graph — test (160 files, 42,334 lines; DO NOT EDIT)
+# Code Graph — test (163 files, 43,248 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -424,20 +424,20 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L4  function main
 - L103  function _tc
 
-## test/unit/agent/tool_calling_agent_test.dart (1055 lines)
-- L24  class _ScriptProvider extends LlmProvider (script, seen, calls) — _ScriptProvider(this.script) L29, id L32, supportsToolCalling L35, chatWithTools(AgentTurnRequest request) L38, availableModels() L44, parseCommand(AgentRequest request) L47, watchConnection() L51
-- L57  class _NimScriptProvider extends _ScriptProvider — _NimScriptProvider(super.script) L58, id L61
-- L68  class _GeminiScriptProvider extends _ScriptProvider — _GeminiScriptProvider(super.script) L69, id L72
-- L77  class _SlowLocalScriptProvider extends _ScriptProvider — _SlowLocalScriptProvider(super.script) L78, id L81, suggestedRoundTimeoutSeconds L84
-- L87  class _OkExecutor — execute(ToolCall call) L89
-- L95  class _FailExecutor — execute(ToolCall call) L97
-- L102  class _RecordingGate (approve, calls, seen) — _RecordingGate(…) L107, requiresPerEditApproval L110, ask(ConfirmationRequest request) L113
-- L122  class _JournalAndCancel (ctx, controller) — _JournalAndCancel(this.ctx, this.controller) L123, execute(ToolCall call) L129
-- L142  function _registryWith
-- L151  function _validated
-- L170  function _loadTurn
-- L181  function _context
-- L219  function main
+## test/unit/agent/tool_calling_agent_test.dart (1150 lines)
+- L29  class _ScriptProvider extends LlmProvider (script, seen, calls) — _ScriptProvider(this.script) L34, id L37, supportsToolCalling L40, chatWithTools(AgentTurnRequest request) L43, availableModels() L49, parseCommand(AgentRequest request) L52, watchConnection() L56
+- L62  class _NimScriptProvider extends _ScriptProvider — _NimScriptProvider(super.script) L63, id L66
+- L73  class _GeminiScriptProvider extends _ScriptProvider — _GeminiScriptProvider(super.script) L74, id L77
+- L82  class _SlowLocalScriptProvider extends _ScriptProvider — _SlowLocalScriptProvider(super.script) L83, id L86, suggestedRoundTimeoutSeconds L89
+- L92  class _OkExecutor — execute(ToolCall call) L94
+- L100  class _FailExecutor — execute(ToolCall call) L102
+- L107  class _RecordingGate (approve, calls, seen) — _RecordingGate(…) L112, requiresPerEditApproval L115, ask(ConfirmationRequest request) L118
+- L127  class _JournalAndCancel (ctx, controller) — _JournalAndCancel(this.ctx, this.controller) L128, execute(ToolCall call) L134
+- L147  function _registryWith
+- L156  function _validated
+- L175  function _loadTurn
+- L187  function _context
+- L229  function main
 
 ## test/unit/agent/tools/add_transition_test.dart (589 lines)
 - L20  class _MockFfprobe extends Mock implements FfprobeService
@@ -457,6 +457,12 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L24  class _FakeFfmpeg extends FfmpegService (_failStderr, jobs) — _FakeFfmpeg(…) L25, runSync(FfmpegJob job) L31
 - L52  function _project
 - L80  function main
+
+## test/unit/agent/tools/command_tool_executor_test.dart (450 lines)
+- L19  function _project
+- L45  function _ctx
+- L64  function _stateWithFreeAsset
+- L71  function main
 
 ## test/unit/agent/tools/edit_tool_executor_test.dart (846 lines)
 - L18  class _MockFfprobe extends Mock implements FfprobeService
@@ -490,18 +496,21 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L53  function _project
 - L88  function main
 
-## test/unit/agent/tools/tool_prompts_test.dart (69 lines)
+## test/unit/agent/tools/support/fake_project_command_gateway.dart (46 lines)
+- L11  class FakeProjectCommandGateway (state, batches, nextResult) — FakeProjectCommandGateway(…) L12, appliedCommands L18, snapshot() L23, applyCommands(…) L26
+
+## test/unit/agent/tools/tool_prompts_test.dart (100 lines)
 - L5  function _def
 - L17  function main
 
-## test/unit/agent/tools/tool_registry_test.dart (249 lines)
+## test/unit/agent/tools/tool_registry_test.dart (271 lines)
 - L11  class _StubExecutor — execute(ToolCall call) L13
 - L17  function main
 
-## test/unit/agent/tools/tool_selection_test.dart (277 lines)
+## test/unit/agent/tools/tool_selection_test.dart (302 lines)
 - L6  class _StubExecutor — execute(ToolCall call) L8
 - L12  function _selection
-- L47  function main
+- L56  function main
 
 ## test/unit/core/effect_presets_test.dart (101 lines)
 - L15  function main
@@ -673,16 +682,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/state/agent_analysis_port_test.dart (91 lines)
 - L8  function main
 
-## test/unit/state/agent_run_controller_test.dart (1230 lines)
-- L34  class _LegacyStub extends LlmProvider (response) — _LegacyStub(this.response) L36, id L39, availableModels() L42, parseCommand(AgentRequest request) L45, watchConnection() L49
-- L53  class _ScriptTools extends LlmProvider (script, gate, calls) — _ScriptTools(this.script, [Completer<void>? gate]) L58, id L62, supportsToolCalling L65, chatWithTools(AgentTurnRequest request) L68, availableModels() L75, parseCommand(AgentRequest request) L78, watchConnection() L82
-- L86  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L88, getActiveProvider() L91
-- L94  class _CapturingPipeline extends Nl2VecPipeline (seenHistory, seenDryRun) — Function(String kind)? seenReadAnalysis L97, Function(String kind, Map<String, dynamic> payload)? seenWriteAnalysis L98, Function()? seenWhisperConfig L99, Function(String familyId)? seenResolveFont L100, Function(String familyId)? seenPlannedResolveFont L101, result L102, _CapturingPipeline() : super(ffmpegService: FfmpegService()) L105, submitCommand(…) L108, executePlanned(…) L134
-- L150  class _GatedSettingsRepo extends SettingsRepository (gate) — _GatedSettingsRepo(this.gate) L152, load() L155
-- L166  class _TestSettingsRepository extends SettingsRepository (saved) — load() L170, save(AppSettings settings) L173
-- L178  class _FakeFfmpeg extends FfmpegService (cancelCalls) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L181, runSync(FfmpegJob job) L184, cancel() L192
-- L198  function _project
-- L226  function main
+## test/unit/state/agent_run_controller_test.dart (1333 lines)
+- L39  class _LegacyStub extends LlmProvider (response) — _LegacyStub(this.response) L41, id L44, availableModels() L47, parseCommand(AgentRequest request) L50, watchConnection() L54
+- L58  class _ScriptTools extends LlmProvider (script, gate, calls) — _ScriptTools(this.script, [Completer<void>? gate]) L63, id L67, supportsToolCalling L70, chatWithTools(AgentTurnRequest request) L73, availableModels() L80, parseCommand(AgentRequest request) L83, watchConnection() L87
+- L91  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L93, getActiveProvider() L96
+- L99  class _CapturingPipeline extends Nl2VecPipeline (seenHistory, seenDryRun) — Function(String kind)? seenReadAnalysis L102, Function(String kind, Map<String, dynamic> payload)? seenWriteAnalysis L103, Function()? seenWhisperConfig L104, Function(String familyId)? seenResolveFont L105, Function(String familyId)? seenPlannedResolveFont L106, result L107, _CapturingPipeline() : super(ffmpegService: FfmpegService()) L110, submitCommand(…) L113, executePlanned(…) L140
+- L157  class _GatedSettingsRepo extends SettingsRepository (gate) — _GatedSettingsRepo(this.gate) L159, load() L162
+- L173  class _TestSettingsRepository extends SettingsRepository (saved) — load() L177, save(AppSettings settings) L180
+- L185  class _FakeFfmpeg extends FfmpegService (cancelCalls) — _FakeFfmpeg() : super(tempDir: Directory.systemTemp.path) L188, runSync(FfmpegJob job) L191, cancel() L199
+- L205  function _project
+- L233  function main
 
 ## test/unit/state/cut_range_test.dart (523 lines)
 - L27  class _RecordingRepository extends ProjectRepository (saves) — _RecordingRepository(super.db) L30, save(Project project) L33
@@ -749,6 +758,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/state/player_provider_test.dart (72 lines)
 - L14  function main
 
+## test/unit/state/project_command_gateway_test.dart (137 lines)
+- L11  function main
+
 ## test/unit/state/project_providers_test.dart (121 lines)
 - L9  function _project
 - L58  function _op
@@ -809,16 +821,16 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/updates/update_result_reader_test.dart (93 lines)
 - L8  function main
 
-## test/widget/agent_chat_panel_test.dart (1056 lines)
-- L39  class _StubProvider extends LlmProvider — id L41, availableModels() L44, parseCommand(AgentRequest request) L47, watchConnection() L51
-- L55  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L57, getActiveProvider() L60
-- L65  class _GatePipeline extends Nl2VecPipeline (gate, result, calls) — _GatePipeline(…) L70, submitCommand(…) L75
-- L106  class _ConfirmingPipeline extends Nl2VecPipeline (request, result, calls) — _ConfirmingPipeline(…) L111, submitCommand(…) L115
-- L145  class _PlanningPipeline extends Nl2VecPipeline (dryRunResult, plannedResult, planned) — _PlanningPipeline(…) L150, submitCommand(…) L154, executePlanned(…) L174
-- L192  class _FakeSettingsRepository extends SettingsRepository (saves, settings) — _FakeSettingsRepository(…) L197, load() L200, save(AppSettings settings) L203
-- L206  function _project
-- L236  function _settle
-- L242  function main
+## test/widget/agent_chat_panel_test.dart (1061 lines)
+- L40  class _StubProvider extends LlmProvider — id L42, availableModels() L45, parseCommand(AgentRequest request) L48, watchConnection() L52
+- L56  class _FakeRegistry extends ProviderRegistry (active) — _FakeRegistry(this.active) L58, getActiveProvider() L61
+- L66  class _GatePipeline extends Nl2VecPipeline (gate, result, calls) — _GatePipeline(…) L71, submitCommand(…) L76
+- L108  class _ConfirmingPipeline extends Nl2VecPipeline (request, result, calls) — _ConfirmingPipeline(…) L113, submitCommand(…) L117
+- L148  class _PlanningPipeline extends Nl2VecPipeline (dryRunResult, plannedResult, planned) — _PlanningPipeline(…) L153, submitCommand(…) L157, executePlanned(…) L178
+- L197  class _FakeSettingsRepository extends SettingsRepository (saves, settings) — _FakeSettingsRepository(…) L202, load() L205, save(AppSettings settings) L208
+- L211  function _project
+- L241  function _settle
+- L247  function main
 
 ## test/widget/agent_steps_view_test.dart (482 lines)
 - L12  function started
