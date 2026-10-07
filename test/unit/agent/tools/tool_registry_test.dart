@@ -6,6 +6,7 @@ import 'package:clipmind/data/services/llm/ollama_provider.dart';
 import 'package:clipmind/data/services/llm/openai_provider.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/domain/agent/tools/tool_registry.dart';
+import 'package:clipmind/domain/agent/tools/tool_selection.dart';
 
 class _StubExecutor implements ToolExecutor {
   @override
@@ -15,10 +16,16 @@ class _StubExecutor implements ToolExecutor {
 
 void main() {
   group('ToolRegistry surface', () {
-    test('exposes exactly the 20 curated tools (at the <= 20 cap)', () {
+    test('catalog: 20 curated tools, every one classified', () {
       final defs = ToolRegistry.defaultDefinitions();
       expect(defs, hasLength(20));
-      expect(defs.length, lessThanOrEqualTo(20));
+      expect(
+        defs.every((d) =>
+            d.exposure == ToolExposure.core ||
+            d.exposure == ToolExposure.deferred),
+        isTrue,
+        reason: 'every catalog tool needs an exposure',
+      );
     });
 
     test('names are unique, short and charset-valid', () {
@@ -77,6 +84,72 @@ void main() {
       }
     });
 
+    test('exposure mapping: 14 core (all reads + 8 common edits)', () {
+      final byName = {
+        for (final d in ToolRegistry.defaultDefinitions()) d.name: d.exposure,
+      };
+      const core = {
+        'list_project_clips',
+        'probe_video',
+        'get_edit_history',
+        'detect_scenes',
+        'get_storyboard',
+        'get_transcript',
+        'trim_clip',
+        'cut_segment',
+        'merge_clips',
+        'change_speed',
+        'mute_clip',
+        'overlay_text',
+        'change_volume',
+        'adjust_brightness',
+      };
+      const deferred = {
+        'resize_clip',
+        'rotate_clip',
+        'extract_audio',
+        'burn_captions',
+        'add_transition',
+        'apply_effect',
+      };
+      expect(byName, hasLength(20));
+      expect(core.length, equals(14));
+      expect(deferred.length, equals(6));
+      for (final name in core) {
+        expect(byName[name], ToolExposure.core, reason: name);
+      }
+      for (final name in deferred) {
+        expect(byName[name], ToolExposure.deferred, reason: name);
+      }
+    });
+
+    test('exposure constraints: reads core, >=6 core edits, initial <=16',
+        () {
+      final defs = ToolRegistry.defaultDefinitions();
+      final core = defs.where((d) => d.exposure == ToolExposure.core).toList();
+      final deferred =
+          defs.where((d) => d.exposure == ToolExposure.deferred).toList();
+
+      for (final def in defs.where((d) => d.category == ToolCategory.read)) {
+        expect(def.exposure, ToolExposure.core, reason: def.name);
+      }
+      expect(
+        core.where((d) => d.category == ToolCategory.edit).length,
+        greaterThanOrEqualTo(6),
+      );
+      expect(deferred.length, greaterThanOrEqualTo(4));
+      // Initial exposure = core + the reserved load_tools meta-tool.
+      expect(core.length + 1, lessThanOrEqualTo(16));
+    });
+
+    test('the reserved load_tools name is not a curated tool', () {
+      final names = ToolRegistry.defaultDefinitions()
+          .map((d) => d.name)
+          .toSet();
+      expect(ToolSelection.loadToolsName, equals('load_tools'));
+      expect(names, isNot(contains(ToolSelection.loadToolsName)));
+    });
+
     test('every schema is strict-compatible', () {
       for (final def in ToolRegistry.defaultDefinitions()) {
         final schema = def.inputSchema;
@@ -112,6 +185,46 @@ void main() {
     test('run bounds are 4 rounds and 20 jobs', () {
       expect(ToolRegistry.maxToolRounds, equals(4));
       expect(ToolRegistry.maxEditJobsPerRun, equals(20));
+    });
+  });
+
+  group('ToolDefinition exposure metadata', () {
+    test('toJson/fromJson round-trip the exposure', () {
+      const def = ToolDefinition(
+        name: 'x',
+        description: 'x',
+        inputSchema: {
+          'type': 'object',
+          'properties': <String, dynamic>{},
+          'required': <String>[],
+          'additionalProperties': false,
+        },
+        category: ToolCategory.read,
+        exposure: ToolExposure.deferred,
+      );
+      final decoded = ToolDefinition.fromJson(def.toJson());
+      expect(decoded.exposure, ToolExposure.deferred);
+    });
+
+    test('legacy JSON without exposure falls back to core', () {
+      final decoded = ToolDefinition.fromJson({
+        'name': 'legacy',
+        'description': 'legacy tool',
+        'inputSchema': <String, dynamic>{},
+        'category': 'read',
+      });
+      expect(decoded.exposure, ToolExposure.core);
+    });
+
+    test('unknown exposure values fall back to core', () {
+      final decoded = ToolDefinition.fromJson({
+        'name': 'future',
+        'description': '',
+        'inputSchema': <String, dynamic>{},
+        'category': 'read',
+        'exposure': 'turbo',
+      });
+      expect(decoded.exposure, ToolExposure.core);
     });
   });
 

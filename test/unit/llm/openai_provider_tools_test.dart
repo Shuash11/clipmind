@@ -6,6 +6,7 @@ import 'package:clipmind/data/services/llm/openai_provider.dart';
 import 'package:clipmind/domain/agent/agent_turn.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/domain/agent/tools/tool_registry.dart';
+import 'package:clipmind/domain/agent/tools/tool_selection.dart';
 
 class _MockDio extends Mock implements Dio {}
 
@@ -275,8 +276,16 @@ void main() {
       expect(provider.supportsToolCalling, isTrue);
     });
 
-    test('registry exposes exactly the 20 curated tools', () {
-      expect(ToolRegistry.defaultDefinitions(), hasLength(20));
+    test('initial exposure stays within the 16-tool budget', () {
+      // The provider serializes exactly the list it is given; the loop's
+      // round-1 list is the core set plus the load_tools meta-tool.
+      final selection = ToolSelection(ToolRegistry(executors: {}));
+      final names = selection.roundDefinitions().map((d) => d.name).toList();
+
+      expect(names, contains('load_tools'));
+      expect(names, contains('trim_clip'));
+      expect(names, isNot(contains('apply_effect')));
+      expect(names.length, lessThanOrEqualTo(16));
     });
   });
 }

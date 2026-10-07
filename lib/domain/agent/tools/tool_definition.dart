@@ -1,23 +1,36 @@
 /// Read tools answer from project ground truth; edit tools run FFmpeg.
 enum ToolCategory { read, edit }
 
+/// How the agent loop exposes a tool to the model.
+///
+/// [core] tools ride every round's tool payload. [deferred] tools stay
+/// hidden until the model loads them through the reserved `load_tools`
+/// meta-tool — a provider-agnostic emulation of provider-side tool search
+/// that keeps the per-request payload within budget as the catalog grows.
+enum ToolExposure { core, deferred }
+
 /// One callable tool: transport-agnostic definition (MCP-style).
 ///
 /// [inputSchema] is the canonical strict-compatible JSON Schema:
 /// `{type: object, properties: {...}, required: [all fields],
 /// additionalProperties: false}`. Optional params are typed as
 /// `["string","null"]` / `["number","null"]` unions.
+///
+/// [exposure] defaults to [ToolExposure.core] so legacy JSON and callers
+/// that predate the core/deferred split keep every tool reachable.
 class ToolDefinition {
   final String name;
   final String description;
   final Map<String, dynamic> inputSchema;
   final ToolCategory category;
+  final ToolExposure exposure;
 
   const ToolDefinition({
     required this.name,
     required this.description,
     required this.inputSchema,
     required this.category,
+    this.exposure = ToolExposure.core,
   });
 
   Map<String, dynamic> toJson() => {
@@ -25,6 +38,7 @@ class ToolDefinition {
         'description': description,
         'inputSchema': inputSchema,
         'category': category.name,
+        'exposure': exposure.name,
       };
 
   factory ToolDefinition.fromJson(Map<String, dynamic> json) {
@@ -36,6 +50,10 @@ class ToolDefinition {
       category: ToolCategory.values.firstWhere(
         (c) => c.name == json['category'],
         orElse: () => ToolCategory.read,
+      ),
+      exposure: ToolExposure.values.firstWhere(
+        (e) => e.name == json['exposure'],
+        orElse: () => ToolExposure.core,
       ),
     );
   }

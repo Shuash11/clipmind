@@ -17,6 +17,7 @@ import 'package:clipmind/domain/agent/nl2vec_pipeline.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/domain/agent/tools/tool_definition.dart';
 import 'package:clipmind/domain/agent/tools/tool_registry.dart';
+import 'package:clipmind/domain/agent/tools/tool_selection.dart';
 import 'package:clipmind/domain/usecases/run_agent_command_usecase.dart';
 import 'package:clipmind/state/agent_analysis_providers.dart';
 import 'package:clipmind/state/agent_providers.dart';
@@ -507,9 +508,12 @@ class AgentRunController extends StateNotifier<AgentRunState> {
   /// Map a domain call record to a persisted chat step.
   ///
   /// Kind comes from the tool registry; unknown tools default to edit
-  /// so the UI treats them with edit-level caution.
+  /// so the UI treats them with edit-level caution. The reserved
+  /// `load_tools` meta-tool is a read step: visible in the trace, never
+  /// replayed as an edit and never counted in a plan's edit count.
   static final Map<String, ToolCategory> _toolKinds = {
     for (final def in ToolRegistry.defaultDefinitions()) def.name: def.category,
+    ToolSelection.loadToolsName: ToolCategory.read,
   };
 
   static ChatStep _toChatStep(AgentToolCallRecord record) {

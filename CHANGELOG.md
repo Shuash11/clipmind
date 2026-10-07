@@ -2,6 +2,14 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.41.0
+
+### On-demand tool loading
+- The agent now loads specialized tools on demand; initial tool exposure is curated. Each round offers the 14 core tools plus any deferred tools already loaded, instead of all 20 at once.
+- A new reserved `load_tools` meta-tool unlocks deferred tools for the next round. Core: the six ground-truth read tools and the eight most-used edits (trim, cut, merge, speed, mute, overlay text, volume, brightness). Deferred: resize, rotate, extract audio, burn captions, add transition, apply effect.
+- Load requests are validated: unknown, already-available and core names return actionable errors listing the valid deferred names. Loads are bounded to two per run, and a load round does not consume one of the four operation rounds (total model rounds stay ≤ 6).
+- The system prompt now renders its tool list from the catalog (no hard-coded list) and documents the loader rule.
+
 ## 1.40.1
 
 ### Security hardening

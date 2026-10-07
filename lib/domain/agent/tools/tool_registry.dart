@@ -2,11 +2,17 @@ import 'tool_definition.dart';
 
 /// Curated tool surface for the agentic loop (D4, Phase 6a).
 ///
-/// Exactly 20 tools (at the ≤20 cap). The model references clips
+/// Exactly 20 tools (at the ≤20 cap). Every tool is classified by
+/// [ToolExposure]: 14 core tools ride every round's payload; the 6
+/// deferred tools are loaded on demand via the reserved `load_tools`
+/// meta-tool (see `ToolSelection`), keeping per-request exposure within
+/// budget while the catalog can keep growing. The model references clips
 /// by ID learned from [list_project_clips]; the app resolves file paths
 /// itself — file paths are never model-filled args.
 class ToolRegistry {
-  /// Max LLM round trips per agent run (D-bounds).
+  /// Max operation rounds (rounds that execute tool work) per agent run
+  /// (D-bounds). `load_tools` rounds are not operation rounds, so total
+  /// model round trips are bounded by this plus `ToolSelection.maxToolLoads`.
   static const int maxToolRounds = 4;
 
   /// Max FFmpeg jobs executed per agent run (D-bounds).
@@ -75,6 +81,8 @@ class ToolRegistry {
   }
 
   static final List<ToolDefinition> _catalog = [
+    // Core tools omit `exposure` (defaults to core); the deferred six
+    // below carry `exposure: ToolExposure.deferred`.
     // --- Read tools -------------------------------------------------------
     const ToolDefinition(
       name: 'list_project_clips',
@@ -366,6 +374,7 @@ class ToolRegistry {
         'additionalProperties': false,
       },
       category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
     ),
     const ToolDefinition(
       name: 'rotate_clip',
@@ -383,6 +392,7 @@ class ToolRegistry {
         'additionalProperties': false,
       },
       category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
     ),
     const ToolDefinition(
       name: 'adjust_brightness',
@@ -440,6 +450,7 @@ class ToolRegistry {
         'additionalProperties': false,
       },
       category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
     ),
     const ToolDefinition(
       name: 'burn_captions',
@@ -474,6 +485,7 @@ class ToolRegistry {
         'additionalProperties': false,
       },
       category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
     ),
     const ToolDefinition(
       name: 'add_transition',
@@ -512,6 +524,7 @@ class ToolRegistry {
         'additionalProperties': false,
       },
       category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
     ),
     const ToolDefinition(
       name: 'apply_effect',
@@ -556,6 +569,7 @@ class ToolRegistry {
         'additionalProperties': false,
       },
       category: ToolCategory.edit,
+      exposure: ToolExposure.deferred,
     ),
   ];
 }

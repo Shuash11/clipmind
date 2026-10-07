@@ -11,6 +11,7 @@ import 'tools/tool_definition.dart';
 import 'tools/tool_executors.dart';
 import 'tools/tool_prompts.dart';
 import 'tools/tool_registry.dart';
+import 'tools/tool_selection.dart';
 
 enum AgentRunStatus { success, error, cancelled }
 
@@ -71,8 +72,12 @@ class ToolCallingAgent {
     final effectiveTimeout =
         timeoutSeconds ?? provider.suggestedRoundTimeoutSeconds;
     context.resetRun();
+    final selection = ToolSelection(registry);
     final history = <AgentTurnMessage>[];
-    final systemPrompt = ToolPromptBuilder.buildSystemPrompt();
+    final systemPrompt = ToolPromptBuilder.buildSystemPrompt(
+      available: selection.activeDefinitions(),
+      deferredNames: selection.deferredNames(),
+    );
     var userContent = ToolPromptBuilder.buildUserContent(validated);
     final recent = _recentHistoryLines(recentHistory);
     if (recent.isNotEmpty) {
@@ -81,14 +86,25 @@ class ToolCallingAgent {
 
     _emit(AgentActivityKind.runStarted, summary: validated.text);
     String lastText = '';
-    var hitMaxRounds = false;
     final records = <AgentToolCallRecord>[];
 
-    for (var round = 1; round <= ToolRegistry.maxToolRounds; round++) {
+    // Operation rounds execute tool work and are capped at maxToolRounds;
+    // a `load_tools` round only resolves a load request and does not consume
+    // that budget. Total model round trips stay ≤ maxToolRounds +
+    // maxToolLoads; a run cut off by either budget reports which one.
+    const maxModelRounds =
+        ToolRegistry.maxToolRounds + ToolSelection.maxToolLoads;
+    var modelRound = 0;
+    var operationRounds = 0;
+    var finishedCleanly = false;
+
+    while (operationRounds < ToolRegistry.maxToolRounds &&
+        modelRound < maxModelRounds) {
+      modelRound++;
       if (cancellation?.isCancelled == true) {
-        return _cancelled(records, round: round);
+        return _cancelled(records, round: modelRound);
       }
-      _emit(AgentActivityKind.llmRoundStarted, round: round);
+      _emit(AgentActivityKind.llmRoundStarted, round: modelRound);
       AgentTurnResult turn;
       try {
         turn = await provider.chatWithTools(
@@ -97,8 +113,8 @@ class ToolCallingAgent {
             // Round 1 carries the command as the trailing user message;
             // rounds 2+ pass empty content — the original user turn already
             // lives in history (providers omit empty trailing messages).
-            userContent: round == 1 ? userContent : '',
-            tools: registry.definitions(),
+            userContent: modelRound == 1 ? userContent : '',
+            tools: selection.roundDefinitions(),
             history: List.unmodifiable(history),
             timeoutSeconds: effectiveTimeout,
             temperature: temperature,
@@ -107,7 +123,7 @@ class ToolCallingAgent {
       } catch (e) {
         _emit(
           AgentActivityKind.runFailed,
-          round: round,
+          round: modelRound,
           summary: 'LLM error: $e',
         );
         return AgentRunResult(
@@ -120,11 +136,11 @@ class ToolCallingAgent {
       // The token may have been cancelled while the LLM call was in
       // flight (chatWithTools itself is not cancellable).
       if (cancellation?.isCancelled == true) {
-        return _cancelled(records, round: round);
+        return _cancelled(records, round: modelRound);
       }
 
       lastText = turn.text;
-      if (round == 1) {
+      if (modelRound == 1) {
         // Seed history with the original user turn so rounds 2+ keep the
         // command even though they send no trailing user message.
         history.add(AgentTurnMessage(
@@ -141,56 +157,63 @@ class ToolCallingAgent {
       if (turn.toolCalls.isEmpty) {
         _emit(
           AgentActivityKind.llmRoundCompleted,
-          round: round,
+          round: modelRound,
           summary: turn.text,
         );
+        finishedCleanly = true;
         break;
       }
 
       final bulkDenied = await _maybeBulkConfirm(
-        round,
+        modelRound,
         turn.toolCalls,
         gate,
         cancellation,
       );
       if (bulkDenied == null) {
-        return _cancelled(records, round: round);
+        return _cancelled(records, round: modelRound);
       }
       for (final call in turn.toolCalls) {
         if (cancellation?.isCancelled == true && !bulkDenied) {
-          return _cancelled(records, round: round);
+          return _cancelled(records, round: modelRound);
+        }
+        if (call.name == ToolSelection.loadToolsName) {
+          // The reserved loader is handled here, never by an executor, and
+          // bypasses the edit/bulk confirmation gates.
+          _handleToolLoad(modelRound, call, selection, history, records);
+          continue;
         }
         if (bulkDenied && _isEditTool(call.name)) {
-          _recordSkipped(round, call, history, records);
+          _recordSkipped(modelRound, call, history, records);
           continue;
         }
         if (gate != null &&
             gate.requiresPerEditApproval &&
             _isEditTool(call.name)) {
           if (cancellation?.isCancelled == true) {
-            return _cancelled(records, round: round);
+            return _cancelled(records, round: modelRound);
           }
           final approved = await _confirmOne(
-            round,
+            modelRound,
             call,
             gate,
             cancellation,
           );
           if (!approved) {
-            _recordSkipped(round, call, history, records);
+            _recordSkipped(modelRound, call, history, records);
             continue;
           }
         }
         if (cancellation?.isCancelled == true) {
-          return _cancelled(records, round: round);
+          return _cancelled(records, round: modelRound);
         }
-        await _executeOne(round, call, history, records);
+        await _executeOne(modelRound, call, selection, history, records);
       }
-      _emit(AgentActivityKind.llmRoundCompleted, round: round);
-
-      if (round == ToolRegistry.maxToolRounds) {
-        hitMaxRounds = true;
+      if (turn.toolCalls
+          .any((call) => call.name != ToolSelection.loadToolsName)) {
+        operationRounds++;
       }
+      _emit(AgentActivityKind.llmRoundCompleted, round: modelRound);
     }
 
     final applied = List<EditOperation>.from(context.appliedOperations);
@@ -202,9 +225,12 @@ class ToolCallingAgent {
         : (applied.isEmpty
             ? 'No edits were needed.'
             : 'Applied ${applied.length} edit(s).');
-    if (hitMaxRounds) {
-      message +=
-          ' (Stopped after ${ToolRegistry.maxToolRounds} tool rounds.)';
+    if (!finishedCleanly) {
+      // Word the cutoff by the budget that tripped: the operation-round cap
+      // or the total model-trip budget (tool rounds + load rounds).
+      message += operationRounds >= ToolRegistry.maxToolRounds
+          ? ' (Stopped after the tool-round limit.)'
+          : ' (Stopped after the tool budget.)';
     }
     _emit(
       AgentActivityKind.runCompleted,
@@ -361,6 +387,7 @@ class ToolCallingAgent {
   Future<void> _executeOne(
     int round,
     AgentToolCall call,
+    ToolSelection selection,
     List<AgentTurnMessage> history,
     List<AgentToolCallRecord> records,
   ) async {
@@ -373,13 +400,28 @@ class ToolCallingAgent {
       args: call.args,
     );
 
+    final definition = registry.definitionFor(call.name);
     final executor = registry.executorFor(call.name);
     ToolResult result;
-    if (executor == null) {
+    if (definition != null &&
+        definition.exposure == ToolExposure.deferred &&
+        !selection.isActive(call.name)) {
+      // Deferred capability the model never loaded: point it at the loader.
       result = ToolResult.fail(
-        'Unknown tool "${call.name}". Available tools: '
-        '${registry.definitions().map((d) => d.name).join(', ')}. '
-        'Check the tool name and retry.',
+        'Tool "${call.name}" is deferred and not loaded. '
+        'Call `load_tools` with ["${call.name}"] first '
+        '(loads remaining: ${selection.loadsRemaining}).',
+      );
+    } else if (executor == null) {
+      // Unknown names get the active surface only; deferred tools stay
+      // hidden from this hint until loaded.
+      final active =
+          selection.activeDefinitions().map((d) => d.name).join(', ');
+      final hint = selection.loaderAvailable
+          ? 'Call `load_tools` to unlock a deferred tool.'
+          : 'Check the tool name and retry.';
+      result = ToolResult.fail(
+        'Unknown tool "${call.name}". Active tools: $active. $hint',
       );
     } else {
       try {
@@ -425,6 +467,74 @@ class ToolCallingAgent {
       success: result.success,
       durationMs: stopwatch.elapsedMilliseconds,
     );
+  }
+
+  /// Handles a reserved `load_tools` call: validates it through [selection],
+  /// then records it through the same history/activity/record path as a
+  /// normal tool call so the step view renders it unchanged.
+  void _handleToolLoad(
+    int round,
+    AgentToolCall call,
+    ToolSelection selection,
+    List<AgentTurnMessage> history,
+    List<AgentToolCallRecord> records,
+  ) {
+    final stopwatch = Stopwatch()..start();
+    _emit(
+      AgentActivityKind.toolCallStarted,
+      round: round,
+      toolCallId: call.id,
+      toolName: call.name,
+      args: call.args,
+    );
+
+    final result = selection.load(_toolNamesArg(call.args));
+
+    stopwatch.stop();
+    records.add(AgentToolCallRecord(
+      id: call.id,
+      name: call.name,
+      args: call.args,
+      success: result.success,
+      summary: result.message,
+      durationMs: stopwatch.elapsedMilliseconds,
+    ));
+    history.add(AgentTurnMessage(
+      role: AgentTurnRole.toolResult,
+      content: jsonEncode({
+        'success': result.success,
+        'summary': result.message,
+        'data': result.success
+            ? {'loaded': result.loaded}
+            : <String, dynamic>{},
+        if (!result.success) 'error': result.message,
+      }),
+      toolCallId: call.id,
+      toolError: !result.success,
+      toolName: call.name,
+    ));
+    _emit(
+      result.success
+          ? AgentActivityKind.toolCallCompleted
+          : AgentActivityKind.toolCallFailed,
+      round: round,
+      toolCallId: call.id,
+      toolName: call.name,
+      summary: result.message,
+      success: result.success,
+      durationMs: stopwatch.elapsedMilliseconds,
+    );
+  }
+
+  /// `tools` argument as a string list; absent or malformed counts as empty
+  /// (the load request then fails with an actionable message).
+  static List<String> _toolNamesArg(Map<String, dynamic> args) {
+    final raw = args['tools'];
+    if (raw is! List) return const [];
+    return [
+      for (final name in raw)
+        if (name is String) name,
+    ];
   }
 
   /// Partial result for a cancelled run: already-applied edits stay

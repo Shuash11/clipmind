@@ -962,6 +962,7 @@ void main() {
 
     Future<ProviderContainer> makePlanContainer({
       AgentEditApplier? applier,
+      LlmProvider? provider,
     }) async {
       final container = ProviderContainer.test(
         overrides: [
@@ -969,7 +970,7 @@ void main() {
           settingsRepositoryProvider.overrideWithValue(_TestSettingsRepository()),
           ffmpegServiceProvider.overrideWithValue(_FakeFfmpeg()),
           providerRegistryProvider.overrideWithValue(
-            _FakeRegistry(makePlanScript()),
+            _FakeRegistry(provider ?? makePlanScript()),
           ),
           projectMetadataProvider.overrideWith((ref) async => null),
           agentEditApplierProvider.overrideWithValue(
@@ -1022,6 +1023,67 @@ void main() {
       // Dry run executes nothing.
       expect(applied, isEmpty);
       expect(container.read(currentVideoPathProvider), isNull);
+    });
+
+    test('loader steps are read-only: no replay call, no skip record',
+        () async {
+      final provider = _ScriptTools([
+        const AgentTurnResult(
+          toolCalls: [
+            AgentToolCall(
+              id: 'load_1',
+              name: 'load_tools',
+              args: {
+                'tools': ['resize_clip'],
+              },
+            ),
+            AgentToolCall(
+              id: 'c1',
+              name: 'trim_clip',
+              args: {
+                'clip_id': 'clip_1',
+                'start': '00:00:05.000',
+                'end': '00:00:15.000',
+              },
+            ),
+          ],
+          stopReason: AgentTurnStopReason.toolCalls,
+        ),
+        const AgentTurnResult(
+          text: 'Planned one edit.',
+          stopReason: AgentTurnStopReason.stop,
+        ),
+      ]);
+      final container = await makePlanContainer(provider: provider);
+      addTearDown(container.dispose);
+
+      await container
+          .read(agentRunControllerProvider.notifier)
+          .submit('Load then trim');
+
+      final plan = container.read(pendingPlanProvider)!;
+      // The loader is visible in the trace as a read step...
+      final loaderStep =
+          plan.steps.singleWhere((s) => s.toolName == 'load_tools');
+      expect(loaderStep.kind, equals(ChatStepKind.read));
+      // ...but it is not a replayable call and does not inflate the count.
+      expect(plan.calls.map((c) => c.name), equals(['trim_clip']));
+      final planReply = container.read(chatMessagesProvider).last;
+      expect(planReply.content, contains('1 edit(s) proposed'));
+
+      await container.read(agentRunControllerProvider.notifier).approvePlan();
+
+      expect(container.read(pendingPlanProvider), isNull);
+      expect(applied, hasLength(1));
+      final replayReply = container.read(chatMessagesProvider).last;
+      expect(
+        replayReply.steps.any((s) => s.summary.contains('Skipped in replay')),
+        isFalse,
+      );
+      expect(
+        replayReply.steps.any((s) => s.toolName == 'load_tools'),
+        isFalse,
+      );
     });
 
     test('approvePlan replays deterministically', () async {
