@@ -4,12 +4,15 @@ on:
   pull_request:
     branches: [ "opencode/clipmind-build", "feat/ci-workflow" ]
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -17,16 +20,7 @@ jobs:
           channel: stable
           flutter-version: 3.47.5
           cache: true
-
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.FLUTTER_HOME }}/.pub-cache
-            .dart_tool
-          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
-          restore-keys: |
-            pub-${{ runner.os }}-
+          pub-cache: true
 
       - name: Install dependencies
         run: flutter pub get
