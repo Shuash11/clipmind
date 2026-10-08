@@ -2,6 +2,13 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.42.1
+
+### Project-save durability
+- Project documents are now written safely (temp file + same-volume rename) and saves fail loudly instead of being swallowed; a failed write never leaves a phantom recent-project row, so a restart can no longer open an empty timeline for a project whose document is missing.
+- A failed save surfaces a "Changes not saved" pill in the editor status bar with the reason in its tooltip; clicking it retries the save, and the next successful save clears it. A successful project load clears stale failures too.
+- Creating or importing into a project from the hub now distinguishes a failed disk write ("Could not save the project to disk.") from an import failure, instead of showing generic copy for every error.
+
 ## 1.42.0
 
 ### Agent tagging and markers

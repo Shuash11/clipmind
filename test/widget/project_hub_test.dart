@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:clipmind/core/errors/failures.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
 import 'package:clipmind/data/models/project.dart';
@@ -60,6 +61,22 @@ class _FakeProjectRepository extends ProjectRepository {
 
   @override
   Future<List<Project>> listRecent() async => recent;
+}
+
+/// Persistence-failure fake: createNew throws the repository's loud
+/// [PersistenceFailure], mirroring a `.cmproj` write that cannot land.
+class _FailingSaveProjectRepository extends _FakeProjectRepository {
+  _FailingSaveProjectRepository({required super.db, super.recent});
+
+  @override
+  Future<Project> createNew(
+    String name, {
+    List<String> sourceMediaPaths = const [],
+    int durationMs = 0,
+    String? thumbnailPath,
+  }) async {
+    throw const PersistenceFailure('The project could not be saved to disk.');
+  }
 }
 
 Project _project({int durationMs = 0}) {
@@ -440,6 +457,32 @@ void main() {
     // Navigation reached the editor route with the new project id.
     expect(find.byKey(const ValueKey('editor-stub')), findsOneWidget);
     expect(container.read(projectProvider).value?.id, 'blank-1');
+  });
+
+  testWidgets('blank card shows save-failure copy when persistence fails', (
+    tester,
+  ) async {
+    final repo = _FailingSaveProjectRepository(db: db, recent: [_project()]);
+    final container = ProviderContainer.test(
+      overrides: [projectRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+    await _pumpHub(tester, container);
+    await tester.pump();
+
+    await tester.ensureVisible(find.byKey(const ValueKey('blank-project-card')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('blank-project-card')));
+    await tester.pump();
+    await tester.pump();
+
+    // Honest copy: the project could not be written to disk, not a generic
+    // "could not create" or import failure.
+    expect(find.text('Could not save the project to disk.'), findsOneWidget);
+    expect(find.text('Could not create the project.'), findsNothing);
+    // No phantom navigation: the failure keeps the user on the hub.
+    expect(find.byKey(const ValueKey('editor-stub')), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('duration badge shows M:SS and H:MM:SS, hidden when pending', (

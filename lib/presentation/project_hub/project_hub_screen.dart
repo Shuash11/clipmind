@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:clipmind/core/constants/release_notes.dart';
+import 'package:clipmind/core/errors/failures.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/core/router/app_router.dart';
 import 'package:clipmind/state/ffmpeg_providers.dart';
@@ -232,6 +233,12 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
       ref.read(projectProvider.notifier).setProject(project);
       ref.read(currentVideoPathProvider.notifier).state = path;
       context.go(editorPath.replaceAll(':projectId', project.id));
+    } on PersistenceFailure {
+      // The media imported but the .cmproj could not land: distinct from a
+      // failed import, so the copy names the actual fault.
+      if (mounted) {
+        _showImportError('Could not save the project to disk.');
+      }
     } catch (_) {
       if (mounted) {
         _showImportError('Could not create a project for that media.');
@@ -456,6 +463,12 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
       if (!mounted) return;
       ref.read(projectProvider.notifier).setProject(project);
       context.go(editorPath.replaceAll(':projectId', project.id));
+    } on PersistenceFailure {
+      // Honest copy: the project was created but its document could not be
+      // written, so a reopen would never find it.
+      if (mounted) {
+        _showImportError('Could not save the project to disk.');
+      }
     } catch (_) {
       if (mounted) {
         _showImportError('Could not create the project.');

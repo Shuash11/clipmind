@@ -47,6 +47,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       final project = await repository.loadFromId(widget.projectId);
       if (!mounted) return;
 
+      // A completed load supersedes any failure recorded earlier: the
+      // project is reachable on disk again, so the stale "not saved" pill
+      // must not outlive the session that produced it.
+      ref.read(projectSaveFailureProvider.notifier).state = null;
+
       if (project == null) {
         ref.read(projectProvider.notifier).clearProject();
         ref.read(currentVideoPathProvider.notifier).state = null;
