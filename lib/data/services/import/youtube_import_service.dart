@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:uuid/uuid.dart';
+
 class YouTubeImportService {
   /// Typed missing-binary guidance, surfaced on [errors] when `yt-dlp`
   /// cannot be started. Same actionable-message family as the FFmpeg
@@ -41,6 +43,9 @@ class YouTubeImportService {
   /// tree-kill was issued without spawning processes.
   final Future<ProcessResult> Function(String executable, List<String> args)?
       runTreeKill;
+
+  /// Generates the fresh uuid-v4 folder name every import downloads into.
+  final Uuid _uuid = const Uuid();
 
   StreamController<double>? _progress;
   StreamController<String>? _errorStream;
@@ -141,6 +146,14 @@ class YouTubeImportService {
 
   /// Downloads [url] into [outputDir] and returns the moved file path.
   ///
+  /// Every import downloads into a freshly created `{outputDir}/<uuid-v4>`
+  /// folder, so two imports — even of same-title videos — can never share a
+  /// filename, resume an earlier partial, or silently reuse a pre-existing
+  /// file. The returned path is the exact `after_move:filepath` line yt-dlp
+  /// printed. Any other outcome (invalid URL, spawn failure, non-zero exit,
+  /// stall, cancel, unexpected error) removes the per-import folder; an
+  /// invalid URL is rejected before any folder is created.
+  ///
   /// Lifecycle: single-flight (a second concurrent [import] throws
   /// [YoutubeImportBusyException]); a stall tree-kills the child and
   /// surfaces the typed stall failure on [errors]; a [cancel] kills the
@@ -167,6 +180,11 @@ class YouTubeImportService {
     var lastActivity = DateTime.now();
     StreamSubscription<String>? stdoutSub;
     StreamSubscription<String>? stderrSub;
+    // Per-import storage is created only after URL validation, so it stays
+    // null for rejected input and cleanup can never touch anything.
+    Directory? importDir;
+    // Set only on the success path: every other outcome removes [importDir].
+    var kept = false;
 
     void markActivity() {
       lastActivity = DateTime.now();
@@ -183,13 +201,22 @@ class YouTubeImportService {
         return null;
       }
 
+      // Fresh per-import folder: yt-dlp's title-based template is only
+      // collision-free inside one. In a shared directory an existing final
+      // file makes yt-dlp skip the download and print the old file's path
+      // (silent wrong-content reuse), and a `.part` left by an earlier
+      // attempt gets resumed. A private folder makes both impossible and
+      // lets a failed attempt be removed as one unit.
+      importDir = Directory('$outputDir/${_uuid.v4()}');
+      await importDir.create(recursive: true);
+
       final args = [
         '--newline',
         '--no-warnings',
         '--print',
         'after_move:filepath',
         '-o',
-        '$outputDir/%(title)s.%(ext)s',
+        '${importDir.path}/%(title)s.%(ext)s',
         '--no-playlist',
         // Upstream-documented end-of-options: the URL is always treated as
         // a URL, never as a yt-dlp option.
@@ -281,6 +308,7 @@ class YouTubeImportService {
       // stall message.
       if (settled == 0 && downloadedFile != null) {
         _progress?.add(1.0);
+        kept = true;
         return downloadedFile;
       }
       if (watchdogFired) {
@@ -299,8 +327,33 @@ class YouTubeImportService {
       _progress = null;
       await _errorStream?.close();
       _errorStream = null;
+      // Non-success outcomes (rejection, spawn failure, non-zero exit,
+      // stall, cancel, unexpected error) leave no partial file or empty
+      // folder behind. [_removeImportDir] never throws, so cleanup cannot
+      // mask the reported outcome.
+      if (!kept && importDir != null) {
+        await _removeImportDir(importDir);
+      }
       _process = null;
       _inFlight = false;
+    }
+  }
+
+  /// Deletes the per-import folder, never throwing — cleanup must not mask
+  /// the import outcome. Retries briefly because on Windows the recursive
+  /// delete can race a just-killed yt-dlp, whose handle on the partial file
+  /// may take a few milliseconds to close.
+  Future<void> _removeImportDir(Directory dir) async {
+    for (var attempt = 0; attempt < 40; attempt++) {
+      try {
+        if (!await dir.exists()) return;
+        await dir.delete(recursive: true);
+        return;
+      } on FileSystemException {
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      } catch (_) {
+        return;
+      }
     }
   }
 

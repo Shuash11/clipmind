@@ -9,13 +9,17 @@ import 'package:clipmind/data/services/import/youtube_import_service.dart';
 // Phase 1 (stall watchdog + process-tree kill + typed missing-binary) and
 // Phase 3 (single-flight busy guard + same-instant race arbitration):
 // seam-injected fakes keep these arg-level — no yt-dlp binary is spawned.
+// Cycle 12 adds per-import storage: every import creates its own uuid-v4
+// folder under the real per-test output directory and removes it unless the
+// download succeeded.
 void main() {
   group('YouTubeImportService healthy path', () {
     test('returns filepath and reaches progress 1.0', () async {
+      final baseDir = await _createTempOutputDir();
+      final stdoutCtl = StreamController<List<int>>();
+      String? emittedPath;
       final fake = _FakeYtDlpProcess(
-        stdoutStream: Stream<List<int>>.value(
-          utf8.encode('/tmp/clipmind_video.mp4\n'),
-        ),
+        stdoutStream: stdoutCtl.stream,
         stderrStream: Stream<List<int>>.value(
           utf8.encode('[download]  50.0%\n'),
         ),
@@ -26,6 +30,9 @@ void main() {
         stallTimeout: const Duration(seconds: 5),
         startProcess: (exe, args) async {
           expect(exe, equals('yt-dlp'));
+          final folder = _outputFolderOf(args[args.indexOf('-o') + 1]);
+          emittedPath = '${_normalize(folder)}/clipmind_video.mp4';
+          stdoutCtl.add(utf8.encode('$emittedPath\n'));
           return fake;
         },
         runTreeKill: (exe, args) async {
@@ -34,7 +41,7 @@ void main() {
         },
       );
 
-      final future = service.import('https://youtu.be/x', '/tmp');
+      final future = service.import('https://youtu.be/x', baseDir.path);
       final progress = <double>[];
       final errors = <String>[];
       final progressSub = service.progress.listen(progress.add);
@@ -44,8 +51,9 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       await progressSub.cancel();
       await errorsSub.cancel();
+      await stdoutCtl.close();
 
-      expect(result, equals('/tmp/clipmind_video.mp4'));
+      expect(result, equals(emittedPath));
       expect(progress, isNotEmpty);
       expect(progress.last, equals(1.0));
       expect(errors, isEmpty);
@@ -55,8 +63,182 @@ void main() {
     });
   });
 
+  group('YouTubeImportService per-import folder', () {
+    test('uses a fresh uuid folder under outputDir and returns the emitted '
+        'path verbatim', () async {
+      final baseDir = await _createTempOutputDir();
+      String? capturedTemplate;
+      final stdoutCtl = StreamController<List<int>>();
+      final fake = _FakeYtDlpProcess(
+        stdoutStream: stdoutCtl.stream,
+        stderrStream: _neverListStream(),
+        exitCode: 0,
+      );
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async {
+          final index = args.indexOf('-o');
+          expect(index, greaterThanOrEqualTo(0));
+          capturedTemplate = args[index + 1];
+          final folder = _outputFolderOf(capturedTemplate!);
+          stdoutCtl.add(utf8.encode('${_normalize(folder)}/My Video.mp4\n'));
+          return fake;
+        },
+      );
+
+      final outcome = await _runImport(
+        service,
+        'https://youtu.be/x',
+        baseDir.path,
+      );
+      await stdoutCtl.close();
+
+      expect(capturedTemplate, isNotNull);
+      final template = capturedTemplate!;
+      expect(template, endsWith('/%(title)s.%(ext)s'));
+      final importDir = Directory(_outputFolderOf(template));
+      // Exactly one fresh uuid segment: a direct child of the passed
+      // outputDir whose basename is a v4 UUID.
+      expect(
+        _normalize(importDir.parent.path),
+        equals(_normalize(baseDir.path)),
+      );
+      expect(
+        _uuidV4.hasMatch(_basename(importDir.path)),
+        isTrue,
+        reason: 'expected a uuid-v4 per-import folder: ${importDir.path}',
+      );
+      expect(importDir.existsSync(), isTrue);
+      expect(
+        outcome.result,
+        equals('${_normalize(importDir.path)}/My Video.mp4'),
+      );
+      expect(outcome.errors, isEmpty);
+    });
+
+    test('two consecutive imports never share a folder', () async {
+      final baseDir = await _createTempOutputDir();
+      final folders = <String>[];
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async {
+          final folder = _outputFolderOf(args[args.indexOf('-o') + 1]);
+          folders.add(folder);
+          final stdoutCtl = StreamController<List<int>>();
+          stdoutCtl.add(utf8.encode('$folder/video-${folders.length}.mp4\n'));
+          return _FakeYtDlpProcess(
+            stdoutStream: stdoutCtl.stream,
+            stderrStream: _neverListStream(),
+            exitCode: 0,
+          );
+        },
+      );
+
+      final first = await _runImport(
+        service,
+        'https://youtu.be/x',
+        baseDir.path,
+      );
+      final second = await _runImport(
+        service,
+        'https://youtu.be/x',
+        baseDir.path,
+      );
+
+      expect(first.result, isNotNull);
+      expect(second.result, isNotNull);
+      expect(folders, hasLength(2));
+      expect(folders[0], isNot(equals(folders[1])));
+      expect(Directory(folders[0]).existsSync(), isTrue);
+      expect(Directory(folders[1]).existsSync(), isTrue);
+      expect(first.result, equals('${folders[0]}/video-1.mp4'));
+      expect(second.result, equals('${folders[1]}/video-2.mp4'));
+    });
+
+    test('failed import (non-zero exit) removes its folder', () async {
+      final baseDir = await _createTempOutputDir();
+      String? capturedTemplate;
+      final fake = _FakeYtDlpProcess(
+        stdoutStream: _neverListStream(),
+        stderrStream: Stream<List<int>>.value(utf8.encode('ERROR: nope\n')),
+        exitCode: 1,
+      );
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async {
+          capturedTemplate = args[args.indexOf('-o') + 1];
+          return fake;
+        },
+      );
+
+      final outcome = await _runImport(
+        service,
+        'https://youtu.be/x',
+        baseDir.path,
+      );
+
+      expect(outcome.result, isNull);
+      final importDir = Directory(_outputFolderOf(capturedTemplate!));
+      expect(importDir.existsSync(), isFalse);
+      expect(baseDir.listSync(), isEmpty);
+    });
+
+    test('stalled import removes its folder', () async {
+      final baseDir = await _createTempOutputDir();
+      String? capturedTemplate;
+      final fake = _FakeYtDlpProcess(
+        stdoutStream: _neverListStream(),
+        stderrStream: _neverListStream(),
+      );
+      final service = YouTubeImportService(
+        stallTimeout: const Duration(milliseconds: 100),
+        startProcess: (exe, args) async {
+          capturedTemplate = args[args.indexOf('-o') + 1];
+          return fake;
+        },
+        runTreeKill: (exe, args) async => ProcessResult(0, 0, '', ''),
+      );
+
+      final outcome = await _runImport(
+        service,
+        'https://youtu.be/x',
+        baseDir.path,
+      );
+
+      expect(outcome.result, isNull);
+      expect(
+        outcome.errors.single,
+        allOf(contains('stalled'), contains('no output')),
+      );
+      final importDir = Directory(_outputFolderOf(capturedTemplate!));
+      expect(importDir.existsSync(), isFalse);
+      expect(baseDir.listSync(), isEmpty);
+    });
+
+    test('unexpected error removes its folder', () async {
+      final baseDir = await _createTempOutputDir();
+      String? capturedTemplate;
+      final service = YouTubeImportService(
+        startProcess: (exe, args) async {
+          capturedTemplate = args[args.indexOf('-o') + 1];
+          throw StateError('boom');
+        },
+      );
+
+      final outcome = await _runImport(
+        service,
+        'https://youtu.be/x',
+        baseDir.path,
+      );
+
+      expect(outcome.result, isNull);
+      expect(outcome.errors, equals(['Bad state: boom']));
+      final importDir = Directory(_outputFolderOf(capturedTemplate!));
+      expect(importDir.existsSync(), isFalse);
+      expect(baseDir.listSync(), isEmpty);
+    });
+  });
+
   group('YouTubeImportService stall watchdog', () {
     test('hung yt-dlp triggers tree-kill plus typed stall failure', () async {
+      final baseDir = await _createTempOutputDir();
       final fake = _FakeYtDlpProcess(
         stdoutStream: _neverListStream(),
         stderrStream: _neverListStream(),
@@ -71,7 +253,7 @@ void main() {
         },
       );
 
-      final future = service.import('https://youtu.be/x', '/tmp');
+      final future = service.import('https://youtu.be/x', baseDir.path);
       final errors = <String>[];
       final errorsSub = service.errors.listen(errors.add);
       final sw = Stopwatch()..start();
@@ -100,6 +282,7 @@ void main() {
   group('YouTubeImportService cancel', () {
     test('cancel during in-flight import tree-kills and clears handle',
         () async {
+      final baseDir = await _createTempOutputDir();
       final fake = _FakeYtDlpProcess(
         stdoutStream: _neverListStream(),
         stderrStream: _neverListStream(),
@@ -114,7 +297,7 @@ void main() {
         },
       );
 
-      final future = service.import('https://youtu.be/x', '/tmp');
+      final future = service.import('https://youtu.be/x', baseDir.path);
       final errors = <String>[];
       final errorsSub = service.errors.listen(errors.add);
       // Let the import reach the exitCode await before cancelling.
@@ -136,17 +319,21 @@ void main() {
   });
 
   group('YouTubeImportService missing binary', () {
-    test('missing yt-dlp surfaces the typed actionable failure', () async {
+    test('missing yt-dlp surfaces the typed actionable failure and removes '
+        'the per-import folder', () async {
+      final baseDir = await _createTempOutputDir();
+      String? capturedTemplate;
       var started = false;
       final service = YouTubeImportService(
         stallTimeout: const Duration(seconds: 5),
         startProcess: (exe, args) async {
           started = true;
+          capturedTemplate = args[args.indexOf('-o') + 1];
           throw ProcessException('yt-dlp', args, 'not found', 2);
         },
       );
 
-      final future = service.import('https://youtu.be/x', '/tmp');
+      final future = service.import('https://youtu.be/x', baseDir.path);
       final errors = <String>[];
       final errorsSub = service.errors.listen(errors.add);
       final result = await future;
@@ -168,12 +355,19 @@ void main() {
         ),
       );
       expect(service.hasActiveProcess, isFalse);
+      // Spawn failure: the folder created before the spawn is removed.
+      expect(
+        Directory(_outputFolderOf(capturedTemplate!)).existsSync(),
+        isFalse,
+      );
+      expect(baseDir.listSync(), isEmpty);
     });
   });
 
   group('YouTubeImportService single-flight', () {
     test('a second concurrent import during startup is rejected with the '
         'typed busy failure', () async {
+      final baseDir = await _createTempOutputDir();
       final fake = _FakeYtDlpProcess(
         stdoutStream: _neverListStream(),
         stderrStream: _neverListStream(),
@@ -190,11 +384,11 @@ void main() {
         runTreeKill: (exe, args) async => ProcessResult(0, 0, '', ''),
       );
 
-      final first = service.import('https://youtu.be/x', '/tmp');
+      final first = service.import('https://youtu.be/x', baseDir.path);
       // Hold the first import in the startup window (deterministic).
       await Future<void>.delayed(const Duration(milliseconds: 50));
       await expectLater(
-        service.import('https://youtu.be/x', '/tmp'),
+        service.import('https://youtu.be/x', baseDir.path),
         throwsA(
           isA<YoutubeImportBusyException>().having(
             (e) => e.message,
@@ -215,6 +409,7 @@ void main() {
 
     test('a second concurrent import during flight is rejected with the '
         'typed busy failure', () async {
+      final baseDir = await _createTempOutputDir();
       final fake = _FakeYtDlpProcess(
         stdoutStream: _neverListStream(),
         stderrStream: _neverListStream(),
@@ -225,11 +420,11 @@ void main() {
         runTreeKill: (exe, args) async => ProcessResult(0, 0, '', ''),
       );
 
-      final first = service.import('https://youtu.be/x', '/tmp');
+      final first = service.import('https://youtu.be/x', baseDir.path);
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(service.hasActiveProcess, isTrue);
       await expectLater(
-        service.import('https://youtu.be/x', '/tmp'),
+        service.import('https://youtu.be/x', baseDir.path),
         throwsA(isA<YoutubeImportBusyException>()),
       );
       // The first import is untouched by the rejection.
@@ -244,7 +439,10 @@ void main() {
   group('YouTubeImportService same-instant race', () {
     test('natural exit 0 at the watchdog instant still returns the file',
         () async {
+      final baseDir = await _createTempOutputDir();
       final stdoutCtl = StreamController<List<int>>();
+      String? emittedPath;
+      String? capturedTemplate;
       final fake = _FakeYtDlpProcess(
         stdoutStream: stdoutCtl.stream,
         stderrStream: _neverListStream(),
@@ -255,21 +453,26 @@ void main() {
       final treeKillCalls = <List<String>>[];
       final service = YouTubeImportService(
         stallTimeout: const Duration(milliseconds: 100),
-        startProcess: (exe, args) async => fake,
+        startProcess: (exe, args) async {
+          capturedTemplate = args[args.indexOf('-o') + 1];
+          final folder = _outputFolderOf(capturedTemplate!);
+          emittedPath = '${_normalize(folder)}/clipmind_video.mp4';
+          stdoutCtl.add(utf8.encode('$emittedPath\n'));
+          return fake;
+        },
         runTreeKill: (exe, args) async {
           treeKillCalls.add([exe, ...args]);
           return ProcessResult(0, 0, '', '');
         },
       );
 
-      final future = service.import('https://youtu.be/x', '/tmp');
+      final future = service.import('https://youtu.be/x', baseDir.path);
       final progress = <double>[];
       final errors = <String>[];
       final progressSub = service.progress.listen(progress.add);
       final errorsSub = service.errors.listen(errors.add);
       // The filepath line arrives immediately (buffered by the fake's
       // single-subscription controller), then the child goes silent.
-      stdoutCtl.add(utf8.encode('/tmp/clipmind_video.mp4\n'));
       // Wait until the watchdog has fired (tree-kill issued), then let the
       // child finish naturally — proving the healthy result wins over the
       // stall message in the same-instant race.
@@ -283,12 +486,14 @@ void main() {
       await errorsSub.cancel();
       await stdoutCtl.close();
 
-      expect(result, equals('/tmp/clipmind_video.mp4'));
+      expect(result, equals(emittedPath));
       expect(progress.last, equals(1.0));
       expect(errors, isEmpty);
       expect(treeKillCalls, hasLength(1));
       expect(fake.killed, isTrue);
       expect(service.hasActiveProcess, isFalse);
+      // Success keeps the per-import folder on disk.
+      expect(Directory(_outputFolderOf(capturedTemplate!)).existsSync(), isTrue);
     });
   });
 
@@ -395,7 +600,9 @@ void main() {
   });
 
   group('YouTubeImportService URL validation', () {
-    test('empty input is rejected without spawning', () async {
+    test('empty input is rejected without spawning or creating a folder',
+        () async {
+      final baseDir = await _createTempOutputDir();
       var starts = 0;
       final service = YouTubeImportService(
         startProcess: (exe, args) async {
@@ -404,15 +611,17 @@ void main() {
         },
       );
 
-      final outcome = await _runImport(service, '');
+      final outcome = await _runImport(service, '', baseDir.path);
 
       expect(starts, isZero);
       expect(outcome.result, isNull);
       expect(outcome.errors, equals([YouTubeImportService.invalidUrlMessage]));
       expect(service.hasActiveProcess, isFalse);
+      expect(baseDir.listSync(), isEmpty);
     });
 
     test('option-like input is rejected without spawning', () async {
+      final baseDir = await _createTempOutputDir();
       var starts = 0;
       final service = YouTubeImportService(
         startProcess: (exe, args) async {
@@ -421,15 +630,17 @@ void main() {
         },
       );
 
-      final outcome = await _runImport(service, '--exec=calc');
+      final outcome = await _runImport(service, '--exec=calc', baseDir.path);
 
       expect(starts, isZero);
       expect(outcome.result, isNull);
       expect(outcome.errors, equals([YouTubeImportService.invalidUrlMessage]));
       expect(service.hasActiveProcess, isFalse);
+      expect(baseDir.listSync(), isEmpty);
     });
 
     test('non-http scheme is rejected without spawning', () async {
+      final baseDir = await _createTempOutputDir();
       var starts = 0;
       final service = YouTubeImportService(
         startProcess: (exe, args) async {
@@ -438,20 +649,26 @@ void main() {
         },
       );
 
-      final outcome = await _runImport(service, 'file:///tmp/x.mp4');
+      final outcome = await _runImport(
+        service,
+        'file:///tmp/x.mp4',
+        baseDir.path,
+      );
 
       expect(starts, isZero);
       expect(outcome.result, isNull);
       expect(outcome.errors, equals([YouTubeImportService.invalidUrlMessage]));
       expect(service.hasActiveProcess, isFalse);
+      expect(baseDir.listSync(), isEmpty);
     });
 
     test('valid https URL spawns with -- before the URL', () async {
+      final baseDir = await _createTempOutputDir();
       final capturedArgs = <String>[];
+      final stdoutCtl = StreamController<List<int>>();
+      String? emittedPath;
       final fake = _FakeYtDlpProcess(
-        stdoutStream: Stream<List<int>>.value(
-          utf8.encode('/tmp/clipmind_video.mp4\n'),
-        ),
+        stdoutStream: stdoutCtl.stream,
         stderrStream: Stream<List<int>>.value(
           utf8.encode('[download] 100%\n'),
         ),
@@ -461,13 +678,21 @@ void main() {
         startProcess: (exe, args) async {
           expect(exe, equals('yt-dlp'));
           capturedArgs.addAll(args);
+          final folder = _outputFolderOf(args[args.indexOf('-o') + 1]);
+          emittedPath = '${_normalize(folder)}/clipmind_video.mp4';
+          stdoutCtl.add(utf8.encode('$emittedPath\n'));
           return fake;
         },
       );
 
-      final outcome = await _runImport(service, 'https://youtu.be/x');
+      final outcome = await _runImport(
+        service,
+        'https://youtu.be/x',
+        baseDir.path,
+      );
+      await stdoutCtl.close();
 
-      expect(outcome.result, equals('/tmp/clipmind_video.mp4'));
+      expect(outcome.result, equals(emittedPath));
       expect(outcome.errors, isEmpty);
       expect(capturedArgs, contains('after_move:filepath'));
       // The end-of-options separator must sit immediately before the URL
@@ -480,14 +705,42 @@ void main() {
   });
 }
 
+/// Creates a real per-test output base directory and registers its
+/// recursive deletion. The service writes only inside child folders of this
+/// base, so tests can assert folder creation and cleanup directly.
+Future<Directory> _createTempOutputDir() async {
+  final dir = await Directory.systemTemp.createTemp('yt_import_');
+  addTearDown(() async {
+    try {
+      await dir.delete(recursive: true);
+    } catch (_) {}
+  });
+  return dir;
+}
+
+/// The per-import folder encoded in the `-o` output template
+/// (`<folder>/%(title)s.%(ext)s`).
+String _outputFolderOf(String outputTemplate) =>
+    outputTemplate.substring(0, outputTemplate.lastIndexOf('/'));
+
+String _normalize(String path) => path.replaceAll('\\', '/');
+
+String _basename(String path) => _normalize(path).split('/').last;
+
+/// v4 UUIDs only (version nibble 4, variant nibble 8/9/a/b).
+final _uuidV4 = RegExp(
+  r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+);
+
 /// Runs [YouTubeImportService.import] with the production consumer pattern
 /// — subscribe right after the call, before awaiting — and returns the
 /// settled result plus every error emitted.
 Future<({String? result, List<String> errors})> _runImport(
   YouTubeImportService service,
   String url,
+  String outputDir,
 ) async {
-  final pending = service.import(url, '/tmp');
+  final pending = service.import(url, outputDir);
   final errors = <String>[];
   final subscription = service.errors.listen(errors.add);
   final result = await pending;

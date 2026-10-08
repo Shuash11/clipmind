@@ -2,6 +2,13 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.42.3
+
+### YouTube import safety
+- YouTube downloads now land in a unique per-import folder under the imports directory, so two imports can never share a filename.
+- A different video with the same title can no longer resolve to an earlier import's file, and a re-import never silently reuses an old file — yt-dlp always downloads into a spotless folder.
+- Failed, stalled, or cancelled imports leave no partial file or leftover folder behind.
+
 ## 1.42.2
 
 ### Direct-URL import safety
