@@ -2,6 +2,13 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.42.2
+
+### Direct-URL import safety
+- Direct-URL imports now land in a unique per-import folder and keep the server's real filename (Content-Disposition or URL, sanitized), so the project and clip show the actual media name instead of `direct_download.mp4`.
+- Two direct imports can no longer share a file: a second import never overwrites a previous project's source media.
+- Links that serve a web page instead of a video (login walls, preview pages, error documents) are rejected with a clear message and leave no partial file behind; cancelled and failed downloads clean up after themselves.
+
 ## 1.42.1
 
 ### Project-save durability

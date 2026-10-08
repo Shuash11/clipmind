@@ -2,6 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:uuid/uuid.dart';
+
+import 'import_filename.dart';
+import 'media_payload_inspector.dart';
 
 class GDriveInvalidInputException implements Exception {
   final String message;
@@ -14,15 +18,28 @@ class GDriveInvalidInputException implements Exception {
 
 /// Downloads a video from a direct http/https link into a local file.
 ///
-/// Google Drive share links are rejected with [driveLinkMessage]: Drive
-/// files need interactive download via the Drive website, which this
-/// desktop importer cannot perform without a Google OAuth client.
+/// Every import lands in its own `{targetDir}/<uuid>` folder under a
+/// filename derived from the server (Content-Disposition) or the URL, so
+/// two imports can never overwrite each other and the written basename is
+/// the real media name. Google Drive share links are rejected with
+/// [driveLinkMessage]; links that serve a web page are rejected with
+/// [notVideoMessage]. Failures leave no partial file or folder behind.
 class UrlImportService {
   static const driveLinkMessage =
       "Google Drive share links can't be downloaded directly. "
       'Download the file from Drive, then drag it into ClipMind.';
 
+  /// Typed guidance for links that serve a web page (login walls,
+  /// preview pages, error documents) instead of a video file. Surfaced on
+  /// [errors] so the consumer can show it verbatim.
+  static const notVideoMessage =
+      'The link returned a web page instead of a video file. '
+      'Use a direct video download link.';
+
   final Dio _dio;
+  final ImportFilename _filenameResolver = const ImportFilename();
+  final MediaPayloadInspector _payloadInspector = const MediaPayloadInspector();
+  final Uuid _uuid = const Uuid();
 
   CancelToken? _cancelToken;
   StreamController<double>? _progress;
@@ -53,7 +70,13 @@ class UrlImportService {
     }
   }
 
-  Future<String?> import(String fileUrl, String outputPath) async {
+  /// Downloads [fileUrl] into a fresh subfolder of [targetDir] and returns
+  /// the absolute path of the written file, or `null` on failure.
+  ///
+  /// Lifecycle mirrors the previous contract: progress lands on [progress],
+  /// failures on [errors] (with [cancel] mapping to `Download cancelled`),
+  /// and the returned path is what the consumer turns into a project.
+  Future<String?> import(String fileUrl, String targetDir) async {
     _progress = StreamController<double>.broadcast();
     _errorStream = StreamController<String>.broadcast();
     _cancelToken = CancelToken();
@@ -67,7 +90,7 @@ class UrlImportService {
       if (host == 'drive.google.com' || host == 'docs.google.com') {
         throw const GDriveInvalidInputException(driveLinkMessage);
       }
-      return await _downloadDirect(trimmedUrl, outputPath);
+      return await _downloadDirect(trimmedUrl, targetDir);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         _reportError('Download cancelled');
@@ -90,26 +113,82 @@ class UrlImportService {
     }
   }
 
-  Future<String?> _downloadDirect(String fileUrl, String outputPath) async {
+  Future<String?> _downloadDirect(String fileUrl, String targetDir) async {
     final uri = Uri.tryParse(fileUrl);
     if (uri == null || (!uri.isScheme('https') && !uri.isScheme('http'))) {
       throw const GDriveInvalidInputException(
         'Only http and https download links are supported.',
       );
     }
-    await _dio.download(
-      fileUrl,
-      outputPath,
-      cancelToken: _cancelToken,
-      onReceiveProgress: (received, total) {
-        if (total > 0) _progress?.add(received / total);
-      },
-    );
-    final written = File(outputPath);
-    if (!written.existsSync() || written.lengthSync() == 0) {
-      throw Exception('Downloaded file is empty: $outputPath');
+
+    // Unique per-import folder: two imports can never collide on a name,
+    // and a failed attempt can be removed as one unit.
+    final importDir = Directory('$targetDir/${_uuid.v4()}');
+    await importDir.create(recursive: true);
+
+    try {
+      var outputPath = '${importDir.path}/video.mp4';
+      // Dio invokes this with the response headers before creating the
+      // file, so the real filename is known before a single byte lands.
+      FutureOr<String> savePath(Headers headers) {
+        final name = _filenameResolver.resolve(
+          headers: headers,
+          requestUri: uri,
+        );
+        outputPath = '${importDir.path}/$name';
+        return outputPath;
+      }
+
+      final response = await _dio.download(
+        fileUrl,
+        savePath,
+        cancelToken: _cancelToken,
+        onReceiveProgress: (received, total) {
+          if (total > 0) _progress?.add(received / total);
+        },
+      );
+
+      final written = File(outputPath);
+      if (!written.existsSync() || written.lengthSync() == 0) {
+        await _removeImportDir(importDir);
+        _reportError('Downloaded file is empty: $outputPath');
+        return null;
+      }
+      final looksLikeMedia = await _payloadInspector.isLikelyMedia(
+        written,
+        headers: response.headers,
+      );
+      if (!looksLikeMedia) {
+        await _removeImportDir(importDir);
+        _reportError(notVideoMessage);
+        return null;
+      }
+      return outputPath;
+    } on Object {
+      // Transport/cancel failure: dio's deleteOnError removes the partial
+      // file; remove the per-import folder as well so nothing partial
+      // survives a failed attempt.
+      await _removeImportDir(importDir);
+      rethrow;
     }
-    return outputPath;
+  }
+
+  /// Deletes the per-import folder, never throwing — cleanup must not mask
+  /// the import outcome. Retries briefly because on Windows the recursive
+  /// delete can race dio's own cancel cleanup, which still holds the
+  /// partial file open for a few milliseconds.
+  Future<void> _removeImportDir(Directory dir) async {
+    for (var attempt = 0; attempt < 40; attempt++) {
+      try {
+        if (!await dir.exists()) return;
+        await dir.delete(recursive: true);
+        return;
+      } on FileSystemException {
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      } catch (_) {
+        return;
+      }
+    }
   }
 
   void cancel() {

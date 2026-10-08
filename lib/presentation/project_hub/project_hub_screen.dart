@@ -354,7 +354,7 @@ class _ProjectHubScreenState extends ConsumerState<ProjectHubScreen> {
         onCancel = youtubeService.cancel;
       } else {
         final service = ref.read(urlImportServiceFactoryProvider)();
-        pending = service.import(url, '${dir.path}/direct_download.mp4');
+        pending = service.import(url, dir.path);
         errors = service.errors;
         progress = service.progress;
         onCancel = service.cancel;

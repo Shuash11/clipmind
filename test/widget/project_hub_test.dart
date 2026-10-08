@@ -38,6 +38,7 @@ class _FakeProjectRepository extends ProjectRepository {
   final List<Project> recent;
   int created = 0;
   List<String> createdNames = [];
+  List<List<String>> createdSourceMediaPaths = [];
 
   @override
   Future<Project> createNew(
@@ -48,6 +49,7 @@ class _FakeProjectRepository extends ProjectRepository {
   }) async {
     created++;
     createdNames.add(name);
+    createdSourceMediaPaths.add(sourceMediaPaths);
     return Project(
       id: 'blank-$created',
       name: name,
@@ -242,7 +244,7 @@ class _FakeUrlImportService extends UrlImportService {
   int importCalls = 0;
   int cancelCalls = 0;
   String? lastUrl;
-  String? lastOutputPath;
+  String? lastTargetDir;
   Completer<String?>? _pending;
 
   @override
@@ -252,10 +254,10 @@ class _FakeUrlImportService extends UrlImportService {
   Stream<String> get errors => _errors.stream;
 
   @override
-  Future<String?> import(String fileUrl, String outputPath) {
+  Future<String?> import(String fileUrl, String targetDir) {
     importCalls++;
     lastUrl = fileUrl;
-    lastOutputPath = outputPath;
+    lastTargetDir = targetDir;
     _pending = Completer<String?>();
     return _pending!.future;
   }
@@ -271,6 +273,14 @@ class _FakeUrlImportService extends UrlImportService {
   /// Completes the pending import with [path], as a finished download does.
   void completeImport(String? path) {
     _pending?.complete(path);
+    _pending = null;
+  }
+
+  /// Emits [message] on the errors stream and completes as a failed import,
+  /// mirroring the real service's rejected-payload path.
+  void failImport(String message) {
+    _errors.add(message);
+    _pending?.complete(null);
     _pending = null;
   }
 
@@ -723,11 +733,12 @@ void main() {
       _FakeYouTubeImportService? youtube,
       _FakeUrlImportService? url,
       FfprobeService? ffprobe,
+      _FakeProjectRepository? repo,
     }) async {
-      final repo = _FakeProjectRepository(db: db);
+      final repository = repo ?? _FakeProjectRepository(db: db);
       final container = ProviderContainer.test(
         overrides: [
-          projectRepositoryProvider.overrideWithValue(repo),
+          projectRepositoryProvider.overrideWithValue(repository),
           if (ffprobe != null)
             ffprobeServiceProvider.overrideWithValue(ffprobe),
           ..._importServiceOverrides(youtube: youtube, url: url),
@@ -972,8 +983,8 @@ void main() {
         expect(youtube.importCalls, 0, reason: url);
         expect(urlFake.importCalls, 1, reason: url);
         expect(
-          urlFake.lastOutputPath,
-          endsWith('direct_download.mp4'),
+          urlFake.lastTargetDir,
+          equals('${importTempDir.path}/imports'),
           reason: url,
         );
       }
@@ -1054,7 +1065,10 @@ void main() {
         // is still pending. Real async zone: the import future's
         // continuation was registered there by the runAsync tap.
         await tester.runAsync(() async {
-          urlFake.completeImport('${importTempDir.path}/imports/clip.mp4');
+          urlFake.completeImport(
+            '${importTempDir.path}/imports/'
+            '0f8fad5b-d9cb-469f-a165-70867728950e/clip.mp4',
+          );
           await Future<void>.delayed(const Duration(milliseconds: 150));
         });
         await tester.pump();
@@ -1081,6 +1095,96 @@ void main() {
         await tester.pump();
         expect(container.read(projectProvider).value?.name, 'clip.mp4');
         expect(find.byKey(const ValueKey('editor-stub')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'imported path basename becomes the created project name',
+      (tester) async {
+        final repo = _FakeProjectRepository(db: db);
+        final urlFake = _FakeUrlImportService();
+        final metadataGate = Completer<VideoMetadata?>();
+        _mockPathProvider(importTempDir.path);
+        final container = await pumpImportHub(
+          tester,
+          url: urlFake,
+          repo: repo,
+          ffprobe: _FakeFfprobeService(metadataGate: metadataGate),
+        );
+
+        await tester.enterText(
+          find.byType(TextField),
+          'https://cdn.example.com/clip.mp4',
+        );
+        await tester.pump();
+        await tester.runAsync(() async {
+          await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+        });
+        await tester.pump();
+        expect(urlFake.importCalls, 1);
+
+        // Production shape: {imports}/<uuid>/<real name>.
+        final downloaded = '${importTempDir.path}/imports/'
+            '0f8fad5b-d9cb-469f-a165-70867728950e/café clip.mp4';
+        await tester.runAsync(() async {
+          urlFake.completeImport(downloaded);
+          await Future<void>.delayed(const Duration(milliseconds: 150));
+        });
+
+        // Completing the probe lets the project-open path proceed.
+        await tester.runAsync(() async {
+          metadataGate.complete(null);
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+        });
+        await tester.pump();
+        await tester.pump();
+
+        expect(repo.createdNames, ['café clip.mp4']);
+        expect(repo.createdSourceMediaPaths, [
+          [downloaded],
+        ]);
+        expect(container.read(projectProvider).value?.name, 'café clip.mp4');
+        expect(find.byKey(const ValueKey('editor-stub')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'a web-page link surfaces the typed not-a-video message',
+      (tester) async {
+        final urlFake = _FakeUrlImportService();
+        _mockPathProvider(importTempDir.path);
+        await pumpImportHub(tester, url: urlFake);
+
+        await tester.enterText(
+          find.byType(TextField),
+          'https://example.com/page',
+        );
+        await tester.pump();
+        await tester.runAsync(() async {
+          await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+        });
+        await tester.pump();
+        expect(urlFake.importCalls, 1);
+
+        await tester.runAsync(() async {
+          urlFake.failImport(UrlImportService.notVideoMessage);
+          await Future<void>.delayed(const Duration(milliseconds: 150));
+        });
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+
+        expect(find.text(UrlImportService.notVideoMessage), findsOneWidget);
+        // The generic fallback must not fire alongside the typed message,
+        // and the failed import must not open a project.
+        expect(
+          find.text('Import failed. Check the URL and try again.'),
+          findsNothing,
+        );
+        expect(find.byKey(const ValueKey('editor-stub')), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
