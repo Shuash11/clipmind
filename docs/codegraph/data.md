@@ -1,4 +1,4 @@
-# Code Graph — lib/data (43 files, 7,721 lines; DO NOT EDIT)
+# Code Graph — lib/data (43 files, 7,723 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -49,8 +49,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/repositories/chat_repository.dart (49 lines)
 - L5  class ChatRepository (_db, _messages, _controller) — ChatRepository(this._db) L10, messages L12, stream L13, add(ChatMessage message,…) L15, getHistory(String projectId) L23, recent(int count) L31, clear(…) L37, dispose() L45
 
-## lib/data/repositories/project_repository.dart (120 lines)
-- L10  class ProjectRepository (_db, _fileStore, _uuid) — ProjectRepository(this._db,…) L15, createNew(…) L18, save(Project project) L46, load(String path) L53, loadFromId(String id) L60, listRecent() L66, delete(String id) L70, _getProjectsDir() L79, _buildInitialTracks(…) L86, _fileNameFromPath(String path) L114
+## lib/data/repositories/project_repository.dart (122 lines)
+- L10  class ProjectRepository (_db, _fileStore, _uuid) — ProjectRepository(this._db,…) L15, createNew(…) L18, save(Project project) L48, load(String path) L55, loadFromId(String id) L62, listRecent() L68, delete(String id) L72, _getProjectsDir() L81, _buildInitialTracks(…) L88, _fileNameFromPath(String path) L116
 
 ## lib/data/repositories/settings_repository.dart (54 lines)
 - L8  class SettingsRepository (_cached, _controller, _disposed) — stream L13, load() L15, save(AppSettings settings) L32, getActiveProviderId() L44, dispose() L49

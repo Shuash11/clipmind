@@ -1,4 +1,4 @@
-# Code Graph — test (167 files, 43,828 lines; DO NOT EDIT)
+# Code Graph — test (168 files, 43,991 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -785,6 +785,11 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L9  function _project
 - L58  function _op
 - L65  function main
+
+## test/unit/state/project_save_failure_test.dart (163 lines)
+- L16  class _ToggleableProjectRepository extends ProjectRepository (failSave, saveCalls) — _ToggleableProjectRepository(…) L17, failure L20, save(Project project) L25
+- L31  function _project
+- L59  function main
 
 ## test/unit/state/provider_registry_profile_resolution_test.dart (309 lines)
 - L20  class _StubSettingsRepository extends SettingsRepository — load() L22, save(AppSettings settings) L24
