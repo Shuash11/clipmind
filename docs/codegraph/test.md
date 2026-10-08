@@ -1,4 +1,4 @@
-# Code Graph — test (168 files, 44,133 lines; DO NOT EDIT)
+# Code Graph — test (169 files, 44,742 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -386,6 +386,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L8  function _testApp
 - L21  function main
 
+## test/integration/url_import_seam_test.dart (179 lines)
+- L19  function main
+- L175  function _parentName
+
 ## test/tool/grapify_test.dart (125 lines)
 - L8  class ActiveLlmConfig (providerId, model) — ActiveLlmConfig(…) L12, describe() L14, label L15
 - L18  typedef ActiveProfileResolver
@@ -633,12 +637,17 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/fonts/font_resolver_test.dart (134 lines)
 - L7  function main
 
-## test/unit/import/url_import_service_test.dart (287 lines)
-- L9  class _MockDio extends Mock implements Dio
-- L11  function _noopProgress
-- L32  function _stubDownloadSuccess
-- L50  function _verifyNoDownload
-- L61  function main
+## test/unit/import/url_import_service_test.dart (613 lines)
+- L11  class _MockDio extends Mock implements Dio
+- L13  function _noopProgress
+- L34  function _headers
+- L45  function _stubDownload
+- L77  function _stubDioFailure
+- L88  function _verifyNoDownload
+- L99  function _basename
+- L101  function _parentName
+- L111  function _expectStoredAs
+- L124  function main
 
 ## test/unit/import/youtube_import_service_test.dart (559 lines)
 - L12  function main
@@ -883,22 +892,22 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L137  function _twoClipProject
 - L160  function main
 
-## test/widget/project_hub_test.dart (1149 lines)
-- L34  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L35, createNew(…) L43, save(Project project) L60, listRecent() L63
-- L68  class _FailingSaveProjectRepository extends _FakeProjectRepository — _FailingSaveProjectRepository(…) L69, createNew(…) L72
-- L82  function _project
-- L94  function _testRouter
-- L110  function _useDesktopViewport
-- L119  function _pumpHub
-- L135  function _mockPackageInfo
-- L158  function _mockPathProvider
-- L179  class _FailingChecker extends GithubReleaseChecker — checkForUpdate() L181
-- L188  class _FakeYouTubeImportService extends YouTubeImportService (availability, availabilityGate, _progress, _errors, checkCalls, importCalls, cancelCalls, lastUrl) — _FakeYouTubeImportService(…) L189, progress L204, errors L207, checkAvailability() L210, import(String url, String outputDir) L218, cancel() L227, emitProgress(double value) L233
-- L238  class _FakeUrlImportService extends UrlImportService (_progress, _errors, importCalls, cancelCalls, lastUrl, lastOutputPath, _pending) — progress L249, errors L252, import(String fileUrl, String outputPath) L255, cancel() L264, completeImport(String? path) L272, emitProgress(double value) L277
-- L283  class _FakeFfprobeService extends FfprobeService (metadataGate) — _FakeFfprobeService(…) L284, extractMetadata(String filePath) L289, generateThumbnail(…) L293
-- L300  function _importServiceOverrides
-- L312  function main
-- L1123  function _mockUrlLauncher
+## test/widget/project_hub_test.dart (1253 lines)
+- L34  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames, createdSourceMediaPaths) — _FakeProjectRepository(…) L35, createNew(…) L44, save(Project project) L62, listRecent() L65
+- L70  class _FailingSaveProjectRepository extends _FakeProjectRepository — _FailingSaveProjectRepository(…) L71, createNew(…) L74
+- L84  function _project
+- L96  function _testRouter
+- L112  function _useDesktopViewport
+- L121  function _pumpHub
+- L137  function _mockPackageInfo
+- L160  function _mockPathProvider
+- L181  class _FailingChecker extends GithubReleaseChecker — checkForUpdate() L183
+- L190  class _FakeYouTubeImportService extends YouTubeImportService (availability, availabilityGate, _progress, _errors, checkCalls, importCalls, cancelCalls, lastUrl) — _FakeYouTubeImportService(…) L191, progress L206, errors L209, checkAvailability() L212, import(String url, String outputDir) L220, cancel() L229, emitProgress(double value) L235
+- L240  class _FakeUrlImportService extends UrlImportService (_progress, _errors, importCalls, cancelCalls, lastUrl, lastTargetDir, _pending) — progress L251, errors L254, import(String fileUrl, String targetDir) L257, cancel() L266, completeImport(String? path) L274, failImport(String message) L281, emitProgress(double value) L287
+- L293  class _FakeFfprobeService extends FfprobeService (metadataGate) — _FakeFfprobeService(…) L294, extractMetadata(String filePath) L299, generateThumbnail(…) L303
+- L310  function _importServiceOverrides
+- L322  function main
+- L1227  function _mockUrlLauncher
 
 ## test/widget/settings_screen_test.dart (187 lines)
 - L13  class _RecordingSettingsRepository extends SettingsRepository (saves, lastSaved) — load() L18, save(AppSettings settings) L21

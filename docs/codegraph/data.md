@@ -1,4 +1,4 @@
-# Code Graph — lib/data (43 files, 7,723 lines; DO NOT EDIT)
+# Code Graph — lib/data (45 files, 8,014 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -98,9 +98,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L12  class BundledFont (id, label, fileName) — BundledFont(…) L22
 - L36  class FontResolver (_cache) — catalog L37, Function(String key) _loadAsset L69, Function() _supportDir L73, FontResolver(…) L75, isKnownFamily(String familyId) L82, cachedPath(String familyId) L88, resolve(String familyId) L94, invalidateCache() L123
 
-## lib/data/services/import/url_import_service.dart (121 lines)
-- L6  class GDriveInvalidInputException (message) — GDriveInvalidInputException(this.message) L9, toString() L12
-- L20  class UrlImportService (_dio, _cancelToken, _progress, _errorStream) — driveLinkMessage L21, progress L31, errors L32, UrlImportService(…) L35, _reportError(String message) L43, import(String fileUrl, String outputPath) L56, _downloadDirect(String fileUrl, String outputPath) L93, cancel() L115
+## lib/data/services/import/import_filename.dart (169 lines)
+- L12  class ImportFilename (_fallbackStem, _maxStemLength) — ImportFilename() L13, _extensionByContentType L18, _reservedStems L25, _filenameStarPattern L33, _plainFilenamePattern L37, _rfc5987PrefixPattern L41, resolve(…) L53, _fromContentDisposition(Headers headers) L66, _filenameStar(String value) L72, _plainFilename(String value) L89, _fromUrlPath(Uri requestUri) L96, _decodePercent(String value) L102, _sanitize(String raw) L114, _hardenStem(String stem) L139, _ensureExtension(String name, String? contentType) L153, _hasExtension(String name) L158, _extensionFor(String? contentType) L163
+
+## lib/data/services/import/media_payload_inspector.dart (43 lines)
+- L11  class MediaPayloadInspector (_sniffByteCount) — MediaPayloadInspector() L12, isLikelyMedia(File file,…) L19, _startsAsMarkup(File file) L26, _readHead(File file) L34
+
+## lib/data/services/import/url_import_service.dart (200 lines)
+- L10  class GDriveInvalidInputException (message) — GDriveInvalidInputException(this.message) L13, toString() L16
+- L27  class UrlImportService (_dio, _filenameResolver, _payloadInspector, _uuid, _cancelToken, _progress, _errorStream) — driveLinkMessage L28, notVideoMessage L35, progress L48, errors L49, UrlImportService(…) L52, _reportError(String message) L60, import(String fileUrl, String targetDir) L79, _downloadDirect(String fileUrl, String targetDir) L116, _removeImportDir(Directory dir) L180, cancel() L194
 
 ## lib/data/services/import/youtube_import_service.dart (373 lines)
 - L5  class YouTubeImportService (stallTimeout, probeTimeout, _progress, _errorStream, _process, _inFlight, _exitGrace) — missingBinaryMessage L11, invalidUrlMessage L18, Function(String executable, List<String> args)? L36, Function(String executable, List<String> args)? L42, YouTubeImportService(…) L54, progress L61, errors L62, hasActiveProcess L65, stallMessage(Duration timeout) L67, checkAvailability() L86, _reportError(String message) L129, import(String url, String outputDir) L150, cancel() L314, _killTreeOf(Process proc) L324
