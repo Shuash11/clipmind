@@ -1,4 +1,4 @@
-# Code Graph — lib/data (43 files, 7,695 lines; DO NOT EDIT)
+# Code Graph — lib/data (43 files, 7,721 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -9,8 +9,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L78  class AppDatabase — AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection()) L79, schemaVersion L82, migration L85, upsertProject(…) L107, getProject(String id) L125, listRecentProjects(…) L133, deleteProject(String id) L147, getProjectPath(String id) L151, saveChatMessage(…) L160, getChatMessages(…) L181, deleteChatMessages(String projectId) L197, saveEditOperation(…) L205, getEditHistory(…) L220, deleteEditHistory(String projectId) L236, saveAnalysis(…) L245, getAnalysis(String projectId, String kind) L264, getAnalysisPayload(…) L271, deleteAnalysis(String projectId) L285, _projectRowToModel(ProjectRow row) L293, _chatMessageRowToModel(ChatMessageRow row) L307, _decodeOperationIds(String? raw) L321, _decodeSteps(String? raw) L330, _editHistoryRowToModel(EditHistoryData row) L347
 - L361  function _openConnection
 
-## lib/data/local/project_file_store.dart (74 lines)
-- L6  class ProjectFileStore — write(Project project, String directory) L7, read(String filePath) L20, list(String directory) L32, export(Project project, String path, String format) L52
+## lib/data/local/project_file_store.dart (92 lines)
+- L7  class ProjectFileStore — write(Project project, String directory) L15, _removeTempFileQuietly(String path) L29, read(String filePath) L38, list(String directory) L50, export(Project project, String path, String format) L70
 
 ## lib/data/local/secure_key_store.dart (34 lines)
 - L3  class SecureKeyStore (_storage, _keyPrefix) — SecureKeyStore() : _storage = const FlutterSecureStorage() L8, _keyFor(String provider) L11, saveApiKey(String provider, String key) L13, readApiKey(String provider) L17, deleteApiKey(String provider) L21, hasApiKey(String provider) L25, clearAll() L30
@@ -49,8 +49,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/repositories/chat_repository.dart (49 lines)
 - L5  class ChatRepository (_db, _messages, _controller) — ChatRepository(this._db) L10, messages L12, stream L13, add(ChatMessage message,…) L15, getHistory(String projectId) L23, recent(int count) L31, clear(…) L37, dispose() L45
 
-## lib/data/repositories/project_repository.dart (112 lines)
-- L10  class ProjectRepository (_db, _fileStore, _uuid) — ProjectRepository(this._db) : _fileStore = ProjectFileStore() L15, createNew(…) L17, save(Project project) L38, load(String path) L45, loadFromId(String id) L49, listRecent() L58, delete(String id) L62, _getProjectsDir() L71, _buildInitialTracks(…) L78, _fileNameFromPath(String path) L106
+## lib/data/repositories/project_repository.dart (120 lines)
+- L10  class ProjectRepository (_db, _fileStore, _uuid) — ProjectRepository(this._db,…) L15, createNew(…) L18, save(Project project) L46, load(String path) L53, loadFromId(String id) L60, listRecent() L66, delete(String id) L70, _getProjectsDir() L79, _buildInitialTracks(…) L86, _fileNameFromPath(String path) L114
 
 ## lib/data/repositories/settings_repository.dart (54 lines)
 - L8  class SettingsRepository (_cached, _controller, _disposed) — stream L13, load() L15, save(AppSettings settings) L32, getActiveProviderId() L44, dispose() L49

@@ -1,4 +1,4 @@
-# Code Graph — test (164 files, 43,466 lines; DO NOT EDIT)
+# Code Graph — test (167 files, 43,828 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -528,6 +528,21 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 
 ## test/unit/data/media_analysis_dao_test.dart (146 lines)
 - L5  function main
+
+## test/unit/data/project_file_store_test.dart (128 lines)
+- L13  function main
+- L88  function _project
+- L118  function _tempFiles
+
+## test/unit/data/project_repository_load_test.dart (98 lines)
+- L16  function main
+- L71  function _project
+
+## test/unit/data/project_repository_persistence_test.dart (136 lines)
+- L17  function _mockPathProvider
+- L40  function main
+- L98  function _project
+- L126  function _tempFiles
 
 ## test/unit/domain/usecases/export_args_test.dart (422 lines)
 - L21  class _CapturingFfmpeg extends FfmpegService (_tmp, jobs, createTempPathCalls, _counter) — _CapturingFfmpeg(this._tmp) : super(tempDir: _tmp.path) L22, lastJob L29, createTempPath(…) L32, run(FfmpegJob job) async* L39, cancel() L59
