@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:clipmind/core/errors/failures.dart';
 import 'package:clipmind/data/models/clip.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/models/edit_operation.dart';
@@ -21,6 +22,60 @@ final recentProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final repository = ref.watch(projectRepositoryProvider);
   return repository.listRecent();
 });
+
+/// Honest record of the last failed project save.
+class ProjectSaveFailure {
+  const ProjectSaveFailure({required this.message, required this.failedAt});
+
+  /// User-facing explanation of why the save failed.
+  final String message;
+
+  /// When the failure was observed.
+  final DateTime failedAt;
+}
+
+/// The last failed project save, or null when persistence is known-healthy.
+/// Cleared by the next successful save.
+final projectSaveFailureProvider = StateProvider<ProjectSaveFailure?>(
+  (ref) => null,
+);
+
+/// Single save entry point: persists [project] through
+/// [projectRepositoryProvider] and records the outcome in
+/// [projectSaveFailureProvider] instead of swallowing failures.
+///
+/// Returns true when the project was durably saved; false when the save
+/// failed, with [ProjectSaveFailure.message] carrying the reason (the
+/// repository's `PersistenceFailure.message`, or a generic fallback for any
+/// other error type).
+Future<bool> persistProject(Ref ref, Project project) async {
+  try {
+    await ref.read(projectRepositoryProvider).save(project);
+    ref.read(projectSaveFailureProvider.notifier).state = null;
+    return true;
+  } on PersistenceFailure catch (e) {
+    _recordSaveFailure(ref, e.message);
+    return false;
+  } catch (_) {
+    _recordSaveFailure(ref, _genericSaveFailureMessage);
+    return false;
+  }
+}
+
+/// [persistProject] bound to a provider [Ref], for callers that hold a
+/// `WidgetRef` instead (e.g. timeline manual edits).
+final persistProjectProvider = Provider<Future<bool> Function(Project)>(
+  (ref) => (project) => persistProject(ref, project),
+);
+
+void _recordSaveFailure(Ref ref, String message) {
+  ref.read(projectSaveFailureProvider.notifier).state = ProjectSaveFailure(
+    message: message,
+    failedAt: DateTime.now(),
+  );
+}
+
+const _genericSaveFailureMessage = 'The project could not be saved to disk.';
 
 class ProjectNotifier extends StateNotifier<AsyncValue<Project?>> {
   ProjectNotifier() : super(const AsyncValue.data(null));

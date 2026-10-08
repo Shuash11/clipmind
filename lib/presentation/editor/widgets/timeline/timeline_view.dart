@@ -489,12 +489,15 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     ref.read(undoRedoProvider.notifier).pushStructural(project);
     setState(() => _isEditing = true);
     try {
-      await ref.read(projectRepositoryProvider).save(updatedProject);
-      if (!mounted) return;
+      // In-memory first: the timeline reflects the edit immediately. A failed
+      // disk write is recorded in projectSaveFailureProvider and surfaced
+      // without rolling the visible state back.
       ref.read(projectProvider.notifier).setProject(updatedProject);
-      _showTimelineMessage(message);
-    } catch (_) {
-      if (mounted) _showTimelineMessage('Timeline update failed. Try again.');
+      final saved = await ref.read(persistProjectProvider)(updatedProject);
+      if (!mounted) return;
+      _showTimelineMessage(
+        saved ? message : 'Change applied, but it could not be saved to disk.',
+      );
     } finally {
       if (mounted) setState(() => _isEditing = false);
     }

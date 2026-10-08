@@ -38,11 +38,13 @@ class ProjectRepository {
 
   /// Persists [project] durably, then indexes it in the DB.
   ///
-  /// Contract: the `.cmproj` document is written and atomically promoted
-  /// *before* the index row is written. When the file cannot be saved,
-  /// [ProjectFileStore.write] throws a `PersistenceFailure` and no index row
-  /// is created, so a restart can never advertise a project whose document is
-  /// missing or empty.
+  /// Contract: the `.cmproj` document is written and promoted with a
+  /// same-volume rename *before* the index row is written. The previous
+  /// document stays intact until the rename completes (relying on
+  /// `MoveFileEx` replace semantics, not a transaction). When the file cannot
+  /// be saved, [ProjectFileStore.write] throws a `PersistenceFailure` and no
+  /// index row is created, so a restart can never advertise a project whose
+  /// document is missing or empty.
   Future<void> save(Project project) async {
     final dir = await _getProjectsDir();
     final projectPath = '${dir.path}/${project.id}.cmproj';

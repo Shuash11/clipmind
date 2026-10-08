@@ -135,13 +135,10 @@ final agentEditApplierProvider = Provider<AgentEditApplier>((ref) {
         await ref
             .read(appDatabaseProvider)
             .saveEditOperation(project.id, operation);
-        try {
-          final updated = ref.read(projectProvider).value;
-          if (updated != null) {
-            await ref.read(projectRepositoryProvider).save(updated);
-          }
-        } catch (_) {
-          // File persistence is best-effort; in-memory + DB already updated.
+        final updated = ref.read(projectProvider).value;
+        if (updated != null) {
+          // Failure is recorded in projectSaveFailureProvider; never silent.
+          await persistProject(ref, updated);
         }
       }
     },

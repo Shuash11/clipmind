@@ -107,9 +107,7 @@ final undoRedoProvider = StateNotifierProvider<UndoRedoNotifier, UndoRedoState>(
     ref,
     onRestore: (project) async {
       ref.read(projectProvider.notifier).setProject(project);
-      try {
-        await ref.read(projectRepositoryProvider).save(project);
-      } catch (_) {}
+      await persistProject(ref, project);
     },
   );
 });

@@ -44,13 +44,10 @@ class StructuralEditApplier {
     } catch (_) {
       // DB journal is best-effort; in-memory + undo already updated.
     }
-    try {
-      final updated = _ref.read(projectProvider).value;
-      if (updated != null) {
-        await _ref.read(projectRepositoryProvider).save(updated);
-      }
-    } catch (_) {
-      // File persistence is best-effort; in-memory + DB already updated.
+    final updated = _ref.read(projectProvider).value;
+    if (updated != null) {
+      // Failure is recorded in projectSaveFailureProvider; never silent.
+      await persistProject(_ref, updated);
     }
     return true;
   }
