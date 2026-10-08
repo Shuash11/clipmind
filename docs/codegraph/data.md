@@ -1,4 +1,4 @@
-# Code Graph — lib/data (45 files, 8,014 lines; DO NOT EDIT)
+# Code Graph — lib/data (45 files, 8,067 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -108,10 +108,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L10  class GDriveInvalidInputException (message) — GDriveInvalidInputException(this.message) L13, toString() L16
 - L27  class UrlImportService (_dio, _filenameResolver, _payloadInspector, _uuid, _cancelToken, _progress, _errorStream) — driveLinkMessage L28, notVideoMessage L35, progress L48, errors L49, UrlImportService(…) L52, _reportError(String message) L60, import(String fileUrl, String targetDir) L79, _downloadDirect(String fileUrl, String targetDir) L116, _removeImportDir(Directory dir) L180, cancel() L194
 
-## lib/data/services/import/youtube_import_service.dart (373 lines)
-- L5  class YouTubeImportService (stallTimeout, probeTimeout, _progress, _errorStream, _process, _inFlight, _exitGrace) — missingBinaryMessage L11, invalidUrlMessage L18, Function(String executable, List<String> args)? L36, Function(String executable, List<String> args)? L42, YouTubeImportService(…) L54, progress L61, errors L62, hasActiveProcess L65, stallMessage(Duration timeout) L67, checkAvailability() L86, _reportError(String message) L129, import(String url, String outputDir) L150, cancel() L314, _killTreeOf(Process proc) L324
-- L347  class YtDlpAvailability (isAvailable, version, message) — YtDlpAvailability L352, YtDlpAvailability L356
-- L366  class YoutubeImportBusyException (message) — YoutubeImportBusyException(this.message) L368, toString() L371
+## lib/data/services/import/youtube_import_service.dart (426 lines)
+- L7  class YouTubeImportService (stallTimeout, probeTimeout, _uuid, _progress, _errorStream, _process, _inFlight, _exitGrace) — missingBinaryMessage L13, invalidUrlMessage L20, Function(String executable, List<String> args)? L38, Function(String executable, List<String> args)? L44, YouTubeImportService(…) L59, progress L66, errors L67, hasActiveProcess L70, stallMessage(Duration timeout) L72, checkAvailability() L91, _reportError(String message) L134, import(String url, String outputDir) L163, _removeImportDir(Directory dir) L346, cancel() L367, _killTreeOf(Process proc) L377
+- L400  class YtDlpAvailability (isAvailable, version, message) — YtDlpAvailability L405, YtDlpAvailability L409
+- L419  class YoutubeImportBusyException (message) — YoutubeImportBusyException(this.message) L421, toString() L424
 
 ## lib/data/services/llm/anthropic_provider.dart (453 lines)
 - L11  class AnthropicConfig (model, apiKey) — AnthropicConfig(…) L15

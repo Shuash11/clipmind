@@ -1,4 +1,4 @@
-# Code Graph — test (169 files, 44,742 lines; DO NOT EDIT)
+# Code Graph — test (169 files, 44,995 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -649,10 +649,14 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L111  function _expectStoredAs
 - L124  function main
 
-## test/unit/import/youtube_import_service_test.dart (559 lines)
-- L12  function main
-- L502  function _neverListStream
-- L508  class _FakeYtDlpProcess (stdoutStream, stderrStream, killExitCode, _exitCompleter, killed) — _FakeYtDlpProcess(…) L509, pid L530, stdout L533, stderr L536, exitCode L539, stdin L542, kill([ProcessSignal signal = ProcessSignal.sigterm]) L545, completeExit(int code) L555
+## test/unit/import/youtube_import_service_test.dart (812 lines)
+- L15  function main
+- L711  function _createTempOutputDir
+- L723  function _outputFolderOf
+- L726  function _normalize
+- L728  function _basename
+- L755  function _neverListStream
+- L761  class _FakeYtDlpProcess (stdoutStream, stderrStream, killExitCode, _exitCompleter, killed) — _FakeYtDlpProcess(…) L762, pid L783, stdout L786, stderr L789, exitCode L792, stdin L795, kill([ProcessSignal signal = ProcessSignal.sigterm]) L798, completeExit(int code) L808
 
 ## test/unit/llm/anthropic_provider_tools_test.dart (278 lines)
 - L8  class _MockDio extends Mock implements Dio
