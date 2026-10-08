@@ -1,4 +1,4 @@
-# Code Graph — test (163 files, 43,248 lines; DO NOT EDIT)
+# Code Graph — test (164 files, 43,466 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -376,6 +376,11 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L14  class TaggingWidgetHarness (document, repository, publisher, transactions, controller, providers) — TaggingWidgetHarness(…) L15
 - L58  function taggingTestApp
 - L66  class UpdatingProjectDocumentPublisher (publishCalls) — UpdatingProjectDocumentPublisher(this._onPublish) L68, Function(ProjectDocument document) _onPublish L70, publish(…) L74
+
+## test/integration/core_path_seam_test.dart (218 lines)
+- L33  function _synthAv
+- L64  function _mockPathProvider
+- L84  function main
 
 ## test/integration/integration_test.dart (68 lines)
 - L8  function _testApp
