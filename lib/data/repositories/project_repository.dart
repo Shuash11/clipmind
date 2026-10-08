@@ -12,7 +12,8 @@ class ProjectRepository {
   final ProjectFileStore _fileStore;
   final _uuid = const Uuid();
 
-  ProjectRepository(this._db) : _fileStore = ProjectFileStore();
+  ProjectRepository(this._db, {ProjectFileStore? fileStore})
+    : _fileStore = fileStore ?? ProjectFileStore();
 
   Future<Project> createNew(
     String name, {
@@ -35,6 +36,13 @@ class ProjectRepository {
     return project;
   }
 
+  /// Persists [project] durably, then indexes it in the DB.
+  ///
+  /// Contract: the `.cmproj` document is written and atomically promoted
+  /// *before* the index row is written. When the file cannot be saved,
+  /// [ProjectFileStore.write] throws a `PersistenceFailure` and no index row
+  /// is created, so a restart can never advertise a project whose document is
+  /// missing or empty.
   Future<void> save(Project project) async {
     final dir = await _getProjectsDir();
     final projectPath = '${dir.path}/${project.id}.cmproj';
@@ -46,13 +54,13 @@ class ProjectRepository {
     return _fileStore.read(path);
   }
 
+  /// The full persisted document for [id], or null when the index row is
+  /// absent or the document on disk is missing/unreadable. Never returns a
+  /// metadata-only project without tracks.
   Future<Project?> loadFromId(String id) async {
     final path = await _db.getProjectPath(id);
     if (path == null) return null;
-    final project = await _fileStore.read(path);
-    if (project != null) return project;
-    final meta = await _db.getProject(id);
-    return meta;
+    return _fileStore.read(path);
   }
 
   Future<List<Project>> listRecent() async {

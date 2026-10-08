@@ -1,19 +1,37 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:clipmind/core/errors/failures.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:flutter/foundation.dart';
 
 class ProjectFileStore {
-  Future<bool> write(Project project, String directory) async {
+  /// Persists [project] as `<directory>/<id>.cmproj`.
+  ///
+  /// The JSON is flushed to a sibling `.tmp` file first and then renamed over
+  /// the target (same directory, so same volume): an existing document stays
+  /// intact until the new one is completely on disk. Throws
+  /// [PersistenceFailure] when the document cannot be written, after a
+  /// best-effort removal of the temporary file.
+  Future<void> write(Project project, String directory) async {
+    final target = '$directory/${project.id}.cmproj';
+    final tmp = '$target.tmp';
     try {
       final dir = Directory(directory);
       if (!await dir.exists()) await dir.create(recursive: true);
-      final file = File('$directory/${project.id}.cmproj');
-      await file.writeAsString(jsonEncode(project.toJson()));
-      return true;
-    } catch (e, s) {
-      debugPrint('ProjectFileStore error: $e\n$s');
-      return false;
+      await File(tmp).writeAsString(jsonEncode(project.toJson()), flush: true);
+      await File(tmp).rename(target);
+    } catch (e) {
+      await _removeTempFileQuietly(tmp);
+      throw PersistenceFailure('The project could not be saved to disk.', e);
+    }
+  }
+
+  Future<void> _removeTempFileQuietly(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (_) {
+      // Best effort only: the next successful write overwrites the temp file.
     }
   }
 
