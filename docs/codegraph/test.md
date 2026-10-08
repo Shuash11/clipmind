@@ -1,4 +1,4 @@
-# Code Graph — test (168 files, 43,991 lines; DO NOT EDIT)
+# Code Graph — test (168 files, 44,133 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -883,21 +883,22 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L137  function _twoClipProject
 - L160  function main
 
-## test/widget/project_hub_test.dart (1106 lines)
-- L33  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L34, createNew(…) L42, save(Project project) L59, listRecent() L62
-- L65  function _project
-- L77  function _testRouter
-- L93  function _useDesktopViewport
-- L102  function _pumpHub
-- L118  function _mockPackageInfo
-- L141  function _mockPathProvider
-- L162  class _FailingChecker extends GithubReleaseChecker — checkForUpdate() L164
-- L171  class _FakeYouTubeImportService extends YouTubeImportService (availability, availabilityGate, _progress, _errors, checkCalls, importCalls, cancelCalls, lastUrl) — _FakeYouTubeImportService(…) L172, progress L187, errors L190, checkAvailability() L193, import(String url, String outputDir) L201, cancel() L210, emitProgress(double value) L216
-- L221  class _FakeUrlImportService extends UrlImportService (_progress, _errors, importCalls, cancelCalls, lastUrl, lastOutputPath, _pending) — progress L232, errors L235, import(String fileUrl, String outputPath) L238, cancel() L247, completeImport(String? path) L255, emitProgress(double value) L260
-- L266  class _FakeFfprobeService extends FfprobeService (metadataGate) — _FakeFfprobeService(…) L267, extractMetadata(String filePath) L272, generateThumbnail(…) L276
-- L283  function _importServiceOverrides
-- L295  function main
-- L1080  function _mockUrlLauncher
+## test/widget/project_hub_test.dart (1149 lines)
+- L34  class _FakeProjectRepository extends ProjectRepository (recent, created, createdNames) — _FakeProjectRepository(…) L35, createNew(…) L43, save(Project project) L60, listRecent() L63
+- L68  class _FailingSaveProjectRepository extends _FakeProjectRepository — _FailingSaveProjectRepository(…) L69, createNew(…) L72
+- L82  function _project
+- L94  function _testRouter
+- L110  function _useDesktopViewport
+- L119  function _pumpHub
+- L135  function _mockPackageInfo
+- L158  function _mockPathProvider
+- L179  class _FailingChecker extends GithubReleaseChecker — checkForUpdate() L181
+- L188  class _FakeYouTubeImportService extends YouTubeImportService (availability, availabilityGate, _progress, _errors, checkCalls, importCalls, cancelCalls, lastUrl) — _FakeYouTubeImportService(…) L189, progress L204, errors L207, checkAvailability() L210, import(String url, String outputDir) L218, cancel() L227, emitProgress(double value) L233
+- L238  class _FakeUrlImportService extends UrlImportService (_progress, _errors, importCalls, cancelCalls, lastUrl, lastOutputPath, _pending) — progress L249, errors L252, import(String fileUrl, String outputPath) L255, cancel() L264, completeImport(String? path) L272, emitProgress(double value) L277
+- L283  class _FakeFfprobeService extends FfprobeService (metadataGate) — _FakeFfprobeService(…) L284, extractMetadata(String filePath) L289, generateThumbnail(…) L293
+- L300  function _importServiceOverrides
+- L312  function main
+- L1123  function _mockUrlLauncher
 
 ## test/widget/settings_screen_test.dart (187 lines)
 - L13  class _RecordingSettingsRepository extends SettingsRepository (saves, lastSaved) — load() L18, save(AppSettings settings) L21
@@ -906,11 +907,13 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L57  function _settle
 - L63  function main
 
-## test/widget/status_bar_test.dart (204 lines)
-- L14  class _StubResolver extends FfmpegBinaryResolver (path) — _StubResolver(this.path) L15, resolveFfmpeg(…) L20
-- L23  function _container
-- L47  function _pump
-- L56  function main
+## test/widget/status_bar_test.dart (303 lines)
+- L19  class _StubResolver extends FfmpegBinaryResolver (path) — _StubResolver(this.path) L20, resolveFfmpeg(…) L25
+- L30  class _RecordingProjectRepository extends ProjectRepository (saveCalls) — _RecordingProjectRepository(…) L31, save(Project project) L36
+- L41  function _project
+- L50  function _container
+- L77  function _pump
+- L86  function main
 
 ## test/widget/timeline_view_test.dart (859 lines)
 - L31  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L32, save(Project project) L35
