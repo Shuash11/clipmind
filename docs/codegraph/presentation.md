@@ -1,11 +1,11 @@
-# Code Graph — lib/presentation (35 files, 9,128 lines; DO NOT EDIT)
+# Code Graph — lib/presentation (36 files, 9,317 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/presentation/editor/editor_screen.dart (253 lines)
-- L18  class EditorScreen extends ConsumerStatefulWidget (projectId) — EditorScreen(…) L20, createState() L23
-- L26  class _EditorScreenState extends ConsumerState<EditorScreen> (_projectState) — initState() L30, didUpdateWidget(covariant EditorScreen oldWidget) L36, _loadProject() L43, build(BuildContext context) L77
-- L113  class _EditorShell extends ConsumerWidget — _EditorShell() L114, build(BuildContext context, WidgetRef ref) L117
-- L162  class _WorkspaceStack extends StatelessWidget — _WorkspaceStack() L163, build(BuildContext context) L166
+- L19  class EditorScreen extends ConsumerStatefulWidget (projectId) — EditorScreen(…) L21, createState() L24
+- L27  class _EditorScreenState extends ConsumerState<EditorScreen> (_projectState) — initState() L31, didUpdateWidget(covariant EditorScreen oldWidget) L37, _loadProject() L44, build(BuildContext context) L78
+- L114  class _EditorShell extends ConsumerWidget — _EditorShell() L115, build(BuildContext context, WidgetRef ref) L118
+- L163  class _WorkspaceStack extends StatelessWidget — _WorkspaceStack() L164, build(BuildContext context) L167
 - L177  class _EditorPanel extends StatelessWidget (child) — _EditorPanel(…) L180, build(BuildContext context) L183
 - L198  class _ProjectStateMessage extends StatelessWidget (icon, title, message, actionLabel, onAction) — _ProjectStateMessage(…) L205, build(BuildContext context) L214
 
@@ -58,12 +58,12 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L293  class _TrimHandle extends StatefulWidget (clipId, isStart, currentMs, zoom, onTap) — _TrimHandle(…) L294, Function(String clipId, bool isStart, int newLocalMs)? onTrimEdge L308, createState() L312
 - L315  class _TrimHandleState extends State<_TrimHandle> (_pxPerSecondBase, _dragPx, _lastGlobalDx, _dragging) — _onDragStart(DragStartDetails details) L322, _onDragUpdate(DragUpdateDetails details) L334, _onDragEnd(DragEndDetails details) L341, build(BuildContext context) L360, _gripBars() L381
 
-## lib/presentation/editor/widgets/timeline/timeline_view.dart (971 lines)
+## lib/presentation/editor/widgets/timeline/timeline_view.dart (1035 lines)
 - L25  class TimelineClipRange (clipId, startMs, endMs) — TimelineClipRange(…) L26
 - L41  class TimelineView extends ConsumerStatefulWidget (selectedRange, onRemoveRange, project, projectDocument, onRendered) — TimelineView(…) L42, Function(…) L52, createState() L63
-- L66  class _TimelineViewState extends ConsumerState<TimelineView> (_minZoom, _maxZoom, _uuid, _rulerKey, _zoom, _selectedClipId, _isEditing, _rendered) — initState() L84, dispose() L90, didUpdateWidget(covariant TimelineView oldWidget) L98, _showTimelineMessage(String message) L103, _selectClip(String? clipId) L115, _changeZoom(double delta) L120, _onCanvasPointerSignal(PointerSignalEvent event) L127, _syncTrackScrolls() L137, _removeSelectedRange() L174, _rulerBox L206, _onRangeDragStart(DragStartDetails details) L209, _onRangeDragUpdate(DragUpdateDetails details) L218, _onRangeDragEnd(DragEndDetails details) L226, _clearRangeDrag() L252, _clipAt(int timeMs) L260, _rulerRangeDurationMs() L274, _cutRange() L283, _onTrimEdge(String clipId, bool isStart, int newLocalMs) L314, _splitAtPlayhead() L340, _onScrubStart(DragStartDetails details) L369, _onScrubUpdate(DragUpdateDetails details) L377, _onScrubEnd(DragEndDetails details) L390, _scrubAreaPx(double globalDx) L399, _seekToAreaPx(double areaPx) L409, _onRulerTapUp(TapUpDetails details) L423, _deleteSelectedClip() L427, _copySelectedClip() L446, _replaceTrack(…) L474, _selectedClipLocation(Project? project) L506, build(BuildContext context) L526, _buildRulerRow(…) L699, _buildSeekStrip() L744, _playheadOverlay(int rulerDuration, double areaWidth) L777, _buildTrack(TrackTypeDisplay type, Project? project) L812, _moveClip(String clipId, String? afterClipId) L829, _rangeHighlight(int rulerDuration) L854, _clipsForType(Project? project, TrackTypeDisplay type) L886, _modelTypeForDisplay(TrackTypeDisplay type) L895, _fileNameFromPath(String path) L908, _scheduleRendered(Project? project) L914, _rulerDuration(ProjectDocument? document) L926
-- L956  class _ClipLocation (trackIndex, clipIndex, track, clip) — _ClipLocation(…) L962
-- L970  enum TrackTypeDisplay
+- L66  class _TimelineViewState extends ConsumerState<TimelineView> (_minZoom, _maxZoom, _minTrackRowHeight, _trackDividerHeight, _uuid, _rulerKey, _zoom, _selectedClipId) — initState() L96, dispose() L102, didUpdateWidget(covariant TimelineView oldWidget) L111, _showTimelineMessage(String message) L116, _selectClip(String? clipId) L128, _changeZoom(double delta) L133, _onCanvasPointerSignal(PointerSignalEvent event) L140, _syncTrackScrolls() L150, _removeSelectedRange() L187, _rulerBox L219, _onRangeDragStart(DragStartDetails details) L222, _onRangeDragUpdate(DragUpdateDetails details) L231, _onRangeDragEnd(DragEndDetails details) L239, _clearRangeDrag() L265, _clipAt(int timeMs) L273, _rulerRangeDurationMs() L287, _cutRange() L296, _onTrimEdge(String clipId, bool isStart, int newLocalMs) L327, _splitAtPlayhead() L353, _onScrubStart(DragStartDetails details) L382, _onScrubUpdate(DragUpdateDetails details) L390, _onScrubEnd(DragEndDetails details) L403, _scrubAreaPx(double globalDx) L412, _seekToAreaPx(double areaPx) L422, _onRulerTapUp(TapUpDetails details) L436, _deleteSelectedClip() L440, _copySelectedClip() L459, _replaceTrack(…) L487, _selectedClipLocation(Project? project) L519, build(BuildContext context) L539, _buildRulerRow(…) L706, _buildSeekStrip() L751, _playheadOverlay(int rulerDuration, double areaWidth) L784, _buildTrack(TrackTypeDisplay type, Project? project) L819, _buildTracksRegion(Project? project) L839, _buildTrackColumn(Project? project,…) L862, _moveClip(String clipId, String? afterClipId) L893, _rangeHighlight(int rulerDuration) L918, _clipsForType(Project? project, TrackTypeDisplay type) L950, _modelTypeForDisplay(TrackTypeDisplay type) L959, _fileNameFromPath(String path) L972, _scheduleRendered(Project? project) L978, _rulerDuration(ProjectDocument? document) L990
+- L1020  class _ClipLocation (trackIndex, clipIndex, track, clip) — _ClipLocation(…) L1026
+- L1034  enum TrackTypeDisplay
 
 ## lib/presentation/editor/widgets/timeline/track_row.dart (276 lines)
 - L9  class TrackRow extends StatefulWidget (trackType, clips, zoom, selectedClipId, onClipSelected, scrollController) — Function(String clipId, String? afterClipId)? onMoveClip L15, Function(String clipId, bool isStart, int newLocalMs)? onTrimEdge L16, TrackRow(…) L24, createState() L37
@@ -111,6 +111,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/presentation/editor/widgets/toolbar/top_action_bar.dart (201 lines)
 - L12  class TopActionBar extends ConsumerWidget — TopActionBar(…) L13, build(BuildContext context, WidgetRef ref) L16, _openExportDialog(BuildContext context, Project project) L115, _undo(BuildContext context, WidgetRef ref) L123, _redo(BuildContext context, WidgetRef ref) L135, _opLabel(EditOperation op) L147
 - L177  class _ChromeIconButton extends StatelessWidget (icon, tooltip, enabled, onPressed) — _ChromeIconButton(…) L183, build(BuildContext context) L191
+
+## lib/presentation/editor/widgets/workspace_split.dart (125 lines)
+- L17  class WorkspaceSplitPolicy (timelineFraction, timelineMinHeight, timelineMaxFraction, timelineHardMinHeight, previewMinHeight, gap) — WorkspaceSplitPolicy(…) L18, timelineHeightFor(double workspaceHeight) L47, previewHeightFor(double workspaceHeight) L72
+- L81  class WorkspaceSplit extends StatelessWidget (preview, timeline, policy) — WorkspaceSplit(…) L82, build(BuildContext context) L94
 
 ## lib/presentation/project_hub/project_hub_screen.dart (1191 lines)
 - L38  enum _UrlImportFlow

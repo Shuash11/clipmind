@@ -1,4 +1,4 @@
-# Code Graph — test (170 files, 45,789 lines; DO NOT EDIT)
+# Code Graph — test (171 files, 46,143 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -889,6 +889,10 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L46  function failed
 - L63  function liveStep
 - L75  function main
+
+## test/widget/editor_layout_matrix_test.dart (354 lines)
+- L41  function main
+- L348  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L349, save(Project project) L352
 
 ## test/widget/export_dialog_test.dart (349 lines)
 - L26  class _GatedFfmpeg extends FfmpegService (lastJob, gate, createdFiles) — _GatedFfmpeg() : super(tempDir: Directory.systemTemp.path) L27, run(FfmpegJob job) async* L34, cancel() L56
