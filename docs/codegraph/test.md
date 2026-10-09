@@ -1,4 +1,4 @@
-# Code Graph — test (169 files, 44,995 lines; DO NOT EDIT)
+# Code Graph — test (169 files, 45,168 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -920,13 +920,15 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L57  function _settle
 - L63  function main
 
-## test/widget/status_bar_test.dart (303 lines)
-- L19  class _StubResolver extends FfmpegBinaryResolver (path) — _StubResolver(this.path) L20, resolveFfmpeg(…) L25
-- L30  class _RecordingProjectRepository extends ProjectRepository (saveCalls) — _RecordingProjectRepository(…) L31, save(Project project) L36
-- L41  function _project
-- L50  function _container
-- L77  function _pump
-- L86  function main
+## test/widget/status_bar_test.dart (476 lines)
+- L25  class _StubResolver extends FfmpegBinaryResolver (path) — _StubResolver(this.path) L26, resolveFfmpeg(…) L31
+- L36  class _RecordingProjectRepository extends ProjectRepository (saveCalls) — _RecordingProjectRepository(…) L37, save(Project project) L42
+- L50  class _FailingProjectRepository extends ProjectRepository (saveCalls) — _FailingProjectRepository(…) L51, save(Project project) L56
+- L62  function _project
+- L73  function _saveFailure
+- L80  function _container
+- L107  function _pump
+- L116  function main
 
 ## test/widget/timeline_view_test.dart (859 lines)
 - L31  class _FakeProjectRepository extends ProjectRepository — _FakeProjectRepository(…) L32, save(Project project) L35
