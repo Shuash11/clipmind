@@ -2,6 +2,12 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.42.7
+
+### Caption-burning escaping fix
+- Burning captions now works when the subtitle file lives under a path containing apostrophes, brackets, commas or semicolons (previously the quoted subtitle filename broke the filtergraph and the burn failed).
+- Path and filter-description escaping is consolidated into one shared two-level implementation, so font paths, overlay text and subtitle paths can no longer drift apart.
+
 ## 1.42.6
 
 ### Text-overlay escaping fix

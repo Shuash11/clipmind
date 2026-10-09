@@ -11,12 +11,13 @@ import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Cycle 14 Phase 1: live gates for the two-level `escapeFontFilePath`.
+/// Cycle 14: live gates for the unquoted two-level escaping family
+/// (`drawtext` text P2, `fontfile` P1, `subtitles:filename` P3).
 ///
 /// Reproduces the user-report shape ("No option name near '/Users/...'",
-/// exit -22) with a worst-case font path on real Windows: drive colon,
-/// space, brackets, comma, apostrophe and semicolon in a directory name.
-/// Every gate builds its FFmpeg arguments through real app code
+/// exit -22) with worst-case paths on real Windows: drive colon, space,
+/// brackets, comma, apostrophe and semicolon in a directory name. Every
+/// gate builds its FFmpeg arguments through real app code
 /// ([CommandBuilder], [CommandMapper], [FilterGraphComposer]) — never
 /// hand-built filter strings — and runs the app's runtime binary resolved
 /// by [FfmpegBinaryResolver].
@@ -24,8 +25,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// Only an absent binary skips ([markTestSkipped]); everything else
 /// asserts, so a broken gate can never pass silently.
 ///
-/// Live-verified 2026-10-09 on FFmpeg 8.1.1-essentials: all three gates
-/// exit 0 and render visible text (center-band mean luminance > 1).
+/// Live-verified 2026-10-09 on FFmpeg 8.1.1-essentials: drawtext content
+/// hashes match a `textfile=` reference, and subtitle paths with
+/// apostrophes / graph specials burn with visible bottom-band text.
 const _frameW = 320;
 const _frameH = 240;
 
@@ -138,6 +140,11 @@ double _stripMean(Uint8List rgb, int y0, int y1) {
 double _centerBandMean(Uint8List rgb) =>
     _stripMean(rgb, (_frameH * 0.3).round(), (_frameH * 0.7).round());
 
+/// Bottom-half mean luminance of a decoded RGB frame (rows 50%-100%),
+/// where burned-in captions render.
+double _bottomBandMean(Uint8List rgb) =>
+    _stripMean(rgb, _frameH ~/ 2, _frameH);
+
 /// Run [args] to a one-frame PNG, then return the center-band mean
 /// luminance. Asserts at every step so a broken gate fails loudly.
 Future<double> _centerBandMeanFromPng(
@@ -158,8 +165,8 @@ Future<double> _centerBandMeanFromPng(
   return mean;
 }
 
-/// First-frame center-band mean luminance of an app-rendered video.
-Future<double> _centerBandMeanFromVideo(
+/// First-frame RGB of an app-rendered video; asserts at every step.
+Future<Uint8List> _firstFrameRgb(
   String binary,
   Directory tmp,
   String tag,
@@ -180,7 +187,17 @@ Future<double> _centerBandMeanFromVideo(
   expect(File(png).existsSync(), isTrue);
   final rgb = await _pngRgb(binary, tmp, tag, png);
   expect(rgb, isNotNull, reason: '$tag frame decode failed');
-  final mean = _centerBandMean(rgb!);
+  return rgb!;
+}
+
+/// First-frame center-band mean luminance of an app-rendered video.
+Future<double> _centerBandMeanFromVideo(
+  String binary,
+  Directory tmp,
+  String tag,
+  String video,
+) async {
+  final mean = _centerBandMean(await _firstFrameRgb(binary, tmp, tag, video));
   // ignore: avoid_print
   print('$tag center-band mean luminance = $mean');
   return mean;
@@ -396,6 +413,80 @@ void main() {
               appHash,
               isNot(equals(blank)),
               reason: 'case[$i] rendered a blank frame',
+            );
+          }
+        } finally {
+          await tmp.delete(recursive: true);
+        }
+      },
+    );
+  });
+
+  group('subtitle path escaping live gates (best effort)', () {
+    test(
+      'burned captions load from plain, apostrophe and worst-case paths',
+      timeout: const Timeout(Duration(minutes: 2)),
+      () async {
+        final binary = FfmpegBinaryResolver().resolveFfmpeg();
+        if (binary == null) {
+          markTestSkipped('ffmpeg not on PATH');
+          return;
+        }
+        final tmp = await Directory.systemTemp.createTemp(
+          'clipmind_subs_live_',
+        );
+        try {
+          final input = '${tmp.path}/in.mp4';
+          await _synthDark(binary, input);
+          const srt = '1\n00:00:00,000 --> 00:00:00,200\nHello\n';
+
+          final aposDir = Directory("${tmp.path}/font o'brien")
+            ..createSync(recursive: true);
+          final specialDir = Directory('${tmp.path}/$_specialDirName')
+            ..createSync(recursive: true);
+
+          // (a) plain tmp root, (b) apostrophe dir, (c) worst-case dir with
+          // Alignment=5 to lock the filename + force_style adjacency.
+          final cases = <(String, String, int?)>[
+            ('subs_a', '${tmp.path}/cap.srt', null),
+            ('subs_b', '${aposDir.path}/cap.srt', null),
+            ('subs_c', '${specialDir.path}/cap.srt', 5),
+          ];
+          for (final (tag, srtPath, alignment) in cases) {
+            File(srtPath).writeAsStringSync(srt);
+            final args = CommandBuilder.burnCaptions(
+              input,
+              srtPath,
+              alignment: alignment,
+            );
+            final vf = args[3];
+            expect(
+              vf,
+              isNot(contains("filename='")),
+              reason: '$tag must interpolate filename unquoted',
+            );
+            final out = '${tmp.path}/$tag.mp4';
+            final run = await Process.run(binary, [...args, out]);
+            expect(
+              run.exitCode,
+              equals(0),
+              reason: '$tag failed: ${run.stderr}',
+            );
+            expect(File(out).existsSync(), isTrue);
+            // Live-probed on 8.1.1: Style Alignment=5 renders at the TOP
+            // (2 = bottom, 6 = top), so the non-blank probe measures the
+            // band the caption actually occupies; all three bands are
+            // printed as evidence.
+            final rgb = await _firstFrameRgb(binary, tmp, tag, out);
+            final top = _stripMean(rgb, 0, (_frameH * 0.4).round());
+            final center = _centerBandMean(rgb);
+            final bottom = _bottomBandMean(rgb);
+            // ignore: avoid_print
+            print('$tag luminance top=$top center=$center bottom=$bottom');
+            expect(
+              alignment == 5 ? top : bottom,
+              greaterThan(0),
+              reason: '$tag rendered no caption text',
             );
           }
         } finally {

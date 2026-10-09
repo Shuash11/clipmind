@@ -5,6 +5,29 @@
 class FilterEscaping {
   static final RegExp _hexColor = RegExp(r'^#[0-9A-Fa-f]{6}$');
 
+  /// Level-2 (whole filter description) escaping, shared by every escaper:
+  /// double the escape backslashes FIRST, then escape `'` and the graph
+  /// specials `[ ] , ;`. Apply to the LEVEL-1 output only.
+  static String _escapeDescriptionLevel(String value) {
+    var out = value.replaceAll(r'\', r'\\');
+    out = out.replaceAll("'", r"\'");
+    out = out.replaceAll('[', r'\[');
+    out = out.replaceAll(']', r'\]');
+    out = out.replaceAll(',', r'\,');
+    out = out.replaceAll(';', r'\;');
+    return out;
+  }
+
+  /// Shared unquoted path-value escaping (`drawtext:fontfile`,
+  /// `subtitles:filename`). `%` and spaces are intentionally not escaped.
+  static String _escapePathForFilter(String path) {
+    final level1 = path
+        .replaceAll(r'\', '/')
+        .replaceAll("'", r"\'")
+        .replaceAll(':', r'\:');
+    return _escapeDescriptionLevel(level1);
+  }
+
   /// Escape text for the UNQUOTED `drawtext=text=...` option (two levels).
   ///
   /// Per the FFmpeg Filters "Notes on filtergraph escaping" the value is
@@ -29,16 +52,8 @@ class FilterEscaping {
     s = s.replaceAll(':', r'\:');
     s = s.replaceAll('%', r'\%');
     s = s.replaceAll(' ', r'\ ');
-    // Level 2 — whole description: double the escape backslashes FIRST,
-    // then escape the graph specials (each adds a backslash that must not
-    // double).
-    s = s.replaceAll(r'\', r'\\');
-    s = s.replaceAll("'", r"\'");
-    s = s.replaceAll('[', r'\[');
-    s = s.replaceAll(']', r'\]');
-    s = s.replaceAll(',', r'\,');
-    s = s.replaceAll(';', r'\;');
-    return s;
+    // Level 2 — whole filter description (shared helper).
+    return _escapeDescriptionLevel(s);
   }
 
   /// Complete unquoted drawtext text option:
@@ -76,19 +91,23 @@ class FilterEscaping {
     return '&H00$blue$green$red';
   }
 
-  /// Escape a subtitle file path for `subtitles=filename='...'`.
+  /// Escape a subtitle file path for `subtitles=filename=...`.
   ///
-  /// Standard FFmpeg-on-Windows practice: normalize `\` to `/` first
-  /// (FFmpeg accepts forward slashes on Windows), then escape `'` and
-  /// `:` (the filter value separator) with `\`. The caller wraps the
-  /// result in single quotes, which protects `[]=;,` inside the value.
-  /// Verify visually on a live run.
-  static String escapeSubtitlePath(String path) {
-    return path
-        .replaceAll(r'\', '/')
-        .replaceAll("'", r"\'")
-        .replaceAll(':', r'\:');
-  }
+  /// Unquoted two-level contract (same shape as [escapeFontFilePath]):
+  /// 1. Filter option value: normalize `\` to `/` (FFmpeg accepts forward
+  ///    slashes on Windows), then escape `'` and `:` (the value separator).
+  /// 2. Whole filter description: the escape backslashes double and the
+  ///    graph specials `[ ] , ;` are escaped (shared
+  ///    [_escapePathForFilter] helper).
+  ///
+  /// `%` and spaces are intentionally NOT escaped: no expansion applies to
+  /// file paths, `%20` passes through, and interior spaces load fine
+  /// (leading/trailing spaces are trimmed by the parser — accepted policy).
+  ///
+  /// Live-verified 2026-10-09 on FFmpeg 8.1.1-essentials: paths containing
+  /// spaces, apostrophes, brackets, commas and semicolons load, including
+  /// the `filename=…` + `:force_style='…'` adjacency.
+  static String escapeSubtitlePath(String path) => _escapePathForFilter(path);
 
   /// Escape an app-resolved font file path for `drawtext:fontfile=...`.
   ///
@@ -107,23 +126,7 @@ class FilterEscaping {
   ///
   /// The path is app-resolved (bundled-font extraction) — never
   /// model-provided.
-  static String escapeFontFilePath(String path) {
-    // Level 1 — filter option value: ':' is the value separator;
-    // '\' and '\'' are escape chars.
-    var s = path.replaceAll(r'\', '/');
-    s = s.replaceAll("'", r"\'");
-    s = s.replaceAll(':', r'\:');
-    // Level 2 — whole filter description: escape '\' and '\'' plus graph
-    // specials [ ] , ; (backslash-doubling MUST run before any replacement
-    // that introduces a backslash).
-    s = s.replaceAll(r'\', r'\\');
-    s = s.replaceAll("'", r"\'");
-    s = s.replaceAll('[', r'\[');
-    s = s.replaceAll(']', r'\]');
-    s = s.replaceAll(',', r'\,'); // Windows allows these in directory names
-    s = s.replaceAll(';', r'\;');
-    return s;
-  }
+  static String escapeFontFilePath(String path) => _escapePathForFilter(path);
 
   /// Validate a watermark image path.
   ///

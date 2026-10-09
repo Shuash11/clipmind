@@ -393,7 +393,8 @@ class CommandBuilder {
   }
 
   /// The `subtitles` filter string alone (shared with the composed
-  /// filter-graph path).
+  /// filter-graph path). `filename` is interpolated unquoted (two-level
+  /// escaped by `escapeSubtitlePath`); `force_style` stays single-quoted.
   static String burnCaptionsFilter(
     String srtPath, {
     int fontSize = 24,
@@ -407,7 +408,7 @@ class CommandBuilder {
       styles.add('PrimaryColour=$assColor');
     }
     if (alignment != null) styles.add('Alignment=$alignment');
-    var filter = "subtitles=filename='$escaped'";
+    var filter = 'subtitles=filename=$escaped';
     if (styles.isNotEmpty) {
       filter += ":force_style='${styles.join(',')}'";
     }

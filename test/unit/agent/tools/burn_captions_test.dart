@@ -100,14 +100,37 @@ void main() {
   });
 
   group('escapeSubtitlePath', () {
-    test('normalizes slashes and escapes colon and quote', () {
+    test('normalizes slashes and escapes colon and quote (two levels)', () {
       expect(
         FilterEscaping.escapeSubtitlePath(r'C:\a\b\file.srt'),
-        equals(r'C\:/a/b/file.srt'),
+        equals(r'C\\:/a/b/file.srt'),
       );
       expect(
         FilterEscaping.escapeSubtitlePath("/tmp/a'b/c.srt"),
-        equals(r"/tmp/a\'b/c.srt"),
+        equals(r"/tmp/a\\\'b/c.srt"),
+      );
+    });
+
+    test('worst case: apostrophe, brackets, comma and semicolon', () {
+      expect(
+        FilterEscaping.escapeSubtitlePath(
+          r"C:\Users\O'Brien [a],b;c\subs.srt",
+        ),
+        equals(r"C\\:/Users/O\\\'Brien \[a\]\,b\;c/subs.srt"),
+      );
+    });
+
+    test('interior spaces pass through unchanged', () {
+      expect(
+        FilterEscaping.escapeSubtitlePath('/tmp/my videos/x.srt'),
+        equals('/tmp/my videos/x.srt'),
+      );
+    });
+
+    test('percent is intentionally not escaped', () {
+      expect(
+        FilterEscaping.escapeSubtitlePath(r'C:\vids%s\x.srt'),
+        equals(r'C\\:/vids%s/x.srt'),
       );
     });
   });
@@ -151,7 +174,7 @@ void main() {
       );
       expect(args.sublist(0, 2), equals([r'-i', r'C:\v\in.mp4']));
       expect(args[2], equals('-vf'));
-      expect(args[3], equals(r"subtitles=filename='C\:/t/cap.srt'"));
+      expect(args[3], equals(r'subtitles=filename=C\\:/t/cap.srt'));
     });
 
     test('non-default style keys are included', () {
@@ -165,7 +188,7 @@ void main() {
       expect(
         args[3],
         equals(
-          "subtitles=filename='/t/cap.srt':"
+          'subtitles=filename=/t/cap.srt:'
           "force_style='FontSize=32,PrimaryColour=&H000000FF,Alignment=8'",
         ),
       );
@@ -251,9 +274,11 @@ void main() {
     }
 
     String srtPathFrom(String vf) {
-      final match = RegExp(r"filename='((?:[^'\\]|\\.)*)'").firstMatch(vf)!;
+      final match =
+          RegExp(r'filename=(.+?)(?=:force_style|$)').firstMatch(vf)!;
       return match
           .group(1)!
+          .replaceAll(r'\\', r'\')
           .replaceAll(r'\:', ':')
           .replaceAll(r"\'", "'");
     }
