@@ -2,6 +2,11 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.42.5
+
+### Text-overlay export fix
+- Text-overlay export is fixed: Windows font paths are now correctly escaped at both filtergraph levels, so FFmpeg parses the unquoted `fontfile` option even when the path contains a drive colon, spaces, apostrophes, brackets, commas or semicolons (previously failed with `No option name near ...`).
+
 ## 1.42.4
 
 ### Keyboard-operable save retry

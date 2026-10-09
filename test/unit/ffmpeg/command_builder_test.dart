@@ -883,7 +883,7 @@ void main() {
         fontFile: r'C:\fonts\inter_regular.ttf',
       );
       final joined = args.join(' ');
-      expect(joined, contains(r'fontfile=C\:/fonts/inter_regular.ttf'));
+      expect(joined, contains(r'fontfile=C\\:/fonts/inter_regular.ttf'));
     });
   });
 }

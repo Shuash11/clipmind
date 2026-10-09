@@ -328,6 +328,8 @@ class CommandMapper {
               '(path traversal is not allowed).',
             );
           }
+          // Interpolated unquoted, so `escapeFontFilePath` emits the
+          // two-level escaped form.
           final fontPart = fontFileRaw.isNotEmpty
               ? ':fontfile=${FilterEscaping.escapeFontFilePath(fontFileRaw)}'
               : '';

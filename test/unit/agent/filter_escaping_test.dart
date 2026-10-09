@@ -38,6 +38,43 @@ void main() {
     });
   });
 
+  group('FilterEscaping.escapeFontFilePath', () {
+    test('plain forward-slash path passes through unchanged', () {
+      expect(
+        FilterEscaping.escapeFontFilePath('/fonts/x.ttf'),
+        equals('/fonts/x.ttf'),
+      );
+    });
+
+    test('windows drive path gets the two-level escaped form', () {
+      expect(
+        FilterEscaping.escapeFontFilePath(r'C:\fonts\inter_regular.ttf'),
+        equals(r'C\\:/fonts/inter_regular.ttf'),
+      );
+    });
+
+    test('backslashes are normalized to forward slashes', () {
+      expect(
+        FilterEscaping.escapeFontFilePath(r'\fonts\x.ttf'),
+        equals('/fonts/x.ttf'),
+      );
+    });
+
+    test('worst case: apostrophe, brackets, comma and semicolon', () {
+      expect(
+        FilterEscaping.escapeFontFilePath(r"C:\Users\O'Brien [a],b;c\f.ttf"),
+        equals(r"C\\:/Users/O\\\'Brien \[a\]\,b\;c/f.ttf"),
+      );
+    });
+
+    test('percent is intentionally not escaped', () {
+      expect(
+        FilterEscaping.escapeFontFilePath('/fonts/100%.ttf'),
+        equals('/fonts/100%.ttf'),
+      );
+    });
+  });
+
   group('FilterEscaping.validateColor', () {
     test('accepts valid #RRGGBB', () {
       expect(FilterEscaping.validateColor('#FFFFFF'), equals('#FFFFFF'));

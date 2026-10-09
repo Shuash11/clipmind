@@ -172,7 +172,8 @@ class FilterGraphComposer {
           final fontSize = p['font_size']?.toString() ?? '48';
           final color = _paramString(p, 'color', '#FFFFFF');
           // App-resolved bundled-font path (the srt_path pattern) — empty
-          // means the default FFmpeg font.
+          // means the default FFmpeg font. Interpolated unquoted, so
+          // `escapeFontFilePath` emits the two-level escaped form.
           final fontFile = p['font_file']?.toString() ?? '';
           final fontPart = fontFile.isNotEmpty
               ? ':fontfile=${FilterEscaping.escapeFontFilePath(fontFile)}'

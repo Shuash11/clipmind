@@ -315,7 +315,8 @@ class CommandBuilder {
         : '';
 
     // `fontFile` is app-resolved (bundled-font extraction path) — never
-    // model-provided (the srt_path pattern).
+    // model-provided (the srt_path pattern). Interpolated unquoted, so
+    // `escapeFontFilePath` emits the two-level escaped form.
     final fontPart = (fontFile != null && fontFile.isNotEmpty)
         ? ':fontfile=${FilterEscaping.escapeFontFilePath(fontFile)}'
         : '';

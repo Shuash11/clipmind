@@ -59,15 +59,37 @@ class FilterEscaping {
 
   /// Escape an app-resolved font file path for `drawtext:fontfile=...`.
   ///
-  /// Same Windows-safe treatment as [escapeSubtitlePath]: normalize `\`
-  /// to `/` (FFmpeg accepts forward slashes on Windows), then escape `'`
-  /// and `:` (the filter value separator). The path is app-resolved
-  /// (bundled-font extraction) — never model-provided.
+  /// Two escaping levels per the FFmpeg Filters "Notes on filtergraph
+  /// escaping", because the value is interpolated UNQUOTED:
+  /// 1. Filter option value: normalize `\` to `/` (FFmpeg accepts forward
+  ///    slashes on Windows), then escape `'` and `:` (the value separator).
+  /// 2. Whole filter description: escape the escape characters `\` and `'`
+  ///    again plus the graph specials `[ ] , ;` (backslash-doubling runs
+  ///    first, before any replacement that introduces a backslash).
+  ///
+  /// Live-verified 2026-10-09 on FFmpeg 8.1.1-essentials with spaces,
+  /// apostrophes, brackets, commas and semicolons in the directory path.
+  /// `%` is intentionally NOT escaped — a bare `%` passes through this
+  /// unquoted interpolation (live-verified).
+  ///
+  /// The path is app-resolved (bundled-font extraction) — never
+  /// model-provided.
   static String escapeFontFilePath(String path) {
-    return path
-        .replaceAll(r'\', '/')
-        .replaceAll("'", r"\'")
-        .replaceAll(':', r'\:');
+    // Level 1 — filter option value: ':' is the value separator;
+    // '\' and '\'' are escape chars.
+    var s = path.replaceAll(r'\', '/');
+    s = s.replaceAll("'", r"\'");
+    s = s.replaceAll(':', r'\:');
+    // Level 2 — whole filter description: escape '\' and '\'' plus graph
+    // specials [ ] , ; (backslash-doubling MUST run before any replacement
+    // that introduces a backslash).
+    s = s.replaceAll(r'\', r'\\');
+    s = s.replaceAll("'", r"\'");
+    s = s.replaceAll('[', r'\[');
+    s = s.replaceAll(']', r'\]');
+    s = s.replaceAll(',', r'\,'); // Windows allows these in directory names
+    s = s.replaceAll(';', r'\;');
+    return s;
   }
 
   /// Validate a watermark image path.
