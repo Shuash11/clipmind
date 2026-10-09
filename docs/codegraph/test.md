@@ -1,4 +1,4 @@
-# Code Graph — test (170 files, 45,673 lines; DO NOT EDIT)
+# Code Graph — test (170 files, 45,789 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## test/features/agent/data/provider_tool_call_normalizer_test.dart (237 lines)
@@ -461,7 +461,7 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L40  function _project
 - L68  function main
 
-## test/unit/agent/tools/burn_captions_test.dart (467 lines)
+## test/unit/agent/tools/burn_captions_test.dart (492 lines)
 - L22  class _MockFfprobe extends Mock implements FfprobeService
 - L24  class _FakeFfmpeg extends FfmpegService (_failStderr, jobs) — _FakeFfmpeg(…) L25, runSync(FfmpegJob job) L31
 - L52  function _project
@@ -595,16 +595,18 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## test/unit/ffmpeg/composed_watermark_mapping_test.dart (347 lines)
 - L14  function main
 
-## test/unit/ffmpeg/drawtext_escaping_live_gates_test.dart (408 lines)
-- L53  function _synthDark
-- L71  function _framemd5
-- L93  function _copyFontIntoSpecialDir
-- L102  function _pngRgb
-- L124  function _stripMean
-- L138  function _centerBandMean
-- L143  function _centerBandMeanFromPng
-- L162  function _centerBandMeanFromVideo
-- L189  function main
+## test/unit/ffmpeg/drawtext_escaping_live_gates_test.dart (499 lines)
+- L55  function _synthDark
+- L73  function _framemd5
+- L95  function _copyFontIntoSpecialDir
+- L104  function _pngRgb
+- L126  function _stripMean
+- L140  function _centerBandMean
+- L145  function _bottomBandMean
+- L150  function _centerBandMeanFromPng
+- L169  function _firstFrameRgb
+- L194  function _centerBandMeanFromVideo
+- L206  function main
 
 ## test/unit/ffmpeg/effect_range_preset_test.dart (196 lines)
 - L11  function main
