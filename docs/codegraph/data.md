@@ -1,4 +1,4 @@
-# Code Graph — lib/data (45 files, 8,067 lines; DO NOT EDIT)
+# Code Graph — lib/data (45 files, 8,091 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/data/local/database/app_database.dart (368 lines)
@@ -55,8 +55,8 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/data/repositories/settings_repository.dart (54 lines)
 - L8  class SettingsRepository (_cached, _controller, _disposed) — stream L13, load() L15, save(AppSettings settings) L32, getActiveProviderId() L44, dispose() L49
 
-## lib/data/services/ffmpeg/command_builder.dart (725 lines)
-- L7  class CommandBuilder — trim(String input, String start, String end) L8, cut(…) L25, shiftedCutTime(String removeTime, double clipStartSec) L68, _cutTimeToSeconds(String time) L76, merge(…) L116, _mergeSilenceDuration(List<double?>? durations, int index) L205, changeSpeed(…) L229, mute(String input) L270, overlayText(…) L274, resize(String input, int width, int height, String fit) L337, rotate(String input, double degrees) L358, burnCaptions(…) L380, burnCaptionsFilter(…) L402, transition(…) L435, effectFilter(…) L495, effect(…) L524, extractAudio(String input, String outputFormat) L545, generateThumbnail(String input, String timestamp) L557, changeFormat(…) L561, adjustBrightness(String input, double value) L583, changeVolume(String input, double factor) L588, overlayPosition(String position) L596, overlayWatermark(…) L611, addAudio(…) L646, proceduralSoundSource(String presetId) L706, lavfiToWav(String source) L721
+## lib/data/services/ffmpeg/command_builder.dart (726 lines)
+- L7  class CommandBuilder — trim(String input, String start, String end) L8, cut(…) L25, shiftedCutTime(String removeTime, double clipStartSec) L68, _cutTimeToSeconds(String time) L76, merge(…) L116, _mergeSilenceDuration(List<double?>? durations, int index) L205, changeSpeed(…) L229, mute(String input) L270, overlayText(…) L274, resize(String input, int width, int height, String fit) L338, rotate(String input, double degrees) L359, burnCaptions(…) L381, burnCaptionsFilter(…) L403, transition(…) L436, effectFilter(…) L496, effect(…) L525, extractAudio(String input, String outputFormat) L546, generateThumbnail(String input, String timestamp) L558, changeFormat(…) L562, adjustBrightness(String input, double value) L584, changeVolume(String input, double factor) L589, overlayPosition(String position) L597, overlayWatermark(…) L612, addAudio(…) L647, proceduralSoundSource(String presetId) L707, lavfiToWav(String source) L722
 
 ## lib/data/services/ffmpeg/ffmpeg_binary_resolver.dart (62 lines)
 - L3  class FfmpegBinaryResolver (_cachedFfmpeg, _cachedFfprobe) — resolveFfmpeg(…) L7, resolveFfprobe(…) L13, _resolve(String binary,…) L19, _bundledPath(String binary) L29, _executablePlatform() L35, _which(String binary) L42, invalidateCache() L57
@@ -75,12 +75,12 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 - L8  class VideoMetadata (durationMs, width, height, fps, codec, hasAudio, bitrate, audioSampleRate) — VideoMetadata(…) L18
 - L30  class FfprobeService (_resolver, probeTimeout) — Function(String binary, List<String> args)? L37, FfprobeService(…) L44, _realRunProbe(…) L54, extractMetadata(String filePath) L74, _parseMetadata(Map<String, dynamic> data) L120, generateThumbnail(…) L167
 
-## lib/data/services/ffmpeg/filter_escaping.dart (111 lines)
-- L5  class FilterEscaping (_hexColor) — escapeDrawtext(String text) L13, validateColor(String color) L23, assColorFromHex(String color) L37, escapeSubtitlePath(String path) L53, escapeFontFilePath(String path) L66, validateImagePath(String imagePath,…) L78
-- L104  class FilterValidationException (message) — FilterValidationException(this.message) L106, toString() L109
+## lib/data/services/ffmpeg/filter_escaping.dart (133 lines)
+- L5  class FilterEscaping (_hexColor) — escapeDrawtext(String text) L13, validateColor(String color) L23, assColorFromHex(String color) L37, escapeSubtitlePath(String path) L53, escapeFontFilePath(String path) L77, validateImagePath(String imagePath,…) L100
+- L126  class FilterValidationException (message) — FilterValidationException(this.message) L128, toString() L131
 
-## lib/data/services/ffmpeg/filter_graph_composer.dart (551 lines)
-- L8  class FilterGraphComposer (_uuid) — compose(…) L11, _composeClip(…) L34, _buildFilterJob(…) L82, _accumulateFilter(…) L140, _atempoChain(double factor) L328, _buildStandaloneJob(EditOperation op, String inputPath) L343, _buildOpArgs(EditOperation op, String inputPath) L360, _outputExtension(EditOperation op) L497, _paramString(Map<String, dynamic> p, String key, String fallback) L514, _paramNum(Map<String, dynamic> p, String key, double fallback) L521, _paramInt(Map<String, dynamic> p, String key, int fallback) L528, _paramDoubleOrNull(Map<String, dynamic> p, String key) L536, _paramCutRangeOrNull(Map<String, dynamic> p, String key) L544
+## lib/data/services/ffmpeg/filter_graph_composer.dart (552 lines)
+- L8  class FilterGraphComposer (_uuid) — compose(…) L11, _composeClip(…) L34, _buildFilterJob(…) L82, _accumulateFilter(…) L140, _atempoChain(double factor) L329, _buildStandaloneJob(EditOperation op, String inputPath) L344, _buildOpArgs(EditOperation op, String inputPath) L361, _outputExtension(EditOperation op) L498, _paramString(Map<String, dynamic> p, String key, String fallback) L515, _paramNum(Map<String, dynamic> p, String key, double fallback) L522, _paramInt(Map<String, dynamic> p, String key, int fallback) L529, _paramDoubleOrNull(Map<String, dynamic> p, String key) L537, _paramCutRangeOrNull(Map<String, dynamic> p, String key) L545
 
 ## lib/data/services/ffmpeg/procedural_sound_service.dart (111 lines)
 - L11  class ProceduralSoundPreset (id, label, durationSeconds) — ProceduralSoundPreset(…) L16
