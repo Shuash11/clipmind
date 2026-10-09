@@ -9,6 +9,7 @@ import 'package:clipmind/state/player_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'widgets/preview_player.dart';
 import 'widgets/timeline/timeline_view.dart';
+import 'widgets/workspace_split.dart';
 import 'widgets/agent_chat/agent_chat_panel.dart';
 import 'widgets/toolbar/left_panel.dart';
 import 'widgets/toolbar/left_tool_rail.dart';
@@ -164,12 +165,11 @@ class _WorkspaceStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        Expanded(flex: 3, child: _EditorPanel(child: PreviewPlayer())),
-        SizedBox(height: 10),
-        Expanded(flex: 1, child: _EditorPanel(child: TimelineView())),
-      ],
+    // The split sizes the two panes from the workspace height (a ~40%
+    // timeline share with floors for both panes); see WorkspaceSplitPolicy.
+    return const WorkspaceSplit(
+      preview: _EditorPanel(child: PreviewPlayer()),
+      timeline: _EditorPanel(child: TimelineView()),
     );
   }
 }

@@ -2,6 +2,13 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.42.8
+
+### Readable editor timeline
+- The editor timeline now takes a readable share of the workspace (about 40% of its height, floor 220px, ceiling 45%) instead of a quarter of it, so the four track rows render at a usable height at the app's default 1280x720 window and above.
+- Each track row is at least 48px tall whenever the window permits (all four full rows at 1080p maximized); a shorter window scrolls the tracks area vertically instead of squeezing the rows into slivers, with the Video row at the top and the toolbar + ruler pinned above.
+- The preview/timeline split is extracted into a dedicated, tested widget that owns the sizing policy.
+
 ## 1.42.7
 
 ### Caption-burning escaping fix

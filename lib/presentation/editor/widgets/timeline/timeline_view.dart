@@ -67,6 +67,13 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   static const double _minZoom = 0.5;
   static const double _maxZoom = 4.0;
 
+  /// The tracks region's minimum viable row height: a 38px clip block plus
+  /// its 5px vertical padding on each side.
+  static const double _minTrackRowHeight = 48;
+
+  /// The hairline between track rows.
+  static const double _trackDividerHeight = 1;
+
   final _uuid = const Uuid();
   final _rulerKey = GlobalKey();
   double _zoom = 1.0;
@@ -80,6 +87,11 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   bool _syncingTrackScroll = false;
   double _lastSyncedOffset = 0;
 
+  // The tracks region's vertical fallback: when the panel is too short for
+  // every row at its minimum height, the four rows scroll as one column
+  // (the toolbar and ruler above stay pinned outside that scroll area).
+  final _tracksScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +103,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     _trackScrollController
       ..removeListener(_syncTrackScrolls)
       ..dispose();
+    _tracksScrollController.dispose();
     super.dispose();
   }
 
@@ -680,13 +693,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                     ),
                     const Divider(height: 1, color: ClipMindColors.borderColor),
                   ],
-                  Expanded(child: _buildTrack(TrackTypeDisplay.video, project)),
-                  const Divider(height: 1, color: ClipMindColors.borderColor),
-                  Expanded(child: _buildTrack(TrackTypeDisplay.audio, project)),
-                  const Divider(height: 1, color: ClipMindColors.borderColor),
-                  Expanded(child: _buildTrack(TrackTypeDisplay.text, project)),
-                  const Divider(height: 1, color: ClipMindColors.borderColor),
-                  Expanded(child: _buildTrack(TrackTypeDisplay.fx, project)),
+                  Expanded(child: _buildTracksRegion(project)),
                 ],
               ),
             ),
@@ -820,6 +827,63 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       onTrimEdge: _onTrimEdge,
       scrollController: _trackScrollController,
     );
+  }
+
+  /// The four track rows below the ruler.
+  ///
+  /// While the region can host every row at its minimum usable height the
+  /// rows share the space evenly (the historical fit behavior). When the
+  /// region is shorter, the rows keep that minimum height and the region
+  /// scrolls vertically: the Video row starts at the top and the toolbar +
+  /// ruler above stay pinned, because they live outside this region.
+  Widget _buildTracksRegion(Project? project) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const minRegionHeight = 4 * _minTrackRowHeight + 3 * _trackDividerHeight;
+        if (constraints.maxHeight >= minRegionHeight) {
+          return _buildTrackColumn(project, fillHeight: true);
+        }
+        return Scrollbar(
+          controller: _tracksScrollController,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            key: const ValueKey('timeline-tracks-scroll'),
+            controller: _tracksScrollController,
+            child: _buildTrackColumn(project, fillHeight: false),
+          ),
+        );
+      },
+    );
+  }
+
+  /// The Video/Audio/Text/FX rows with hairline dividers. In fit mode every
+  /// row is an [Expanded] sharing the region; in scroll mode every row is
+  /// fixed at [_minTrackRowHeight] and the column overflows the viewport.
+  Widget _buildTrackColumn(Project? project, {required bool fillHeight}) {
+    const trackTypes = [
+      TrackTypeDisplay.video,
+      TrackTypeDisplay.audio,
+      TrackTypeDisplay.text,
+      TrackTypeDisplay.fx,
+    ];
+    final children = <Widget>[];
+    for (final type in trackTypes) {
+      if (children.isNotEmpty) {
+        children.add(
+          const Divider(
+            height: _trackDividerHeight,
+            color: ClipMindColors.borderColor,
+          ),
+        );
+      }
+      final row = _buildTrack(type, project);
+      children.add(
+        fillHeight
+            ? Expanded(child: row)
+            : SizedBox(height: _minTrackRowHeight, child: row),
+      );
+    }
+    return Column(children: children);
   }
 
   /// Drag-reorder through the structural applier (a `moveClip` op with
