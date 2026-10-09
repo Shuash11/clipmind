@@ -2,6 +2,12 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.42.6
+
+### Text-overlay escaping fix
+- Overlay text containing apostrophes, colons, brackets, commas, semicolons or backslashes now parses and renders exactly as typed, and leading/trailing whitespace is preserved (previously some forms failed to parse or silently mis-rendered).
+- Text containing `%` no longer renders blank: overlay text uses verbatim expansion, so percent signs and every other character print literally.
+
 ## 1.42.5
 
 ### Text-overlay export fix

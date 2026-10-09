@@ -281,12 +281,6 @@ class CommandBuilder {
     String color = '#FFFFFF',
     String? fontFile,
   }) {
-    final escaped = text
-        .replaceAll('\\', '\\\\')
-        .replaceAll("'", "\\'")
-        .replaceAll(':', '\\:')
-        .replaceAll('%', '\\%');
-
     String x, y;
     switch (position) {
       case 'center':
@@ -325,7 +319,7 @@ class CommandBuilder {
       '-i',
       input,
       '-vf',
-      "drawtext=text='$escaped':"
+      'drawtext=${FilterEscaping.drawtextTextOption(text)}:'
           'fontsize=$fontSize:'
           'fontcolor=$color:'
           'x=$x:'

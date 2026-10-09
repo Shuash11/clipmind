@@ -435,7 +435,10 @@ void main() {
         end: '0',
       );
       final joined = args.join(' ');
-      expect(joined, contains("text='it\\'s a test\\: line 1'"));
+      expect(
+        joined,
+        contains(r"text=it\\\'s\\ a\\ test\\:\\ line\\ 1:expansion=none"),
+      );
       expect(joined, contains('x=(w-text_w)/2'));
       expect(joined, contains('y=(h-text_h)/2'));
     });

@@ -162,10 +162,6 @@ class FilterGraphComposer {
       case EditOperationType.overlayText:
         {
           final text = _paramString(p, 'text', '');
-          final escaped = text
-              .replaceAll('\\', '\\\\')
-              .replaceAll("'", "\\'")
-              .replaceAll(':', '\\:');
           final position = _paramString(p, 'position', 'center');
           final start = (_paramNum(p, 'start', 0)).toStringAsFixed(3);
           final end = (_paramNum(p, 'end', 0)).toStringAsFixed(3);
@@ -206,7 +202,7 @@ class FilterGraphComposer {
               ? ":enable='between(t,$start,$end)'"
               : '';
           videoFilters.add(
-            "drawtext=text='$escaped':"
+            'drawtext=${FilterEscaping.drawtextTextOption(text)}:'
             'fontsize=$fontSize:'
             'fontcolor=$color:'
             'x=$x:y=$y'

@@ -313,7 +313,6 @@ class CommandMapper {
 
       case 'overlay_text':
         final rawText = _str(params, 'text', '');
-          final text = FilterEscaping.escapeDrawtext(rawText);
           final pos = _str(params, 'position', 'center');
           final fs = _int(params, 'font_size', 48);
           final color = _validatedColor(_str(params, 'color', '#FFFFFF'));
@@ -337,7 +336,7 @@ class CommandMapper {
               ? ''
               : ":enable='between(t,$start,$end)'";
           filters.add(
-            '[$prev]drawtext=text=\'$text\':fontsize=$fs:fontcolor=$color:x=$x:y=$y$fontPart$enable[$next]',
+            '[$prev]drawtext=${FilterEscaping.drawtextTextOption(rawText)}:fontsize=$fs:fontcolor=$color:x=$x:y=$y$fontPart$enable[$next]',
           );
           break;
 

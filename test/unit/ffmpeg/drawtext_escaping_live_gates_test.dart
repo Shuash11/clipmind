@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:clipmind/data/models/edit_operation.dart';
 import 'package:clipmind/data/services/ffmpeg/command_builder.dart';
 import 'package:clipmind/data/services/ffmpeg/ffmpeg_binary_resolver.dart';
+import 'package:clipmind/data/services/ffmpeg/filter_escaping.dart';
 import 'package:clipmind/data/services/ffmpeg/filter_graph_composer.dart';
 import 'package:clipmind/domain/agent/operation_schema.dart';
 import 'package:clipmind/domain/agent/stage_5_command_mapping.dart';
@@ -31,6 +33,21 @@ const _frameH = 240;
 const _fontAsset = 'assets/fonts/inter_regular.ttf';
 const _specialDirName = "clipmind font [gate],o'brien;v1";
 
+/// Cycle 14 Phase 2 §3 content cases: the app-composed text option must
+/// match a `textfile=` reference frame-for-frame on all of these.
+/// `50% off` specifically locks the silent-blank expansion regression.
+const _contentCases = <String>[
+  "it's",
+  '50% off',
+  'a:b',
+  '[x],v;2',
+  r'back\slash',
+  '  pad  ',
+  'a b c',
+  "O'Brien [50%], v2",
+  'line1\nline2',
+];
+
 /// Synthesize a 0.2s 320x240 black clip. Fails the test on error because
 /// only an absent binary may skip.
 Future<void> _synthDark(String binary, String out) async {
@@ -46,6 +63,28 @@ Future<void> _synthDark(String binary, String out) async {
     reason: 'synth failed: ${result.stderr}',
   );
   expect(File(out).existsSync(), isTrue, reason: 'synth produced no file');
+}
+
+/// Run ffmpeg with [args] to `-f framemd5 -` and return the comma-joined
+/// per-frame MD5 list. The blank baseline is always computed in-test
+/// (never hardcoded), so frame-count or build drift cannot fake a pass.
+Future<String> _framemd5(String binary, List<String> args) async {
+  final result = await Process.run(binary, [
+    '-hide_banner',
+    ...args,
+    '-f', 'framemd5', '-',
+  ]);
+  expect(
+    result.exitCode,
+    equals(0),
+    reason: 'framemd5 failed: ${result.stderr}',
+  );
+  final lines = (result.stdout as String)
+      .split('\n')
+      .where((l) => l.trim().isNotEmpty && !l.startsWith('#'))
+      .toList();
+  expect(lines, isNotEmpty, reason: 'framemd5 produced no frame hashes');
+  return lines.map((l) => l.split(',').last.trim()).join(',');
 }
 
 /// Copy the bundled font into [tmp] under the worst-case directory name and
@@ -285,6 +324,80 @@ void main() {
             job.outputPath,
           );
           expect(mean, greaterThan(1), reason: 'text did not render');
+        } finally {
+          await tmp.delete(recursive: true);
+        }
+      },
+    );
+
+    test(
+      'content hash: app-composed text == textfile reference, never blank',
+      timeout: const Timeout(Duration(minutes: 2)),
+      () async {
+        final binary = FfmpegBinaryResolver().resolveFfmpeg();
+        if (binary == null) {
+          markTestSkipped('ffmpeg not on PATH');
+          return;
+        }
+        final tmp = await Directory.systemTemp.createTemp(
+          'clipmind_text_hash_',
+        );
+        try {
+          final input = '${tmp.path}/in.mp4';
+          await _synthDark(binary, input);
+          final font = _copyFontIntoSpecialDir(tmp);
+          final escapedFont = FilterEscaping.escapeFontFilePath(font);
+          // Blank baseline: the same input with no filter (computed here,
+          // never hardcoded).
+          final blank = await _framemd5(binary, ['-i', input]);
+          // ignore: avoid_print
+          print('blank(no filter) hash=$blank');
+
+          for (var i = 0; i < _contentCases.length; i++) {
+            final text = _contentCases[i];
+            final refPath = '${tmp.path}/$_specialDirName/ref_$i.txt';
+            // UTF-8, no BOM, no trailing newline — the exact text value.
+            File(refPath).writeAsStringSync(text);
+            final refFilter =
+                'drawtext=textfile=${FilterEscaping.escapeFontFilePath(refPath)}:'
+                'fontsize=72:fontcolor=#FFFFFF:x=(w-text_w)/2:y=(h-text_h)/2:'
+                'expansion=none:fontfile=$escapedFont';
+            final refHash = await _framemd5(binary, [
+              '-i', input,
+              '-vf', refFilter,
+            ]);
+            // Real app code builds the filter under test.
+            final appHash = await _framemd5(binary, [
+              ...CommandBuilder.overlayText(
+                input,
+                text: text,
+                position: 'center',
+                start: '0',
+                end: '0',
+                fontSize: 72,
+                color: '#FFFFFF',
+                fontFile: font,
+              ),
+            ]);
+            // ignore: avoid_print
+            print(
+              'case[$i] text=${jsonEncode(text)} '
+              'frames=${appHash.split(',').length}\n'
+              '  app=$appHash\n'
+              '  ref=$refHash',
+            );
+            expect(
+              appHash,
+              equals(refHash),
+              reason:
+                  'case[$i] app-composed text differs from textfile reference',
+            );
+            expect(
+              appHash,
+              isNot(equals(blank)),
+              reason: 'case[$i] rendered a blank frame',
+            );
+          }
         } finally {
           await tmp.delete(recursive: true);
         }

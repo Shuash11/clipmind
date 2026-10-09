@@ -5,18 +5,51 @@
 class FilterEscaping {
   static final RegExp _hexColor = RegExp(r'^#[0-9A-Fa-f]{6}$');
 
-  /// Escape text for use inside `drawtext=text='...'`.
+  /// Escape text for the UNQUOTED `drawtext=text=...` option (two levels).
   ///
-  /// Per FFmpeg drawtext rules, the characters `\`, `'`, `:`, and `%`
-  /// must be backslash-escaped. Backslashes are escaped first so existing
-  /// escapes are not double-processed in the wrong order.
+  /// Per the FFmpeg Filters "Notes on filtergraph escaping" the value is
+  /// interpolated without quotes, so it needs both levels:
+  /// 1. Filter option value: escape `\` first, then `'`, `:`, `%`; escape
+  ///    every space so leading/trailing ones survive the parser's
+  ///    whitespace trimming.
+  /// 2. Whole filter description: double the escape backslashes FIRST, then
+  ///    escape `'` and the graph specials `[ ] , ;` (each adds a backslash
+  ///    that must not be doubled).
+  ///
+  /// Consume via [drawtextTextOption] — the complete
+  /// `text=<escaped>:expansion=none` option. `expansion=none` is mandatory:
+  /// with the default expansion any `%` renders NOTHING (exit 0, blank
+  /// frame; live-verified 2026-08/10 on FFmpeg 8.1.1-essentials).
   static String escapeDrawtext(String text) {
-    return text
-        .replaceAll(r'\', r'\\')
-        .replaceAll("'", r"\'")
-        .replaceAll(':', r'\:')
-        .replaceAll('%', r'\%');
+    // Level 1 — option value: '\' first, then specials; every space is
+    // escaped so leading/trailing ones survive the parser's whitespace
+    // trimming.
+    var s = text.replaceAll(r'\', r'\\');
+    s = s.replaceAll("'", r"\'");
+    s = s.replaceAll(':', r'\:');
+    s = s.replaceAll('%', r'\%');
+    s = s.replaceAll(' ', r'\ ');
+    // Level 2 — whole description: double the escape backslashes FIRST,
+    // then escape the graph specials (each adds a backslash that must not
+    // double).
+    s = s.replaceAll(r'\', r'\\');
+    s = s.replaceAll("'", r"\'");
+    s = s.replaceAll('[', r'\[');
+    s = s.replaceAll(']', r'\]');
+    s = s.replaceAll(',', r'\,');
+    s = s.replaceAll(';', r'\;');
+    return s;
   }
+
+  /// Complete unquoted drawtext text option:
+  /// `text=<escaped>:expansion=none`.
+  ///
+  /// `expansion=none` prints the text verbatim — without it any `%` renders
+  /// NOTHING (live-verified 2026-08/10 on FFmpeg 8.1.1-essentials).
+  /// Consequence: literal `\x` sequences print verbatim and `%{...}`
+  /// expansion is disabled for overlay text.
+  static String drawtextTextOption(String text) =>
+      'text=${escapeDrawtext(text)}:expansion=none';
 
   /// Validate a `#RRGGBB` font color. Returns the value unchanged.
   /// Throws [FilterValidationException] on mismatch.

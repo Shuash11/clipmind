@@ -4,37 +4,94 @@ import 'package:clipmind/data/services/ffmpeg/filter_escaping.dart';
 void main() {
   group('FilterEscaping.escapeDrawtext', () {
     test('escapes single quotes', () {
-      expect(FilterEscaping.escapeDrawtext("it's"), equals(r"it\'s"));
+      expect(FilterEscaping.escapeDrawtext("it's"), equals(r"it\\\'s"));
     });
 
     test('escapes colons', () {
-      expect(FilterEscaping.escapeDrawtext('a:b'), equals(r'a\:b'));
+      expect(FilterEscaping.escapeDrawtext('a:b'), equals(r'a\\:b'));
     });
 
     test('escapes percent signs', () {
-      expect(FilterEscaping.escapeDrawtext('100%'), equals(r'100\%'));
+      expect(FilterEscaping.escapeDrawtext('100%'), equals(r'100\\%'));
     });
 
-    test('escapes backslashes first', () {
-      expect(FilterEscaping.escapeDrawtext(r'a\b'), equals(r'a\\b'));
+    test('escapes backslashes before anything else', () {
+      expect(FilterEscaping.escapeDrawtext(r'a\b'), equals(r'a\\\\b'));
+    });
+
+    test('escapes interior spaces', () {
+      expect(FilterEscaping.escapeDrawtext('a b c'), equals(r'a\\ b\\ c'));
+    });
+
+    test('escapes boundary spaces so they survive trimming', () {
+      expect(
+        FilterEscaping.escapeDrawtext('  pad  '),
+        equals(r'\\ \\ pad\\ \\ '),
+      );
+    });
+
+    test('escapes graph specials at level two', () {
+      expect(FilterEscaping.escapeDrawtext('[x],y;z'), equals(r'\[x\]\,y\;z'));
+    });
+
+    test('real newlines pass through unchanged', () {
+      expect(
+        FilterEscaping.escapeDrawtext('line1\nline2'),
+        equals('line1\nline2'),
+      );
     });
 
     test('neutralises filtergraph injection attempt', () {
       const malicious = "Hello');scale=-1:-1";
       final escaped = FilterEscaping.escapeDrawtext(malicious);
-      // The raw payload must not survive verbatim in the filter string.
+      // Exact two-level form: quote/colon escaped at level one, then the
+      // escape backslashes doubled and the ';' graph separator escaped.
+      expect(escaped, equals(r"Hello\\\')\;scale=-1\\:-1"));
+      // The raw payload must not survive verbatim.
       expect(escaped, isNot(equals(malicious)));
-      // Colons and quotes are escaped so the filtergraph cannot break out.
-      expect(escaped, contains(r"\'"));
-      expect(escaped, contains(r'\:'));
-      // Reconstructing a drawtext filter with the escaped value keeps a
-      // single text= assignment (no extra unescaped filter separator).
-      final filter = "drawtext=text='$escaped':fontsize=48";
-      expect(filter, contains(r"Hello\'"));
+      // Every quote carries its escape backslash.
+      expect("'".allMatches(escaped).length, equals(1));
+      expect(r"\'".allMatches(escaped).length, equals(1));
+      // The ';' cannot split the filtergraph chain (escaped at level two).
+      expect(escaped.contains(r'\;'), isTrue);
+      expect(escaped.contains(');scale'), isFalse);
+      // The complete option keeps exactly one text= assignment.
+      final filter =
+          'drawtext=${FilterEscaping.drawtextTextOption(malicious)}:fontsize=48';
+      final option = filter.substring('drawtext='.length);
+      expect('text='.allMatches(option).length, equals(1));
+    });
+  });
+
+  group('FilterEscaping.drawtextTextOption', () {
+    test('wraps plain text with expansion disabled', () {
+      expect(
+        FilterEscaping.drawtextTextOption('plain'),
+        equals('text=plain:expansion=none'),
+      );
     });
 
-    test('plain text passes through unchanged', () {
-      expect(FilterEscaping.escapeDrawtext('Hello World'), equals('Hello World'));
+    test('apostrophe text uses the unquoted two-level form', () {
+      expect(
+        FilterEscaping.drawtextTextOption("it's"),
+        equals(r"text=it\\\'s:expansion=none"),
+      );
+    });
+
+    test('percent and spaces render verbatim under expansion=none', () {
+      expect(
+        FilterEscaping.drawtextTextOption('50% off'),
+        equals(r'text=50\\%\\ off:expansion=none'),
+      );
+    });
+
+    test('always ends with the expansion=none suffix', () {
+      for (final text in ['a b', '[x],y;z', 'line1\nline2']) {
+        expect(
+          FilterEscaping.drawtextTextOption(text),
+          endsWith(':expansion=none'),
+        );
+      }
     });
   });
 
