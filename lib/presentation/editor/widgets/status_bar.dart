@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/services/llm/llm_provider.dart';
@@ -156,46 +159,105 @@ class StatusBar extends ConsumerWidget {
   }
 }
 
-/// Clickable save-failure pill: red warning icon + "Changes not saved",
-/// a tooltip carrying the recorded reason, and tap-to-retry through
-/// [persistProjectProvider] (the bridge is read because this holds a
-/// Riverpod 3 [WidgetRef]). The 24×24 minimum target size keeps the
+/// Keyboard-operable save-failure pill: red warning icon + "Changes not
+/// saved", a tooltip carrying the recorded reason, and retry through
+/// [persistProjectProvider] by tap or by keyboard (Enter/Space while
+/// focused). [FocusableActionDetector] is Flutter's documented pattern for
+/// authoring a custom control: it supplies the [Focus] node, the explicit
+/// Enter/Space -> [ActivateIntent] shortcut map, the action binding, and the
+/// click cursor in one widget. While focused, a 2px
+/// [ClipMindColors.accentPrimary] ring is drawn around the pill (WCAG 2.2
+/// SC 2.4.7 Focus Visible); the violet clears SC 1.4.11 Non-text Contrast's
+/// 3:1 minimum against every adjacent surface (about 4.7:1 vs the bar,
+/// 4.0:1 vs the pill fill, 3.2:1 vs the pill's 1px border). The reason
+/// is exposed to assistive tech through [Semantics.value] while the visible
+/// label stays "Changes not saved". The 24x24 minimum target size keeps the
 /// interactive pill within WCAG 2.2 SC 2.5.8 (Target Size, Minimum); the
 /// icon + color + label follow the Carbon 3-of-4 status-indicator rule.
-class _SaveFailurePill extends ConsumerWidget {
+class _SaveFailurePill extends ConsumerStatefulWidget {
   const _SaveFailurePill({super.key, required this.failure});
 
   final ProjectSaveFailure failure;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SaveFailurePill> createState() => _SaveFailurePillState();
+}
+
+class _SaveFailurePillState extends ConsumerState<_SaveFailurePill> {
+  static const _focusRingKey = ValueKey(
+    'status-save-failure-pill-focus-ring',
+  );
+
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // ConstrainedBox is not const-constructible (it runs a constraint
+    // assert), so only the constraints and leaf stay const.
+    Widget pill = ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+      child: const _StatusPill(
+        color: ClipMindColors.statusError,
+        label: 'Changes not saved',
+        icon: Icons.warning_amber_rounded,
+      ),
+    );
+    // Rendered only while focused: the 2px ring hugs the pill so the focus
+    // state is visible without obscuring the label (WCAG 2.4.7).
+    if (_focused) {
+      pill = Container(
+        key: _focusRingKey,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: ClipMindColors.accentPrimary, width: 2),
+        ),
+        child: pill,
+      );
+    }
+
     return Tooltip(
-      message:
-          '${failure.message}\nTap to retry — it is also retried with your next edit.',
+      message: 'Retry — it is also retried with your next edit.\n'
+          '${widget.failure.message}',
       child: Semantics(
         button: true,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: () => _retry(ref),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              child: const _StatusPill(
-                color: ClipMindColors.statusError,
-                label: 'Changes not saved',
-                icon: Icons.warning_amber_rounded,
-              ),
+        // The visible label stays "Changes not saved"; the failure reason is
+        // announced as the control's value (WCAG 4.1.2 Name, Role, Value).
+        value: widget.failure.message,
+        child: FocusableActionDetector(
+          mouseCursor: SystemMouseCursors.click,
+          onFocusChange: _handleFocusChange,
+          // Explicit and self-documenting: Enter and Space both activate,
+          // mirroring the platform's default ActivateIntent bindings.
+          shortcuts: const {
+            SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+            SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+          },
+          actions: {
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                unawaited(_retry());
+                return null;
+              },
             ),
+          },
+          child: GestureDetector(
+            onTap: () => unawaited(_retry()),
+            child: pill,
           ),
         ),
       ),
     );
   }
 
+  void _handleFocusChange(bool focused) {
+    if (!mounted || focused == _focused) return;
+    setState(() => _focused = focused);
+  }
+
   /// Re-saves the open project. [persistProject] clears
   /// [projectSaveFailureProvider] on success (pill disappears) and refreshes
   /// it on failure (pill stays, with the new reason).
-  Future<void> _retry(WidgetRef ref) async {
+  Future<void> _retry() async {
     final project = ref.read(projectProvider).value;
     if (project == null) return;
     await ref.read(persistProjectProvider)(project);

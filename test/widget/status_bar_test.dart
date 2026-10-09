@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:clipmind/core/errors/failures.dart';
+import 'package:clipmind/core/theme/clipmind_theme.dart';
 import 'package:clipmind/data/local/database/app_database.dart';
 import 'package:clipmind/data/models/project.dart';
 import 'package:clipmind/data/repositories/project_repository.dart';
@@ -13,6 +16,9 @@ import 'package:clipmind/state/agent_run_providers.dart';
 import 'package:clipmind/state/project_providers.dart';
 import 'package:clipmind/state/status_providers.dart';
 import 'package:drift/native.dart';
+
+/// Focus ring key the pill renders only while focused (WCAG 2.4.7).
+const _focusRingKey = ValueKey('status-save-failure-pill-focus-ring');
 
 /// Stub resolver: no dart:io (sync Process/File calls are slow/fragile in
 /// the sandbox); returns a fixed path (or null = missing).
@@ -38,12 +44,36 @@ class _RecordingProjectRepository extends ProjectRepository {
   }
 }
 
+/// Failing retry fake: every [save] throws [PersistenceFailure] carrying the
+/// reason the pill must keep surfacing; the count proves one retry per
+/// activation.
+class _FailingProjectRepository extends ProjectRepository {
+  _FailingProjectRepository({required AppDatabase db}) : super(db);
+
+  int saveCalls = 0;
+
+  @override
+  Future<void> save(Project project) async {
+    saveCalls++;
+    throw const PersistenceFailure('disk full');
+  }
+}
+
 Project _project() {
   return Project(
     id: 'p1',
     name: 'Test project',
     createdAt: DateTime(2026, 10, 8),
     updatedAt: DateTime(2026, 10, 8),
+  );
+}
+
+/// A recorded failure as the provider would hold it; the older-than-now date
+/// lets a retry prove it wrote a fresh record.
+ProjectSaveFailure _saveFailure() {
+  return ProjectSaveFailure(
+    message: 'The project could not be saved to disk.',
+    failedAt: DateTime(2026, 10, 8),
   );
 }
 
@@ -297,6 +327,149 @@ void main() {
       find.byKey(const ValueKey('status-save-failure-pill')),
       findsNothing,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Tab focuses the save-failure pill and shows the focus ring', (
+    WidgetTester tester,
+  ) async {
+    final container = _container();
+    container.read(projectSaveFailureProvider.notifier).state = _saveFailure();
+    // A second focusable control below the bar makes the focus *move* after
+    // the pill deterministic (Tab traverses StatusBar first, then the button).
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                const StatusBar(),
+                TextButton(onPressed: () {}, child: const Text('another')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(_focusRingKey), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    // The keyboard-focused pill draws the visible 2px accent ring around the
+    // pill (WCAG 2.4.7 Focus Visible; >=3:1 against every adjacent surface).
+    expect(find.byKey(_focusRingKey), findsOneWidget);
+    final ring = tester.widget<Container>(find.byKey(_focusRingKey));
+    final border = (ring.decoration! as BoxDecoration).border! as Border;
+    expect(border.top.color, ClipMindColors.accentPrimary);
+    expect(border.top.width, 2);
+
+    // Focus moving to the next control removes the ring.
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(find.byKey(_focusRingKey), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Enter on the focused save-failure pill retries and clears it', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repository = _RecordingProjectRepository(db: db);
+    final container = _container(repository: repository);
+    container.read(projectProvider.notifier).setProject(_project());
+    container.read(projectSaveFailureProvider.notifier).state = _saveFailure();
+    await _pump(tester, container);
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(find.byKey(_focusRingKey), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+
+    expect(repository.saveCalls, 1);
+    expect(container.read(projectSaveFailureProvider), isNull);
+    expect(
+      find.byKey(const ValueKey('status-save-failure-pill')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Space on the focused save-failure pill retries and clears it', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repository = _RecordingProjectRepository(db: db);
+    final container = _container(repository: repository);
+    container.read(projectProvider.notifier).setProject(_project());
+    container.read(projectSaveFailureProvider.notifier).state = _saveFailure();
+    await _pump(tester, container);
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(find.byKey(_focusRingKey), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+
+    expect(repository.saveCalls, 1);
+    expect(container.read(projectSaveFailureProvider), isNull);
+    expect(
+      find.byKey(const ValueKey('status-save-failure-pill')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a failing keyboard retry keeps the pill with the new reason', (
+    WidgetTester tester,
+  ) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repository = _FailingProjectRepository(db: db);
+    final container = _container(repository: repository);
+    container.read(projectProvider.notifier).setProject(_project());
+    container.read(projectSaveFailureProvider.notifier).state = _saveFailure();
+    await _pump(tester, container);
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+
+    // Exactly one retry ran and failed; the pill survives, now carrying the
+    // fresh reason in both the tooltip and the semantics.
+    expect(repository.saveCalls, 1);
+    expect(
+      find.byKey(const ValueKey('status-save-failure-pill')),
+      findsOneWidget,
+    );
+    final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
+    expect(tooltip.message, contains('disk full'));
+    expect(tooltip.message, contains('retried with your next edit'));
+
+    final failure = container.read(projectSaveFailureProvider);
+    expect(failure, isNotNull);
+    expect(failure!.message, 'disk full');
+    expect(failure.failedAt.isAfter(DateTime(2026, 10, 8)), isTrue);
+
+    // The failure reason is exposed to assistive tech (WCAG 4.1.2).
+    final semantics = tester.getSemantics(
+      find.byType(FocusableActionDetector),
+    );
+    expect(semantics.value, 'disk full');
+    expect(semantics.label, contains('Changes not saved'));
+    expect(semantics.tooltip, contains('disk full'));
     expect(tester.takeException(), isNull);
   });
 }

@@ -2,6 +2,13 @@
 
 All notable changes to ClipMind are documented here.
 
+## 1.42.4
+
+### Keyboard-operable save retry
+- The status bar's "Changes not saved" pill is fully keyboard-operable: Tab focuses it, Enter or Space retries the save, and a visible focus ring marks the focused state (WCAG 2.4.7; the accent ring holds at least 3:1 contrast against both adjacent surfaces).
+- The failure reason is exposed to assistive tech as the button's value alongside the tooltip, so screen-reader users hear why the save failed.
+- A failed retry keeps the pill visible with the refreshed reason, and the keyboard retry paths (success and failure) are locked by widget tests.
+
 ## 1.42.3
 
 ### YouTube import safety
