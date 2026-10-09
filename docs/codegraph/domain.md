@@ -1,4 +1,4 @@
-# Code Graph — lib/domain (24 files, 7,290 lines; DO NOT EDIT)
+# Code Graph — lib/domain (24 files, 7,289 lines; DO NOT EDIT)
 _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/implements/with hints + member line refs — navigate, then read the file for details._
 
 ## lib/domain/agent/agent_activity.dart (42 lines)
@@ -52,9 +52,9 @@ _Generated files (*.g.dart, *.freezed.dart) excluded. Relationships are extends/
 ## lib/domain/agent/stage_4_output_validation.dart (191 lines)
 - L5  class OutputValidator — validTypes L6, requiredParams L13, validateJson(String rawJson) L30, validate(…) L122, buildRetryPrompt(String originalCommand, List<String> errors) L160
 
-## lib/domain/agent/stage_5_command_mapping.dart (939 lines)
+## lib/domain/agent/stage_5_command_mapping.dart (938 lines)
 - L9  class CommandMappingException (message) — CommandMappingException(this.message) L11, toString() L14
-- L17  class CommandMapper — _composableTypes L18, _singlePassTypes L24, _structuralTypes L32, mapOperations(…) L61, _clipIdOf(EditOperationRequest op) L147, _composeMultiOp(…) L154, _composeFilterGraph(…) L207, _buildMergeJob(…) L485, _mergeAudioFlags(Object? raw, int n, String opId) L552, _mergeDurations(Object? raw, int n, String opId) L566, _buildTransitionJob(…) L582, _buildSingleJob(…) L637, _str(Map<String, dynamic> params, String key, String fallback) L852, _num(Map<String, dynamic> params, String key, double fallback) L859, _int(Map<String, dynamic> params, String key, int fallback) L866, _numOrNull(Map<String, dynamic> params, String key) L874, _firstRangedRestriction(…) L887, _cutRangeParam(Map<String, dynamic> params, String key) L902, _validatedColor(String color) L909, _outputPathFor(…) L917, _dirOf(String path) L928
+- L17  class CommandMapper — _composableTypes L18, _singlePassTypes L24, _structuralTypes L32, mapOperations(…) L61, _clipIdOf(EditOperationRequest op) L147, _composeMultiOp(…) L154, _composeFilterGraph(…) L207, _buildMergeJob(…) L484, _mergeAudioFlags(Object? raw, int n, String opId) L551, _mergeDurations(Object? raw, int n, String opId) L565, _buildTransitionJob(…) L581, _buildSingleJob(…) L636, _str(Map<String, dynamic> params, String key, String fallback) L851, _num(Map<String, dynamic> params, String key, double fallback) L858, _int(Map<String, dynamic> params, String key, int fallback) L865, _numOrNull(Map<String, dynamic> params, String key) L873, _firstRangedRestriction(…) L886, _cutRangeParam(Map<String, dynamic> params, String key) L901, _validatedColor(String color) L908, _outputPathFor(…) L916, _dirOf(String path) L927
 
 ## lib/domain/agent/stage_6_execution.dart (219 lines)
 - L6  class ExecutionProgress (jobId, operationType, percent, status, message) — ExecutionProgress(…) L13
